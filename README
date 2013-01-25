@@ -1,0 +1,8 @@
+This directory contains the source for the ONL software control daemons.
+
+shared/       --   contains source for a shared library which defines the messaging protocol
+crd/          --   contains source for the central resource daemon which controls resource allocation
+database/     --   contains source for database interactions
+base/         --   contains source for the base daemon on each hardware resource. 
+                   This controls reboot and interacts with the crd
+

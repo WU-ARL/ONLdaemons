@@ -1,0 +1,36 @@
+include ../ixp/Makefile.inc
+include ../Makefile.inc
+
+DEBUG = -g
+
+CXXFLAGS = ${DEBUG} -DPTHREADS -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wall -Wundef -Wimplicit -Wno-deprecated -Woverloaded-virtual 
+
+LOCAL_LIB = $(OBJDIR)/libONLshared.a
+
+OBJS =  $(OBJDIR)/util.o \
+        $(OBJDIR)/byte_buffer.o \
+        $(OBJDIR)/rendezvous.o \
+        $(OBJDIR)/message.o \
+        $(OBJDIR)/dispatcher.o \
+        $(OBJDIR)/nccp_connection.o \
+        $(OBJDIR)/onl_types.o \
+        $(OBJDIR)/onl_requests.o \
+        $(OBJDIR)/onl_responses.o \
+        $(OBJDIR)/switch_types.o \
+        $(OBJDIR)/switch_requests.o \
+        $(OBJDIR)/switch_responses.o
+
+all: ${OBJDIR} ${OBJS} ${LOCAL_LIB} 
+
+${OBJDIR} :
+	mkdir ${OBJDIR}
+
+$(OBJS) : ${OBJDIR}/%.o : %.cc
+	${CXX} ${CXXFLAGS} -o $@ -c $<
+ 
+$(LOCAL_LIB) : ${OBJDIR}/% : ${OBJS}
+	$(AR) rc $@ ${OBJS}
+	$(RANLIB) $@
+
+clean:
+	rm -f ${OBJDIR}/*

@@ -1,0 +1,3 @@
+the original scheduling algorithm uses Gurobi Linear Programming solver. 
+To use this code you need to obtain the Gurobi package and license from 
+Gurobi Optimization, Inc. http://www.gurobi.com
