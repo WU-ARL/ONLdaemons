@@ -92,7 +92,24 @@ void onldb::unlock(std::string l) throw()
 
 onldb::onldb() throw()
 {
-  onl = new mysqlpp::Connection(ONLDB,ONLDBHOST,ONLDBUSER,ONLDBPASS);
+
+  fstream fs("/etc/ONL/onl_database.txt", fstream::in);
+  
+  if(fs.fail()) onl = NULL;
+  else
+    {
+      std::string onldb_str;
+      std::string onldbhost_str;
+      std::string onldbuser_str;
+      std::string onldbpass_str;
+
+      getline(fs, onldb_str);
+      getline(fs, onldbhost_str);
+      getline(fs, onldbuser_str);
+      getline(fs, onldbpass_str);
+
+      onl = new mysqlpp::Connection(onldb_str.c_str(), onldbhost_str.c_str(), onldbuser_str.c_str(), onldbpass_str.c_str());//ONLDB,ONLDBHOST,ONLDBUSER,ONLDBPASS);
+    }
 
   nodestates::table("nodes");
   restimes::table("reservations");
