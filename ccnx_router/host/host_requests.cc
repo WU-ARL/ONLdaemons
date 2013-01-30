@@ -211,8 +211,8 @@ set_log_level_req::handle()
   write_log("set_log_level_req::handle()");
 
   //std::string t = ONL_CCNX_DIR + "/ccnx/bin/ccndlogging " + level; 
-  std::string t = ONL_CCNX_DIR + "/ccndlogging " + level; 
-  //std::string t = "/users/onl/ccnx/ccnx-head/bin/ccndlogging " + level; 
+  //std::string t = ONL_CCNX_DIR + "/ccndlogging " + level; 
+  std::string t = "/usr/local/bin/ccndlogging " + level; 
   int rtn = std::system(t.c_str());
   write_log("set_log_level_req::handle system(" + t +") returned " + int2str(rtn));
   NCCP_StatusType stat = NCCP_Status_Fine;
