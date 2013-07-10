@@ -25,6 +25,11 @@ namespace onl
   {
     private:
       mysqlpp::Connection *onl;
+      int db_count; //for performance tracking
+      float make_res_time; //for performance tracking
+      //void print_diff(const char* lbl, clock_t end, clock_t start); //for performance tracking
+      //void print_diff(const char* lbl, clock_t dtime); //for performance tracking
+
 
       bool lock(std::string l) throw();
       void unlock(std::string l) throw();
@@ -47,7 +52,7 @@ namespace onl
       onldb_resp clear_special_state(std::string state, std::string new_state, std::string node) throw();
 
 
-      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
+      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw();
       onldb_resp get_topology(topology *t, int rid) throw();
       void build_assign_list(node_resource_ptr hw, std::list<assign_info_ptr> *l) throw();
       onldb_resp fill_in_topology(topology *t, int rid) throw();
@@ -55,17 +60,43 @@ namespace onl
       bool find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node, unsigned int level) throw();
 
 
+      void merge_vswitches(topology* req) throw();
       onldb_resp get_base_topology(topology *t, std::string begin, std::string end) throw();    
       onldb_resp add_special_node(topology *t, std::string begin, std::string end, node_resource_ptr node) throw();
       //onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
       onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
-      bool find_embedding(topology* req, topology* base, std::list<assign_info_ptr> al) throw(GRBException);
+      bool find_embedding(topology* req, topology* base, std::list<node_resource_ptr> al) throw();
       bool embed(node_resource_ptr user, node_resource_ptr testbed) throw();
       //onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
       onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
       //bool has_reservation(std::string user, std::string begin, std::string end) throw();
  
       onldb_resp check_interswitch_bandwidth(topology* t, std::string begin, std::string end) throw();
+
+      //new scheduling methods
+      void calculate_node_costs(topology* req) throw();
+      void calculate_edge_loads(topology* req) throw();
+      void add_edge_load(node_resource_ptr node, int port, int load, std::list<link_resource_ptr>& links_seen) throw();
+      node_resource_ptr find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr> cl, topology* req, topology* base) throw();
+      node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype) throw();
+      node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
+      void get_subnet(node_resource_ptr vgige, subnet_info_ptr subnet) throw();
+      bool is_cluster_mapped(node_resource_ptr cluster) throw();
+      void initialize_base_potential_loads(topology* base);
+      int compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, topology* req, topology* base) throw();
+      int compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw();
+      int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path) throw();
+      node_resource_ptr map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw();
+      node_resource_ptr get_new_vswitch(topology* req) throw();
+      void map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* base) throw();
+      void get_mapped_edges(node_resource_ptr node, std::list<link_resource_ptr>& mapped_edges);
+      void get_unmapped_lneighbors(node_resource_ptr node, std::list<node_load_ptr>& lneighbors);
+      void get_lneighbors(node_resource_ptr node, std::list<node_load_ptr>& lneighbors);
+      void map_children(node_resource_ptr unode, node_resource_ptr rnode);
+      void report_metrics(topology* topo, std::string username, time_t res_start, time_t res_end, time_t comp_start, int success);
+      bool split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige, node_resource_ptr root_rnode, topology* base);
+      int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node);
+      int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node, std::list<node_load_ptr>& neighbors);
 
     public:
       onldb() throw();

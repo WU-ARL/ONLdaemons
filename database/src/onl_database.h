@@ -38,12 +38,18 @@ namespace onl
   struct _assign_info;
   typedef struct _assign_info assign_info;
   typedef boost::shared_ptr<assign_info> assign_info_ptr;
+  struct _subnet_info;
+  typedef struct _subnet_info subnet_info;
+  typedef boost::shared_ptr<subnet_info> subnet_info_ptr;
+  typedef struct _node_load_resource node_load_resource;
+  typedef boost::shared_ptr<node_load_resource> node_load_ptr;
+  typedef struct _mapping_cluster_resource mapping_cluster_resource;
+  typedef boost::shared_ptr<mapping_cluster_resource> mapping_cluster_ptr;
 };
 
-#include <onldb_resp.h>
-#include <topology.h>
-#include <gurobi_c++.h>
-#include <onldb.h>
-#include <onltempdb.h>
+#include "onldb_resp.h"
+#include "topology.h"
+#include "onldb.h"
+#include "onltempdb.h"
 
 #endif // _ONL_DATABASE_H

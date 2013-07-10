@@ -30,6 +30,8 @@ namespace onl
       std::list<link_resource_ptr> links;
 
       std::string lowercase(std::string) throw();
+      int intercluster_cost;
+      int host_cost;
 
     public:
       topology() throw();
@@ -40,7 +42,10 @@ namespace onl
       // you have to add the hw resource before you add any links for it
       // you also have to add parents (clusters) before adding children (cluster components)
       onldb_resp add_node(std::string type, unsigned int label, unsigned int parent_label) throw();
-      onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
+      onldb_resp add_copy_node(node_resource_ptr node) throw();
+      //onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
+      onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload = 0, unsigned int lload = 0) throw();
+      onldb_resp add_copy_link(link_resource_ptr lnk) throw();
 
       onldb_resp remove_node(unsigned int label) throw();
       onldb_resp remove_link(unsigned int label) throw();
@@ -50,6 +55,8 @@ namespace onl
       unsigned int get_label(std::string node) throw();
 
       void get_conns(unsigned int label, std::list<int>& conn_list) throw();
+      int compute_host_cost();
+      int compute_intercluster_cost();
   };
 };
 #endif // _TOPOLOGY_H

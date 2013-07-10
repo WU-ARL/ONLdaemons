@@ -132,11 +132,13 @@ namespace onl
     mysqlpp::sql_mediumint_unsigned, rid,
     mysqlpp::sql_tinyint_unsigned, fixed)
 
-  sql_create_4(connschedule,3,4,
+  sql_create_6(connschedule,3,6,
     mysqlpp::sql_smallint_unsigned, linkid,
     mysqlpp::sql_mediumint_unsigned, rid,
     mysqlpp::sql_smallint_unsigned, cid,
-    mysqlpp::sql_smallint_unsigned, capacity)
+    mysqlpp::sql_smallint_unsigned, capacity,
+    mysqlpp::sql_smallint_unsigned, rload,
+    mysqlpp::sql_smallint_unsigned, lload)
 
   sql_create_3(hwclusterschedule,2,3,
     mysqlpp::sql_varchar, cluster,
@@ -299,14 +301,16 @@ namespace onl
     mysqlpp::sql_varchar, cluster,
     mysqlpp::sql_varchar, acl)
 
-  sql_create_7(linkinfo,7,0,
+  sql_create_9(linkinfo,9,0,
     mysqlpp::sql_smallint_unsigned, linkid,
     mysqlpp::sql_smallint_unsigned, capacity,
     mysqlpp::sql_smallint_unsigned, cid,
     mysqlpp::sql_varchar, node1,
     mysqlpp::sql_smallint_unsigned, node1port,
     mysqlpp::sql_varchar, node2,
-    mysqlpp::sql_smallint_unsigned, node2port)
+    mysqlpp::sql_smallint_unsigned, node2port,
+    mysqlpp::sql_smallint_unsigned, rload,
+    mysqlpp::sql_smallint_unsigned, lload)
 
   sql_create_3(baseclusterinfo,3,0,
     mysqlpp::sql_varchar, cluster,
@@ -350,9 +354,16 @@ namespace onl
   sql_create_1(capinfo,1,0,
     mysqlpp::sql_smallint_unsigned, capacity);
 
-  sql_create_2(capconninfo,2,0,
+  sql_create_3(caploadinfo,3,0,
+    mysqlpp::sql_smallint_unsigned, capacity,
+    mysqlpp::sql_smallint_unsigned, rload,
+    mysqlpp::sql_smallint_unsigned, lload);
+
+  sql_create_4(capconninfo,4,0,
     mysqlpp::sql_smallint_unsigned, cid,
-    mysqlpp::sql_smallint_unsigned, capacity);
+    mysqlpp::sql_smallint_unsigned, capacity,
+    mysqlpp::sql_smallint_unsigned, rload,
+    mysqlpp::sql_smallint_unsigned, lload);
 
   sql_create_1(bwinfo,1,0,
     mysqlpp::sql_smallint_unsigned, bandwidth);

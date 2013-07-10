@@ -89,7 +89,7 @@ int main(int argc, char **argv)
       unsigned int port1  = strtoul(argv[i+3],NULL,10);
       unsigned int label2 = strtoul(argv[i+4],NULL,10);
       unsigned int port2  = strtoul(argv[i+5],NULL,10);
-      onldb_resp r = top.add_link(linkid,cap,label1,port1,label2,port2);
+      onldb_resp r = top.add_link(linkid,cap,label1,port1,label2,port2, cap, cap);
       linkid++;
       if(r.result() != 1)
       {

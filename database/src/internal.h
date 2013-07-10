@@ -40,6 +40,10 @@ namespace onl
     std::list< boost::shared_ptr<struct _node_resource> > node_children;
     std::list< boost::shared_ptr<struct _link_resource> > links;
 
+    //JP added for new scheduling fo vgige nodes: list of the original experiment vgiges this vgige represents, 
+    //for a merged node this will be more than one
+    std::list< boost::shared_ptr<struct _node_resource> > user_nodes;
+
     // this will be filled in if the resource becomes part of an actual experiment
     bool fixed;
     std::string node; // initialized to ""
@@ -52,7 +56,9 @@ namespace onl
     unsigned int level; // initialized to 0
     unsigned int priority;  //initialized to 0
     unsigned int in;  //initialized to 0
-    unsigned int mip_id; // initialized to 0
+    unsigned int cost; // initialized to 0. JP changed for new scheduling
+    boost::shared_ptr<struct _node_resource> mapped_node;
+    bool is_split; //initialize to false
   } node_resource;
 
   typedef boost::shared_ptr<node_resource> node_resource_ptr;
@@ -75,9 +81,29 @@ namespace onl
     unsigned int level; // initialized to 0
     unsigned int in; // initialized to 0
     unsigned int linkid; // initialized to 0
+    bool added;//initialized to false
+
+    // JP added for new scheduling
+    unsigned int rload;
+    unsigned int lload;
+    int cost;
+    unsigned int potential_rcap;//used in computation of mapping cost of a potential path
+    unsigned int potential_lcap;//used in computation of mapping cost of a potential path
+    boost::shared_ptr<struct _link_resource> user_link; //only used for processing vgiges
+    std::list<boost::shared_ptr<struct _link_resource> > mapped_path;//only used when computing schedule at reservation time
+
   } link_resource;
 
   typedef boost::shared_ptr<link_resource> link_resource_ptr;
+
+  //added by JP to list subnets for new scheduling
+  typedef struct _subnet_info
+  {
+    std::list<node_resource_ptr> nodes;
+    std::list<link_resource_ptr> links;
+  } subnet_info;
+  
+  typedef boost::shared_ptr<subnet_info> subnet_info_ptr;
 
   typedef struct _assign_info
   {
@@ -89,6 +115,38 @@ namespace onl
   } assign_info;
 
   typedef boost::shared_ptr<assign_info> assign_info_ptr;
+
+  //JP added for computing scheduling, an intermediate structure
+  typedef struct _link_path
+  {
+    std::list<link_resource_ptr> path;
+    node_resource_ptr sink;
+    int cost;
+    int sink_port;
+  } link_path;
+
+  typedef boost::shared_ptr<link_path> link_path_ptr;
+
+  //structures for doing vgige splits
+  typedef struct _node_load_resource
+  {
+    // these are filled in at creation time
+    boost::shared_ptr<struct _node_resource> node;
+    int load; // initialized to 0
+  } node_load_resource;
+
+  typedef boost::shared_ptr<node_load_resource> node_load_ptr;
+  typedef struct _mapping_cluster_resource
+  {
+    // these are filled in at creation time
+    boost::shared_ptr<struct _node_resource> cluster;
+    std::list< boost::shared_ptr<struct _node_load_resource> > nodes_used;
+    std::list< boost::shared_ptr<struct _node_resource> > rnodes_used;
+    int load; // initialized to 0
+    bool used; //initialized to false
+  } mapping_cluster_resource;
+
+  typedef boost::shared_ptr<mapping_cluster_resource> mapping_cluster_ptr;
 };
 
 #endif // _INTERNAL_H
