@@ -53,6 +53,7 @@
 #include "onlcrd_session_sharing.h"
 
 using namespace onlcrd;
+switch_vlan test_vlan = 0; //used when testing and don't want to connect to NMD
 
 session_manager::session_manager()
 {
@@ -491,28 +492,35 @@ session_manager::get_keeboot_param(std::string name)
 switch_vlan
 session_manager::add_vlan()
 {
-  onld::add_vlan* addvlan = new onld::add_vlan();
-  addvlan->set_connection(the_gige_conn);
-
-  if(!addvlan->send_and_wait())
-  {
-    delete addvlan;
-    return 0;
-  }
-
-  add_vlan_response *addresp = (add_vlan_response*)addvlan->get_response();
-  if(addresp->getStatus() != NCCP_Status_Fine)
-  {
-    delete addresp;
-    delete addvlan;
-    return 0;
-  }
-
-  switch_vlan vlan = addresp->getVlan();
-
-  delete addresp;
-  delete addvlan;
-
+  switch_vlan vlan = 0;
+  if (!testing)
+    {
+      onld::add_vlan* addvlan = new onld::add_vlan();
+      addvlan->set_connection(the_gige_conn);
+      
+      if(!addvlan->send_and_wait())
+	{
+	  delete addvlan;
+	  return 0;
+	}
+      
+      add_vlan_response *addresp = (add_vlan_response*)addvlan->get_response();
+      if(addresp->getStatus() != NCCP_Status_Fine)
+	{
+	  delete addresp;
+	  delete addvlan;
+	  return 0;
+	}
+      
+      vlan = addresp->getVlan();
+      
+      delete addresp;
+      delete addvlan;
+    }
+  else
+    {
+      vlan = ++test_vlan;
+    }
   autoLockDebug vlock(vlan_lock, "session_manager::add_vlan(): vlan_lock");
   num_ports_on_vlan[vlan] = 0;
   vlock.unlock();
@@ -523,35 +531,41 @@ session_manager::add_vlan()
 bool
 session_manager::add_port_to_vlan(switch_vlan vlan, switch_port port)
 {
-  add_to_vlan* addtovlan = new add_to_vlan(vlan, port);
-  addtovlan->set_connection(the_gige_conn);
+  if (!testing)
+    {
+      add_to_vlan* addtovlan = new add_to_vlan(vlan, port);
+      addtovlan->set_connection(the_gige_conn);
+      
+      if(!add_port_to_outstanding_list(port))
+	{
+	  write_log("session_manager::add_port_to_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
+	  delete addtovlan;
+	  return false;
+	}
+      
+      if(!addtovlan->send_and_wait())
+	{
+	  remove_port_from_outstanding_list(port);
+	  delete addtovlan;
+	  return false;
+	}
 
-  if(!add_port_to_outstanding_list(port))
-  {
-    write_log("session_manager::add_port_to_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
-    delete addtovlan;
-    return false;
-  }
+      remove_port_from_outstanding_list(port);
+      
+      switch_response *swresp = (switch_response*)addtovlan->get_response();
+      if(swresp->getStatus() != NCCP_Status_Fine)
+	{
+	  delete swresp;
+	  delete addtovlan;
+	  return false;
+	}
 
-  if(!addtovlan->send_and_wait())
-  {
+      delete swresp;
+      delete addtovlan;
+    }
+  else //testing
     remove_port_from_outstanding_list(port);
-    delete addtovlan;
-    return false;
-  }
 
-  remove_port_from_outstanding_list(port);
- 
-  switch_response *swresp = (switch_response*)addtovlan->get_response();
-  if(swresp->getStatus() != NCCP_Status_Fine)
-  {
-    delete swresp;
-    delete addtovlan;
-    return false;
-  }
-
-  delete swresp;
-  delete addtovlan;
 
   autoLockDebug vlock(vlan_lock, "session_manager::add_port_to_vlan(): vlan_lock");
   num_ports_on_vlan[vlan] = num_ports_on_vlan[vlan] + 1;
@@ -570,43 +584,48 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
   if(num_ports_on_vlan[vlan] == 0) { last_port = true; }
   vlock.unlock();
 
-  delete_from_vlan* delfromvlan = new delete_from_vlan(vlan, port);
-  delfromvlan->set_connection(the_gige_conn);
+  if (!testing)
+    {
+      delete_from_vlan* delfromvlan = new delete_from_vlan(vlan, port);
+      delfromvlan->set_connection(the_gige_conn);
+      
+      if(!add_port_to_outstanding_list(port))
+	{
+	  write_log("session_manager::remove_port_from_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
+	  delete delfromvlan;
+	  return false;
+	}
 
-  if(!add_port_to_outstanding_list(port))
-  {
-    write_log("session_manager::remove_port_from_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
-    delete delfromvlan;
-    return false;
-  }
+      if(!delfromvlan->send_and_wait())
+	{
+	  remove_port_from_outstanding_list(port);
+	  delete delfromvlan;
+	  if(last_port && !delete_vlan(vlan))
+	    {
+	      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+	    }
+	  return false;
+	}
 
-  if(!delfromvlan->send_and_wait())
-  {
+      remove_port_from_outstanding_list(port);
+      
+      switch_response *swresp = (switch_response*)delfromvlan->get_response();
+      if(swresp->getStatus() != NCCP_Status_Fine)
+	{
+	  delete swresp;
+	  delete delfromvlan;
+	  if(last_port && !delete_vlan(vlan))
+	    {
+	      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+	    }
+	  return false;
+	}
+
+      delete swresp;
+      delete delfromvlan;
+    }
+  else //testing
     remove_port_from_outstanding_list(port);
-    delete delfromvlan;
-    if(last_port && !delete_vlan(vlan))
-    {
-      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
-    }
-    return false;
-  }
-
-  remove_port_from_outstanding_list(port);
-
-  switch_response *swresp = (switch_response*)delfromvlan->get_response();
-  if(swresp->getStatus() != NCCP_Status_Fine)
-  {
-    delete swresp;
-    delete delfromvlan;
-    if(last_port && !delete_vlan(vlan))
-    {
-      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
-    }
-    return false;
-  }
-
-  delete swresp;
-  delete delfromvlan;
 
   if(last_port && !delete_vlan(vlan))
   {
@@ -622,25 +641,28 @@ session_manager::delete_vlan(switch_vlan vlan)
   num_ports_on_vlan.erase(vlan);
   vlock.unlock();
 
-  onld::delete_vlan* delvlan = new onld::delete_vlan(vlan);
-  delvlan->set_connection(the_gige_conn);
-
-  if(!delvlan->send_and_wait())
-  {
-    delete delvlan;
-    return false;
-  }
-
-  switch_response *delresp = (switch_response*)delvlan->get_response();
-  if(delresp->getStatus() != NCCP_Status_Fine)
-  {
-    delete delresp;
-    delete delvlan;
-    return false;
-  }
-
-  delete delresp;
-  delete delvlan;
+  if (!testing)
+    {
+      onld::delete_vlan* delvlan = new onld::delete_vlan(vlan);
+      delvlan->set_connection(the_gige_conn);
+      
+      if(!delvlan->send_and_wait())
+	{
+	  delete delvlan;
+	  return false;
+	}
+      
+      switch_response *delresp = (switch_response*)delvlan->get_response();
+      if(delresp->getStatus() != NCCP_Status_Fine)
+	{
+	  delete delresp;
+	  delete delvlan;
+	  return false;
+	}
+      
+      delete delresp;
+      delete delvlan;
+    }
   return true;
 }
 
