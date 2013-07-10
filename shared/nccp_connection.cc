@@ -570,7 +570,7 @@ nccp_connection::close() throw()
 }
 
 
-nccp_listener::nccp_listener(std::string addr, unsigned short port) throw(nccpconn_exception)
+nccp_listener::nccp_listener(std::string& addr, unsigned short port) throw(nccpconn_exception)
 {
   struct ifconf ifc;
   char buf[1024];

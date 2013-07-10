@@ -93,7 +93,7 @@ namespace onld
   {
     public:
       // listen for connections on addr(prefix):port
-      nccp_listener(std::string addr, unsigned short port) throw(nccpconn_exception);
+      nccp_listener(std::string& addr, unsigned short port) throw(nccpconn_exception);
       ~nccp_listener() throw();
 
       void receive_messages(bool spawn) throw(nccpconn_exception);
