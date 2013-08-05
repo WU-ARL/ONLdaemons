@@ -51,7 +51,6 @@ using namespace onl;
 #define ONLDBUSER ""
 #define ONLDBPASS ""
 
-#define MAX_INTERCLUSTER_CAPACITY 10
 #define UNUSED_CLUSTER_COST 50
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
@@ -362,6 +361,27 @@ std::string onldb::get_type_type(std::string type) throw()
   }
 }
 
+onldb_resp onldb::get_link_vport(unsigned int linkid, unsigned int rid, int port)
+{
+  try
+  {
+    mysqlpp::Query query = onl->query();
+    if (port == 1)
+      query << "select port1 from vportschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
+    else
+      query << "select port2 from vportschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
+    mysqlpp::StoreQueryResult res = query.store();
+    if(res.empty()) return onldb_resp(-1,(std::string)"vportschedule not in database");
+
+    unsigned int p = res[0];
+    return onldb_resp(p,(std::string)"success");
+  }
+  catch(const mysqlpp::Exception& er)
+  {
+    return onldb_resp(-1,(std::string)"database problem");
+  }
+}
+
 onldb_resp onldb::is_infrastructure(std::string node) throw()
 {
   try
@@ -532,6 +552,7 @@ onldb_resp onldb::verify_clusters(topology *t) throw()
 //}
 
 bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
+//bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
 {
   // there are three cases to deal with: node->node (normal) links, node->vswitch
   // links, and vswitch->vswitch links. for node->node links, both node1_label
@@ -556,12 +577,15 @@ bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int l
     {
       node1_label = t->get_label("vgige" + to_string(vswc[1].vlanid));
       node1_port = vswc[1].port;
+      //node1_rport = node1_port;
     }
     node2_label = t->get_label("vgige" + to_string(vswc[0].vlanid));
     node2_port = vswc[0].port;
+    //node1_rport = node2_port;
   }
 
   onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, rload, lload);
+  //onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, rload, lload);
   if(r.result() != 1) { return false; }
 
   return true;
@@ -626,7 +650,12 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
         parent_label = t->get_label(it2->cluster.data);
         if(parent_label == 0) return onldb_resp(-1, (std::string)"database consistency problem");
       }
-      onldb_resp r = t->add_node(it2->tid, hwid, parent_label);
+      onldb_resp r = has_virtual_port(it2->tid);
+      if(r.result() < 0)
+      {
+        return onldb_resp(-1, r.msg());
+      }
+      r = t->add_node(it2->tid, hwid, parent_label, (r.result() != 0));
       if(r.result() != 1)
       {
         return onldb_resp(-1, (std::string)"database consistency problem");
@@ -656,13 +685,16 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       std::list<int> cur_conns;
       unsigned int node1_label = 0;
       unsigned int node1_port;
+      unsigned int node1_rport;
       unsigned int node2_label = 0;
       unsigned int node2_port;
+      unsigned int node2_rport;
       for(it3 = li.begin(); it3 != li.end(); ++it3)
       {
         if(cur_link != it3->linkid)
         {
-          if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
+          //if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
+	  if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload))
           {
             return onldb_resp(-1, (std::string)"database consistency problem");
           }
@@ -685,15 +717,38 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
         if(r1.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
         if(r1.result() == 0)
         {
+	  //VIRTUAL_PORTS
           if(node1_label == 0)
           {
             node1_label = t->get_label(it3->node1);
-            node1_port = it3->node1port;
+	    if(!it3->node1->has_vport)
+	      {
+		node1_port = it3->node1port;
+		node1_rport = node1_port;
+	      }
+	    else
+	      {
+		onldb_resp vpr = get_link_vport(cur_link, rid, 1);
+		if(vpr.result() < 0) return onldb_resp(-1, vpr.msg());
+		node1_port = vpr.result();
+		node1_rport = it3->node1port;
+	      }
           }
           else if(node2_label == 0)
           {
             node2_label = t->get_label(it3->node1);
-            node2_port = it3->node1port;
+	    if(!it3->node1->has_vport)
+	      {
+		node2_port = it3->node1port;
+		node2_rport = node1_port;
+	      }
+	    else
+	      {
+		onldb_resp vpr = get_link_vport(cur_link, rid, 2);
+		if(vpr.result() < 0) return onldb_resp(-1, vpr.msg());
+		node2_port = vpr.result();
+		node2_rport = it3->node1port;
+	      }
           }
           else
           {
@@ -703,7 +758,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       }
       if(!li.empty())
       {
-        if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
+        //if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
+	if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload))
         {
           return onldb_resp(-1, (std::string)"database consistency problem");
         }
@@ -989,6 +1045,8 @@ bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<as
         {
           (*lit)->marked = false;
           (*lit)->conns.clear();
+	  (*lit)->node1_rport = -1;
+	  (*lit)->node2_rport = -1;
         }
       }
     }
@@ -1047,6 +1105,8 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
       node_resource_ptr res_other_end = (*res_lit)->node1;
       unsigned int res_this_port = (*res_lit)->node2_port;
       unsigned int res_other_port = (*res_lit)->node1_port;
+      unsigned int res_this_rport = (*res_lit)->node2_rport;
+      unsigned int res_other_rport = (*res_lit)->node1_rport;
       bool res_this_is_loopback = false;
       if((*res_lit)->node1->label == (*res_lit)->node2->label)
       {
@@ -1061,6 +1121,8 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
         res_other_end = (*res_lit)->node2;
         res_this_port = (*res_lit)->node1_port;
         res_other_port = (*res_lit)->node2_port;
+        res_this_rport = (*res_lit)->node1_rport;
+        res_other_rport = (*res_lit)->node2_rport;
       }
 
       if(abs_this_port == res_this_port)
@@ -1072,6 +1134,18 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
         (*res_lit)->marked = true;
         (*res_lit)->level = level;
         (*abs_lit)->conns = (*res_lit)->conns;
+	//set real physical interfaces in the user link
+	if ((abs_node->label == (*abs->lit->node1->label)) ||
+	    (res_this_is_loopback && (abs_this_port == (*abs->lit->node1_port))))
+	  {
+	    (*abs_lit)->node1_rport = res_this_rport;
+	    (*abs_lit)->node2_rport = res_other_rport;
+	  }
+	else
+	  {
+	    (*abs_lit)->node2_rport = res_this_rport;
+	    (*abs_lit)->node1_rport = res_other_rport;
+	  }
 
         if(find_mapping(abs_other_end, res_other_end, level) == false) return false;
         break;
@@ -1739,6 +1813,8 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
       (*lit)->user_link->rload = (*lit)->rload;
       (*lit)->user_link->lload = (*lit)->lload;
       (*lit)->user_link->cost = (*lit)->cost;
+      (*lit)->user_link->node1_rport = (*lit)->node1_rport;
+      (*lit)->user_link->node2_rport = (*lit)->node2_rport;
     }
   orig_req->intercluster_cost = req.compute_intercluster_cost();
   orig_req->host_cost = req.compute_host_cost();
@@ -2304,227 +2380,6 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
     }
     
 
-  //STOPPED HERE
-  /******************************************************************************
-  for (lnit = lneighbors.begin(); lnit != lneighbors.end(); ++lnit)
-    {
-      if ((*lnit)->node->marked)
-	{
-	  if ((*lnit)->node->mapped_node->in == cluster->in)
-	    {
-	      total_load += (*lnit)->load;
-	      mapped_nodes.push_back(*lnit);
-	    }
-	}
-      else
-	{
-	  available_node = find_available_node(cluster, (*lnit)->node->type, nodes_used);
-	  if (!available_node)
-	    {
-	      unmapped_nodes.push_back(*lnit);
-	      cluster_cost += ((*lnit)->node->cost);
-	    }
-	  else
-	    {
-	      nodes_used.push_back(available_node);
-	      mapped_nodes.push_back(*lnit);
-	      total_load += (*lnit)->load;
-	    }
-	}
-      //++ncit;
-    }
-
-  //the rest of the computation only applies for vgiges that have some unmapped nodes
-  if (node->type != "vgige" || unmapped_nodes.empty()) 
-    {
-      clock_t etime = clock();
-      print_diff("onldb::compute_mapping_costs", stime);
-      return cluster_cost;
-    }
-
-  std::list<node_load_ptr>::iterator um_lnit;
-  //if this is a vgige and the total load mapped is greater than the intercluster capacity and we haven't 
-  //mapped the whole set of neighbors, readjust the mapping so that the total load is <= the intercluster cap.
-  if (node->type == "vgige" && unmapped_nodes.size() > 0 && total_load > MAX_INTERCLUSTER_CAPACITY)
-    {
-      for (lnit = mapped_nodes.rbegin(); lnit != mapped_nodes.rend(); ++lnit)
-	{
-	  if (!(*lnit)->node->mark)
-	    {
-	      //insert into unmapped nodes based on node cost
-	      total_load -= (*lnit)->load;
-	      cluster_cost += ((*lnit)->node->cost);
-	      bool added = false;
-	      for (um_lnit = unmapped_nodes.begin(); um_nlit != unmapped_nodes.end(); ++um_nlit)
-		{
-		  if ((*lnit)->node->cost >= (*um_lnit)->node->cost)
-		    {
-		      added = true;
-		      unmapped_nodes.insert(um_lnit, (*lnit));
-		    }
-		}
-	      if (!added) unmapped_nodes.push_back((*lnit));
-	      mapped_nodes.erase(lnit);
-	    }
-	  if (total_load <= MAX_INTERCLUSTER_CAPACITY) break;
-	}
-    }
-  
-  //if the node was a vgige and we can't map any of unmapped neighbors with it then don't count this as a feasible cluster
-  if (node->type == "vgige" && mapped_nodes.empty())//&& lneighbors.size() > 0) 
-    {  
-      cout << "compute_mapping_cost reject cluster " << cluster->in << " node:" << node->label << " can't map any neighbors on cluster" << endl;
-      return -1;
-    }
-
-  //if the total load is still too big and we have unmapped neighbors don't count this as a feasible cluster
-  if (node->type == "vgige" && unmapped_nodes.size() > 0 && total_load > MAX_INTERCLUSTER_CAPACITY)
-    {
-      cout << "compute_mapping_cost reject cluster " << cluster->in << " node:" << node->label << " this is a vgige. we've already mapped too many neighbors to this cluster and we can't map the whole set of neighbors" << endl;
-      return -1;
-    }
-
-
-  //if we're mapping a vswitch and have more than one unmapped nodes
-  //calculate the cost of splitting this switch 
-  if (node->type == "vgige" && unmapped_nodes.size() > 0)
-    {
-      if (unmapped_nodes.size() == 1) cluster_cost += CANT_SPLIT_VGIGE_COST;
-      else
-	{
-	  //see if there is a set of clusters that we can map the split switch to 
-	  std::list<node_resource_ptr> vgige_nodes;
-	  link_resource vgige_lnk;
-	  vgige_lnk.node1 = node;
-	  vgige_lnk.node2 = node;
-	  vgige_lnk.rload = 0;
-	  vgige_lnk.lload = 0;
-	  int split_cost = 0;;
-
-	  std::list<mapping_cluster_ptr> vgige_clusters;
-
-	  //make a list of clusters available for mapping splits to
-	  for (clusterit = base->nodes.begin(); clusterit != base->nodes.end(); ++clusterit)
-	    {
-	      if ((*clusterit)->type_type == "infrastructure" && 
-		  (*clusterit) != cluster && 
-		  !subnet_mapped(subnet, (*clusterit)->in))
-		{
-		  mapping_cluster_ptr new_vcluster(new vgige_cluster_resource());
-		  new_vcluster->cluster = (*clusterit);
-		  new_vcluster->load = 0;
-		  new_vcluster->used = false;
-		  vgige_clusters.push_back(new_vcluster);
-		}
-	    }
-
-	  split_cost = split_vgige(vgige_clusters, unmapped_nodes, node);
-	  cluster_cost += split_cost;
-	}
-    }*/
-  /*
-  //if we're mapping a vswitch and have more than one unmapped nodes
-  //calculate the cost of splitting this switch with everything leftover placed on a single vswitch
-  if (node->type == "vgige" && unmapped_nodes.size() > 1)
-    {
-      //see if there is a cluster that we can map the split switch to with all of its leaves 
-      std::list<node_resource_ptr> vgige_nodes;
-      link_resource vgige_lnk;
-      vgige_lnk.node1 = node;
-      vgige_lnk.node2 = node;
-      vgige_lnk.rload = 0;
-      vgige_lnk.lload = 0;
-      bool can_split = false;
-
-      //first calculate the loads for the new link created between the split vgige parts
-      for (lit = node->links.begin(); lit != node->links.end(); ++lit)
-	{
-	  if ((*lit)->node1 == node)
-	    {
-	      if (in_list((*lit)->node2, unmapped_nodes)) 
-		{
-		  vgige_lnk.rload += (*lit)->lload;
-		  if ((*lit)->node2->type != "vgige") 
-		    {
-		      if ((*lit)->node2->parent)
-			{
-			  if (!in_list((*lit)->node2->parent, vgige_nodes)) vgige_nodes.push_back((*lit)->node2->parent);
-			}
-		      else
-			vgige_nodes.push_back((*lit)->node2);
-		    }
-		}
-	      else vgige_lnk.lload += (*lit)->rload;
-	    }
-	  else
-	    {
-	      if (in_list((*lit)->node1, unmapped_nodes))
-		{
-		  vgige_lnk.rload += (*lit)->rload;
-		  if ((*lit)->node1->type != "vgige")     
-		    {
-		      if ((*lit)->node1->parent)
-			{
-			  if (!in_list((*lit)->node1->parent, vgige_nodes)) vgige_nodes.push_back((*lit)->node1->parent);
-			}
-		      else
-			vgige_nodes.push_back((*lit)->node1);
-		    }
-		}
-	      else vgige_lnk.lload += (*lit)->lload;
-	    }
-	}
-      //if the new link requires less than or equal the intercluster capacity, 
-      //see if we can find a cluster that will accommodate the new switch and it's neighbors
-      if ((vgige_lnk.rload <= MAX_INTERCLUSTER_CAPACITY) && (vgige_lnk.lload <= MAX_INTERCLUSTER_CAPACITY))
-	{
-	  node_resource_ptr potential_cluster;
-	  int potential_cost = -1;
-	  for (clusterit = base->nodes.begin(); clusterit != base->nodes.end(); ++clusterit)
-	    {
-	      if ((*clusterit)->type_type == "infrastructure" && (*clusterit) != cluster)
-		{
-		  nodes_used.clear();
-		  bool failed = false;
-		  for (reqnit = vgige_nodes.begin(); reqnit != vgige_nodes.end(); ++reqnit)
-		    {
-		      node_resource_ptr avail_node = find_available_node(*clusterit, (*reqnit)->type, nodes_used);
-		      if (!avail_node)
-			{
-			  failed = true;
-			  break;
-			}
-		    }
-		  if (!failed)
-		    {
-		      //std::list<link_resource_ptr> potential_path;
-		      link_resource_ptr potential_path(new link_resource());
-		      potential_path->node1 = cluster;
-		      potential_path->node1_port = -1;
-		      potential_path->node2 = (*clusterit);
-		      potential_path->node2_port = -1;
-		      link_resource_ptr vlnk(&vgige_lnk);
-		      int pcost = find_cheapest_path(vlnk, potential_path); 
-		      if (pcost > 0 && (pcost < potential_cost || !potential_cluster))
-			{
-			  potential_cluster = (*clusterit);
-			  potential_cost = pcost;
-			} 
-		    }
-		}
-	    }
-	  if (potential_cluster) 
-	    {
-	      cluster_cost += potential_cost;
-	      can_split = true;
-	    }
-	}
-
-      //the split isn't going to work so impose a penalty and return cost	
-      if (!can_split) cluster_cost += CANT_SPLIT_VGIGE_COST;
-}
-  */
-
 
   //clock_t etime = clock();
   print_diff("onldb::compute_mapping_costs", stime);
@@ -2728,123 +2583,6 @@ onldb::split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load
 }
 
 
-/*
-
-//returns a split cost equal to the cost of the path to each potential new vgige + ((#nodes unmapped to a split switch) * penalty)
-int
-onldb::split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige)
-{
-  bool fail = false;
-  int potential_cost = 0;
-  std::list<node_load_ptr> unodes;
-  std::list<mapping_cluster_ptr>::iterator clusterit;
-  std::list<node_resource_ptr> rnodes_used;
-  std::list<node_resource_ptr>::iterator nit;
-  std::list<node_load_ptr>::iterator nlit;
-  std::list<link_resource_ptr>::iterator lit;
-  node_resource_ptr avail_node;   
-  link_resource vgige_lnk;
-  vgige_lnk.node1 = node;
-  vgige_lnk.node2 = node;
-  vgige_lnk.rload = 0;
-  vgige_lnk.lload = 0;
-  for (lit = root_vgige->links.begin(); lit != root_vgige->links.end(); ++lit)
-    {
-      if ((*lit)->node1 == root_vgige && (in_list((*lit)->node2, unmapped_nodes)))
-	{
-	  vgige_lnk.rload += (*lit)->lload;
-	}
-      else if ((*lit)->node2 == root_vgige && (in_list((*lit)->node1, unmapped_nodes)))
-	{
-	  vgige_lnk.rload += (*lit)->rload;
-	}
-    }
-  if (vgige_lnk.rload > MAX_INTERCLUSTER_CAPACITY) vgige_lnk.rload = MAX_INTERCLUSTER_CAPACITY;
-  //fill unodes
-  unodes.assign(unmapped_nodes.begin(), unmapped_nodes.end());
-  while (!(unodes.empty() || fail))
-    {
-      fail = true;
-      best_cluster = NULL;
-      best_pcost = 0;
-      //find the cluster which can support the most of the unmapped nodes
-      for (clusterit = clusters.begin(); clusterit != clusters.end(); ++clusterit)
-	{
-	  if (!(*clusterit)->used)
-	    {
-	      rnodes_used.clear();
-	      for (nlit = unodes.begin(); nlit != unodes.end(); ++nlit)
-		{
-		  if (((*clusterit)->load + (*nlit)->load) > MAX_INTERCLUSTER_CAPACITY)
-		    break;
-		  avail_node = find_available_node((*clusterit)->cluster, (*nlit)->node->type, rnodes_used);
-		  if (avail_node)
-		    {
-		      (*clusterit)->nodes_used.add((*nlit)->node);
-		      rnodes_used.add(avail_node);
-		      (*clusterit)->load += (*nlit)->load;
-		      fail = false;
-		    }
-		}
-	    }
-	}
-      if (fail) break;
-      for (clusterit = clusters.begin(); clusterit != clusters.end(); ++clusterit)
-	{
-	  if (!(*clusterit)->used)
-	    {
-	      if ((best_cluster == NULL && (*clusterit)->load > 0) || ((*clusterit)-load > best_cluster->load))
-		{
-		  vgige_lnk.lload = (*clusterit)->load;
-		  link_resource_ptr potential_path(new link_resource());
-		  potential_path->node1 = cluster;
-		  potential_path->node1_port = -1;
-		  potential_path->node2 = (*vcit)->cluster;
-		  potential_path->node2_port = -1;
-		  link_resource_ptr vlnk(&vgige_lnk);
-		  int pcost = find_cheapest_path(vlnk, potential_path); 
-		  if (pcost > 0) 
-		    {
-		      if (best_cluster) 
-			{
-			  best_cluster->nodes_used.clear();
-			  (best_cluster)->load = 0;
-			}
-		      best_cluster = (*clusterit);
-		      best_pcost = pcost;
-		    }
-		}
-	      else
-		{
-		  (*clusterit)->nodes_used.clear();
-		  (*clusterit)->load = 0;
-		}
-	    }
-	}
-      
-      if (best_cluster)
-	{
-	  //mark cluster used
-	  best_cluster->used = true;
-	  //remove mapped nodes from unmapped list
-	  for (nlit = best_cluster->used_nodes.begin(); nlit != best_cluster->used_nodes.end(); ++nlit)
-	    {
-	      unodes.remove((*nlit));
-	    }
-	  potential_cost += best_pcost;
-	  if (unodes.size() <= 1) break;
-	}
-      else
-	{
-	  fail = true;
-	  break;
-	}
-    }
-  potential_cost += (CANT_SPLIT_VGIGE_COST * unodes.size());
-  //if (fail) return -1;
-  //else 
-  return potential_cost;
-}*/
 
 //return lneighbors as a cost ordered list of unmapped leaf neighbors of node
 void
@@ -3071,21 +2809,21 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
     {
       node_resource_ptr othernode;
       int o_port = -1;
-      if ((*lit)->node1 == source && (src_port < 0 || src_port == (*lit)->node1_port))
+      if ((*lit)->node1 == source && (src_port < 0 || src_port == (*lit)->node1_port || source->has_vport))
 	{
 	  othernode = (*lit)->node2;
 	  if (othernode->type_type != "infrastructure")
 	    o_port = (*lit)->node2_port;
 	  is_right = true;
 	}
-      else if ((*lit)->node2 == source && (src_port < 0 || src_port == (*lit)->node2_port))
+      else if ((*lit)->node2 == source && (src_port < 0 || src_port == (*lit)->node2_port || source->has_vport))
 	{
 	  othernode = (*lit)->node1;
 	  if (othernode->type_type != "infrastructure")
 	    o_port = (*lit)->node1_port;
 	  is_right = false;
 	}
-      if (othernode && (othernode->type_type == "infrastructure" || (othernode == sink && o_port == sink_port)))
+      if (othernode && (othernode->type_type == "infrastructure" || (othernode == sink && (o_port == sink_port || sink->has_vport)))
 	{
 	  if ((*lit)->in > 0 && 
 	      ((is_right && (((*lit)->potential_rcap < ulink->rload) || ((*lit)->potential_lcap < ulink->lload))) ||
@@ -3119,7 +2857,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	      ++list_ops;
 	      nodes_seen.push_back(psnk);
 	    }
-	  if (psnk == sink && (sink_port < 0 || psnk_port == sink_port))
+	  if (psnk == sink && (sink_port < 0 || psnk_port == sink_port || sink->has_vport))
 	    {
 	      if (current_cost < 0 || current_cost > ((*pathit)->cost))
 		{
@@ -3135,14 +2873,14 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 		{
 		  node_resource_ptr othernode;
 		  int o_port = -1;
-		  if ((*lit)->node1 == psnk && (psnk_port < 0 || psnk_port == (*lit)->node1_port))
+		  if ((*lit)->node1 == psnk )//&& (psnk_port < 0 || psnk_port == (*lit)->node1_port))
 		    {
 		      othernode = (*lit)->node2;
 		      if (othernode->type_type != "infrastructure")
 			o_port = (*lit)->node2_port;
 		      is_right = true;
 		    }
-		  else if ((*lit)->node2 == psnk && (psnk_port < 0 || psnk_port == (*lit)->node2_port))
+		  else if ((*lit)->node2 == psnk)// && (psnk_port < 0 || psnk_port == (*lit)->node2_port))
 		    {
 		      othernode = (*lit)->node1;
 		      if (othernode->type_type != "infrastructure")
@@ -3150,7 +2888,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 		      is_right = false;
 		    }
 		  ++list_ops;
-		  if (othernode && ((!in_list(othernode, nodes_seen) && othernode->type_type == "infrastructure") || (othernode == sink && o_port == sink_port)))
+		  if (othernode && ((!in_list(othernode, nodes_seen) && othernode->type_type == "infrastructure") || (othernode == sink && (o_port == sink_port || sink->has_vport))))
 		    {
 		      if ((*lit)->in > 0 && 
 			  ((is_right && (((*lit)->potential_rcap < ulink->rload) || ((*lit)->potential_lcap < ulink->lload))) ||
@@ -3508,35 +3246,56 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 	{
 	  cout << "mapping link " << to_string((*lit)->label) << ": (" << to_string((*lit)->node1->label) << "p" << to_string((*lit)->node1_port) << ", " << to_string((*lit)->node2->label) << "p" << to_string((*lit)->node2_port) << ") capacity " << to_string((*lit)->capacity) << " load(" << (*lit)->rload << "," << (*lit)->lload << ") mapping to ";
 	  int l_rload = (*lit)->rload;
-	  if (l_rload > MAX_INTERCLUSTER_CAPACITY) l_rload =  MAX_INTERCLUSTER_CAPACITY;
+	  if (l_rload > (*lit)->capacity) l_rload =  (*lit)->capacity;
 	  int l_lload = (*lit)->lload;
-	  if (l_lload > MAX_INTERCLUSTER_CAPACITY) l_lload =  MAX_INTERCLUSTER_CAPACITY;
+	  if (l_lload > (*lit)->capacity) l_lload =  (*lit)->capacity;
 
 	  node_resource_ptr last_visited = source;
 	  node_resource_ptr other_node;
 	  bool port_matters = true;
+	  bool source_seen = false;
+
+	  //update link's mapped path to the found_path. update loads on links.
 	  for (fpit = found_path->mapped_path.begin(); fpit != found_path->mapped_path.end(); ++fpit)
 	    {
 	      (*lit)->mapped_path.push_back(*fpit);
-	      //update loads on intercluster links
-	      if (last_visited->type_type == "infrastructure")
+	      //update loads on links
+	      if (last_visited  == (*fpit)->node1)
 		{
-		  {
-		    (*fpit)->rload += l_rload;
-		    (*fpit)->lload += l_lload;
-		    (*fpit)->potential_rcap -= l_rload;
-		    (*fpit)->potential_lcap -= l_lload;
-		  }
-		  last_visited = (*fpit)->node2;
-		}
-	      else if (((*fpit)->node2 == last_visited) && (!port_matters || (*lit)->node1_port == (*fpit)->node2_port))
-		{
-		  if ((*fpit)->in > 0 && ((*fpit)->node1 != (*fpit)->node2))//it's an intercluster link
+		  //update load on link
+		  (*fpit)->rload += l_rload;
+		  (*fpit)->lload += l_lload;
+		  (*fpit)->potential_rcap -= l_rload;
+		  (*fpit)->potential_lcap -= l_lload;
+		  //set source or sink real ports if necessary
+		  if (last_visited == source && !source_seen)
 		    {
-		      (*fpit)->rload += l_lload;
-		      (*fpit)->lload += l_rload;
-		      (*fpit)->potential_rcap -= l_lload;
-		      (*fpit)->potential_lcap -= l_rload;
+		      source_seen = true;
+		      (*lit)->node1_rport = (*fpit)->node1_port;
+		    }
+		  else if (last_visited == sink && source_seen)
+		    {
+		      (*lit)->node2_rport = (*fpit)->node2_port;
+		    }
+		  //set last_visited
+		  last_visited = (*fpit)->node2;
+		  
+		}
+	      else 
+		{
+		  (*fpit)->rload += l_lload;
+		  (*fpit)->lload += l_rload;
+		  (*fpit)->potential_rcap -= l_lload;
+		  (*fpit)->potential_lcap -= l_rload;
+		  //set source or sink real ports if necessary
+		  if (last_visited == source && !source_seen)
+		    {
+		      source_seen = true;
+		      (*lit)->node1_rport = (*fpit)->node2_port;
+		    }
+		  else if (last_visited == sink && source_seen)
+		    {
+		      (*lit)->node2_rport = (*fpit)->node1_port;
 		    }
 		  last_visited = (*fpit)->node1;
 		}
@@ -3622,6 +3381,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
     //define lists for multiple db inserts
     std::vector<connschedule> db_connections;
     std::vector<vswitchschedule> db_vswitches;
+    std::vector<vportschedule> db_vports;
     std::vector<hwclusterschedule> db_hwclusters;
     std::vector<nodeschedule> db_nodes;
 
@@ -3642,6 +3402,12 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
     unsigned int linkid = 1;
     
     cout << "add_reservation(" << rid << ") nodes mapped:";
+
+    //clear marked field so can keep track of vport scheduling which should be no more than 1 per link
+    for(lit = t->links.begin(); lit != t->links.end(); ++lit)
+    {
+      (*lit)->marked = false;
+    }
 
     // need to give unique names to every vswitch first
     for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
@@ -3808,6 +3574,15 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 
     for(lit = t->links.begin(); lit != t->links.end(); ++lit)
     {
+      //handle any virtual ports. need to put an entry in to link virtual ports to real physical interfaces
+      if ((*lit)->node1->has_vport ||(*lit)->node2->has_vport)
+	{
+	  unsigned int tmp_linkid = linkid;
+	  if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
+	  vportschedule vps(linkid, rid, (*lit)->node1_rport, (*lit)->node2_rport);
+	  db_vports.push_back(vps);
+	  ++ar_db_count;
+	}
       if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
       // add the link entries
       for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
@@ -3831,6 +3606,13 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	ins.insert(db_connections.begin(), db_connections.end());
 	ins.execute();
 	db_connections.clear();
+      }
+    if (!db_vports.empty())
+      {
+	mysqlpp::Query ins = onl->query();
+	ins.insert(db_vports.begin(), db_vports.end());
+	ins.execute();
+	db_vports.clear();
       }
   }
   catch (const mysqlpp::Exception& er)
@@ -6400,6 +6182,27 @@ onldb_resp onldb::get_capacity(std::string type, unsigned int port) throw()
   catch(const mysqlpp::Exception& er)
   {
     return onldb_resp(-1,(std::string)"no such port");
+  }
+}
+
+
+onldb_resp onldb::has_virtual_port(std::string type) throw()
+{
+  try
+  {
+    mysqlpp::Query query = onl->query();
+    query << "select virtualport from types where tid=" << mysqlpp::quote << type << ")";
+    mysqlpp::StoreQueryResult res = query.store();
+    if(res.empty())
+    {
+      return onldb_resp(-1,(std::string)"no such type");
+    }
+    vportinfo vpi = res[0];
+    return onldb_resp(vpi.virtualport,(std::string)"success");
+  }
+  catch(const mysqlpp::Exception& er)
+  {
+    return onldb_resp(-1,(std::string)"no such type");
   }
 }
 

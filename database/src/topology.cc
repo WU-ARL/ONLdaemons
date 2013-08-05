@@ -88,7 +88,7 @@ void topology::print_resources() throw()
   }
 }
 
-onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label) throw()
+onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport) throw()
 {
   node_resource_ptr hrp(new node_resource());
   hrp->type = lowercase(type);
@@ -96,6 +96,7 @@ onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int
   hrp->is_parent = false;
 
   hrp->fixed = false;
+  hrp->has_vport = has_vport;
   hrp->node = "";
   hrp->acl = "unused";
   hrp->cp = "unused";
@@ -152,6 +153,7 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   hrp->is_parent = cpnode->is_parent;
 
   hrp->fixed = cpnode->fixed;
+  hrp->has_vport = cpnode->has_vport;
   hrp->node = cpnode->node;
   hrp->acl = cpnode->acl;
   hrp->cp = cpnode->cp;
@@ -206,6 +208,12 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
 
 onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
 {
+  return (add_link(label, capacity, node1_label, node1_port, node1_port, node2_label, node2_port, node2_port, rload, lload));
+}
+
+
+onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
+{
   link_resource_ptr lrp(new link_resource());
   
   bool node1_found = false;
@@ -215,6 +223,8 @@ onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigne
   lrp->capacity = capacity;
   lrp->node1_port = node1_port;
   lrp->node2_port = node2_port;
+  lrp->node1_rport = node1_rport;
+  lrp->node2_rport = node2_rport;
 
   lrp->marked = false;
   lrp->level = 0;
@@ -283,6 +293,8 @@ onldb_resp topology::add_copy_link(link_resource_ptr lnk) throw()
   lrp->capacity = lnk->capacity;
   lrp->node1_port = lnk->node1_port;
   lrp->node2_port = lnk->node2_port;
+  lrp->node1_rport = lnk->node1_rport;
+  lrp->node2_rport = lnk->node2_rport;
 
   lrp->marked = lnk->marked;
   lrp->level = lnk->level;
@@ -392,6 +404,19 @@ std::string topology::get_type(unsigned int label) throw()
     }
   }
   return "";
+}
+
+bool topology::has_virtual_port(unsigned int label) throw()
+{
+  list<node_resource_ptr>::iterator nit;
+  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
+  {
+    if((*nit)->label == label)
+    {
+      return (*nit)->has_vport;
+    }
+  }
+  return false;
 }
 
 unsigned int topology::get_label(std::string node) throw()

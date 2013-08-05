@@ -39,6 +39,7 @@ namespace onlcrd
       bool cancel_reservation(std::string username);
 
       int get_capacity(std::string type, int port);
+      bool has_virtual_port(std::string type);
       void get_switch_ports(unsigned int cid, switch_port& p1, switch_port& p2);
       void fix_component(onl::topology* top, uint32_t id, std::string cp);
       bool make_reservation(reservation* res, std::string username, std::string early_start, std::string late_start, uint32_t duration, onl::topology* top);

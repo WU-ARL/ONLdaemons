@@ -45,6 +45,7 @@ namespace onl
     std::list< boost::shared_ptr<struct _node_resource> > user_nodes;
 
     // this will be filled in if the resource becomes part of an actual experiment
+    bool has_vport;
     bool fixed;
     std::string node; // initialized to ""
     std::string acl; // initialized to "unused"
@@ -70,8 +71,10 @@ namespace onl
     unsigned int capacity;
     node_resource_ptr node1;
     unsigned int node1_port;
+    int node1_rport;//real physical port this is may differ from node1_port for virtual ports
     node_resource_ptr node2;
     unsigned int node2_port;
+    int node2_rport;//real physical port this is may differ from node2_port for virtual ports
 
     // these will be filled in if the resource becomes part of an actual experiment
     std::list<int> conns;
@@ -148,5 +151,7 @@ namespace onl
 
   typedef boost::shared_ptr<mapping_cluster_resource> mapping_cluster_ptr;
 };
+
+#define MAX_INTERCLUSTER_CAPACITY 10
 
 #endif // _INTERNAL_H

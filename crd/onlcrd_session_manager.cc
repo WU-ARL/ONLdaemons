@@ -261,6 +261,20 @@ session_manager::get_capacity(std::string type, int port)
   return res.result();
 }
 
+bool
+session_manager::has_virtual_port(std::string type)
+{
+  //write_log("session_manager::get_capacity(): type=" + type + " port=" + int2str(port));
+  autoLockDebug dlock(db_lock, "session_manager::is_vport(): db_lock");
+
+  onl::onldb_resp res = database->has_virtual_port(type);
+
+  if (res.result())
+    return true;
+  else
+    return false;
+}
+
 void
 session_manager::get_switch_ports(unsigned int cid, switch_port& p1, switch_port& p2)
 {

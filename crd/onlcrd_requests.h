@@ -127,6 +127,7 @@ namespace onlcrd
       std::string getToIP() { return to_ip.getString(); }
       std::string getToSubnet() { return to_subnet.getString(); }
       std::string getToNHIP() { return to_nhip.getString(); }
+      uint32_t getCapacity() { return bandwidth;}
 
       virtual bool handle();
 

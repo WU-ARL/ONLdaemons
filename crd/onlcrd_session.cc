@@ -181,7 +181,7 @@ session::commit(session_ptr sess)
   {
     session_add_component_req* req = (session_add_component_req*) *hw_it;
     component c = req->getComponent();
-    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent());
+    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), session_manager->has_virtual_port(c.getType()));
     if(r.result() < 1)
     {
       hw_it = component_reqs.erase(hw_it);
@@ -214,23 +214,43 @@ session::commit(session_ptr sess)
     if(n1type == "vgige" && n2type == "vgige")
     {
       // we could try to calculate the max capacity here instead..
-      n1cap = 10;
-      n2cap = 10;
+      n1cap = MAX_INTERCLUSTER_CAPACITY;
+      n2cap = MAX_INTERCLUSTER_CAPACITY;
     }
     else if(n1type == "vgige")
     {
       n2cap = the_session_manager->get_capacity(n2type,n2port);
+      if (topology.has_virtual_port(req->getToComponent().getID()))
+	{
+	  if (n2cap < req->getCapacity()) n2cap = -1;
+	  else n2cap = req->getCapacity();
+	}
       n1cap = n2cap;
     }
     else if(n2type == "vgige")
     {
       n1cap = the_session_manager->get_capacity(n1type,n1port);
+      if (topology.has_virtual_port(req->getFromComponent().getID()))
+	{
+	  if (n1cap < req->getCapacity()) n1cap = -1;
+	  else n1cap = req->getCapacity();
+	}
       n2cap = n1cap;
     }
     else
     {
       n1cap = the_session_manager->get_capacity(n1type,n1port);
+      if (the_session_manager->has_virtual_port(n1type))
+	{
+	  if (n1cap < req->getCapacity()) n1cap = -1;
+	  else n1cap = req->getCapacity();
+	}
       n2cap = the_session_manager->get_capacity(n2type,n2port);
+      if (the_session_manager->has_virtual_port(n2type))
+	{
+	  if (n2cap < req->getCapacity()) n2cap = -1;
+	  else n2cap = req->getCapacity();
+	}
     }
 
     if(n1cap == -1 || n2cap == -1 || n1cap != n2cap)

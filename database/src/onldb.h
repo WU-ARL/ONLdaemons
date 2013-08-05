@@ -46,6 +46,7 @@ namespace onl
 
       std::string get_type_type(std::string type) throw();
       onldb_resp is_infrastructure(std::string node) throw();
+      onldb_resp has_virtual_port(std::string type) throw()
       onldb_resp verify_clusters(topology *t) throw();
 
       onldb_resp handle_special_state(std::string state, std::string node, unsigned int len, bool extend) throw();

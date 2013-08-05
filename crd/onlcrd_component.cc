@@ -946,6 +946,7 @@ crd_link::~crd_link()
 bool
 crd_link::send_port_configuration(crd_component* c, bool use2)
 {
+  //JP SWROUTER will need to send the actual port assigned if the port is a virtual port
   autoLockDebug slock(state_lock, "crd_link::send_port_configuration(): state_lock");
   if(state != "new" ) { return true; }
   slock.unlock();

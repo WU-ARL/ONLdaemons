@@ -151,6 +151,12 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, port,
     mysqlpp::sql_smallint_unsigned, linkid)
 
+  sql_create_4(vportschedule,2,4,
+    mysqlpp::sql_smallint_unsigned, linkid,
+    mysqlpp::sql_mediumint_unsigned, rid,
+    mysqlpp::sql_smallint_unsigned, port1,
+    mysqlpp::sql_smallint_unsigned, port2)
+
   sql_create_3(policy,1,3,
     mysqlpp::sql_varchar, parameter,
     mysqlpp::sql_smallint_unsigned, value,
@@ -367,6 +373,9 @@ namespace onl
 
   sql_create_1(bwinfo,1,0,
     mysqlpp::sql_smallint_unsigned, bandwidth);
+
+  sql_create_1(vportinfo,1,0,
+	       mysqlpp::sql_tinyint_unsigned, virtualport);
 
   sql_create_1(node2info,1,0,
     mysqlpp::sql_varchar, node2);

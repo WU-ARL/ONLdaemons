@@ -41,10 +41,11 @@ namespace onl
 
       // you have to add the hw resource before you add any links for it
       // you also have to add parents (clusters) before adding children (cluster components)
-      onldb_resp add_node(std::string type, unsigned int label, unsigned int parent_label) throw();
+      onldb_resp add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport = false) throw();
       onldb_resp add_copy_node(node_resource_ptr node) throw();
       //onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
       onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload = 0, unsigned int lload = 0) throw();
+      onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw();
       onldb_resp add_copy_link(link_resource_ptr lnk) throw();
 
       onldb_resp remove_node(unsigned int label) throw();
@@ -52,6 +53,7 @@ namespace onl
 
       std::string get_component(unsigned int label) throw();
       std::string get_type(unsigned int label) throw();
+      bool has_virtual_port(unsigned int label) throw();
       unsigned int get_label(std::string node) throw();
 
       void get_conns(unsigned int label, std::list<int>& conn_list) throw();
