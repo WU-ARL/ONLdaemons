@@ -1,0 +1,28 @@
+This daemon relies on the IDT TCAM library, and the tcamlib that is built on
+top of it.  Of course the tcamlib relies on libraries in wusrc..  You should
+do all of this on onldev1.
+
+You'll need to get wu_arl/wusrc first.  Check it out, then run this in the
+wusrc directory to build the right libs:
+
+  make ixp
+
+Second, you'll need to build the IDT stuff, which means you'll need to check
+out all of wu_arl/dnet.  Then go to dnet/npe/IDT_IMS/build/IXP2XXX_nse_qdr.
+You have to set some environment variables for this to work (I'm assuming
+a bash environment):
+
+  export TOOL_PREFIX="xscale_be-"
+  export PATH=$PATH:/export/montavista/pro/devkit/arm/xscale_be/bin:/export/montavista/pro/host/bin:/usr/java/j2re1.4.2_15/bin
+
+Then run this to do the build:
+
+  ./IMSBuild.bash LINUX_USER IXP2800 clean dep all
+
+Next, go to dnet/npe/tcamLib and build it:
+
+  make ixp
+
+Finally, you can come back here and build the npr tcam daemon:
+
+  make
