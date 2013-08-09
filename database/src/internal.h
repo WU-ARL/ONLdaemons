@@ -152,6 +152,5 @@ namespace onl
   typedef boost::shared_ptr<mapping_cluster_resource> mapping_cluster_ptr;
 };
 
-#define MAX_INTERCLUSTER_CAPACITY 10
 
 #endif // _INTERNAL_H

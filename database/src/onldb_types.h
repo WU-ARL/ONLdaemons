@@ -56,12 +56,13 @@ namespace onl
     mysqlpp::sql_datetime, begin,
     mysqlpp::sql_datetime, end)
 
-  sql_create_5(types,1,5,
+  sql_create_6(types,1,6,
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_varchar, type,
     mysqlpp::sql_tinyint_unsigned, daemon,
     mysqlpp::sql_tinyint_unsigned, keeboot,
-    mysqlpp::sql_varchar, shortdesc)
+    mysqlpp::sql_varchar, shortdesc,
+    mysqlpp::sql_tinyint_unsigned, hasvport)
 
   sql_create_4(interfacetypes,1,4,
     mysqlpp::sql_varchar, interface,
@@ -376,6 +377,9 @@ namespace onl
 
   sql_create_1(vportinfo,1,0,
 	       mysqlpp::sql_tinyint_unsigned, virtualport);
+
+  sql_create_1(vporttype,1,0,
+	       mysqlpp::sql_tinyint_unsigned, hasvport);
 
   sql_create_1(node2info,1,0,
     mysqlpp::sql_varchar, node2);

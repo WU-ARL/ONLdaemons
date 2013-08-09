@@ -181,7 +181,7 @@ session::commit(session_ptr sess)
   {
     session_add_component_req* req = (session_add_component_req*) *hw_it;
     component c = req->getComponent();
-    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), session_manager->has_virtual_port(c.getType()));
+    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), the_session_manager->has_virtual_port(c.getType()));
     if(r.result() < 1)
     {
       hw_it = component_reqs.erase(hw_it);
@@ -369,6 +369,9 @@ session::commit(session_ptr sess)
     link->set_component(req->getComponent());
     std::list<int> clist;
     topology.get_conns(req->getComponent().getID(), clist);
+    int rp1 = topology.get_realport(req->getComponent().getID(), 1);
+    int rp2 = topology.get_realport(req->getComponent().getID(), 2);  
+    link->set_rports(rp1, rp2);
     link->set_switch_ports(clist);
 
     link->set_session(sess);
@@ -400,6 +403,21 @@ session::commit(session_ptr sess)
 
     set_vlans(*i, new_vlan);
   }
+
+  //JP VIRTUALPORTS
+  //set vlans for other links here too
+  std::list<crd_link_ptr>::iterator li;
+  for (li = links.begin(); li != links.end(); ++li)
+    {
+      if ((*li)->marked()) { continue;}
+      switch_vlan new_vlan = the_session_manager->add_vlan();
+      if(new_vlan == 0)
+	{
+	  write_log("session::commit(): warning: add_vlan failed");
+	  continue;
+	}
+      (*li)->set_vlan(new_vlan);
+    }
  
   std::string usage = "USAGE_LOG: COMMIT user " + user + " session " + id + " components"; 
   for(i=components.begin(); i!=components.end(); ++i)

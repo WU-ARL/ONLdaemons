@@ -65,7 +65,8 @@ int main()
 
   try
   {
-    rli_conn = new nccp_listener("10.", Default_ND_Port);
+    std::string tmp_addr("10.");
+    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
   }
   catch(std::exception& e)
   {

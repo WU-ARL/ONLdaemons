@@ -445,6 +445,19 @@ void topology::get_conns(unsigned int label, std::list<int>& conn_list) throw()
   }
 }
 
+int topology::get_realport(unsigned int label, int node_ndx) throw()
+{
+  list<link_resource_ptr>::iterator lit;
+  for(lit = links.begin(); lit != links.end(); ++lit)
+  {
+    if((*lit)->label == label)
+    {
+      if (node_ndx == 1) return (*lit)->node1_rport;
+      else return (*lit)->node2_rport;
+    }
+  }
+}
+
 
 int
 topology::compute_host_cost()

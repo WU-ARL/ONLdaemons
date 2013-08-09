@@ -46,14 +46,14 @@ namespace onl
 
       std::string get_type_type(std::string type) throw();
       onldb_resp is_infrastructure(std::string node) throw();
-      onldb_resp has_virtual_port(std::string type) throw()
       onldb_resp verify_clusters(topology *t) throw();
 
       onldb_resp handle_special_state(std::string state, std::string node, unsigned int len, bool extend) throw();
       onldb_resp clear_special_state(std::string state, std::string new_state, std::string node) throw();
 
 
-      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw();
+      //bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw();
+      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw();
       onldb_resp get_topology(topology *t, int rid) throw();
       void build_assign_list(node_resource_ptr hw, std::list<assign_info_ptr> *l) throw();
       onldb_resp fill_in_topology(topology *t, int rid) throw();
@@ -98,6 +98,8 @@ namespace onl
       bool split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige, node_resource_ptr root_rnode, topology* base);
       int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node);
       int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node, std::list<node_load_ptr>& neighbors);
+      //added to support virtual ports
+      onldb_resp get_link_vport(unsigned int linkid, unsigned int rid, int port);
 
     public:
       onldb() throw();
@@ -139,6 +141,9 @@ namespace onl
       onldb_resp get_expired_sessions(std::list<std::string>& users) throw();
       onldb_resp get_capacity(std::string type, unsigned int port) throw();
       onldb_resp get_switch_ports(unsigned int cid, switch_port_info& info1, switch_port_info& info2) throw();
+
+      onldb_resp has_virtual_port(std::string type) throw();
   };
 };
+#define MAX_INTERCLUSTER_CAPACITY 10
 #endif // _ONLDB_H

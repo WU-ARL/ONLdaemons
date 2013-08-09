@@ -977,8 +977,8 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     {
       myip = linkreq->getFromIP();
     }
-    node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP());
-
+    node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP(), endpoint1_rport);
+    nodeinfo.setVLan(link_vlan);
     cfgnode = new configure_node(exp, endpoint1->get_component(), nodeinfo);
     cfgnode->set_connection(endpoint1->get_connection());
   }
@@ -995,7 +995,8 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     {
       myip = linkreq->getToIP();
     }
-    node_info nodeinfo(myip, linkreq->getToSubnet(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP());
+    node_info nodeinfo(myip, linkreq->getToSubnet(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP(), endpoint2_rport);
+    nodeinfo.setVLan(link_vlan);
 
     cfgnode = new configure_node(exp, endpoint2->get_component(), nodeinfo);
     cfgnode->set_connection(endpoint2->get_connection());

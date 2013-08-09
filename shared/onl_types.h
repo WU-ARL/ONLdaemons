@@ -217,7 +217,8 @@ namespace onld
   {
     public:
       node_info();
-      node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip);
+      //node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip);
+      node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rport);
       node_info(const node_info& ni);
       ~node_info();
  
@@ -226,9 +227,12 @@ namespace onld
       std::string getIPAddr() { return ipaddr.getString(); }
       std::string getSubnet() { return subnet.getString(); }
       uint32_t getPort() { return port; }
+      uint32_t getRealPort() { return real_port; }
       std::string getRemoteType() { return remote_type.getString(); }
       bool isRemoteRouter() { return is_remote_router; }
       std::string getNHIPAddr() { return nexthop_ipaddr.getString(); }
+      uint32_t getVLan() { return vlanid;}
+      void setVLan(uint32_t v) { vlanid = v;}
 
       friend byte_buffer& operator<<(byte_buffer& buf, node_info& ni);
       friend byte_buffer& operator>>(byte_buffer& buf, node_info& ni);
@@ -236,7 +240,9 @@ namespace onld
     private:
       nccp_string ipaddr;
       nccp_string subnet;
-      uint32_t port;
+      uint32_t port;//for components that support virtual ports this is the virtual port index
+      uint32_t real_port;//used for components that support virtual ports this is the real interface assigned
+      uint32_t vlanid;
       nccp_string remote_type;
       bool is_remote_router;
       nccp_string nexthop_ipaddr;

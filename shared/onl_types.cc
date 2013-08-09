@@ -561,12 +561,14 @@ node_info::node_info()
   ipaddr = "";
   subnet = "";
   port = 0;
+  real_port = 0;
   remote_type = "";
   is_remote_router = false;
   nexthop_ipaddr = "";
+  vlanid = 0;
 }
 
-node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip)
+node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rp)
 {
   ipaddr = ip.c_str();
   subnet = sn.c_str();
@@ -574,6 +576,8 @@ node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::stri
   remote_type = rtype.c_str();
   is_remote_router = rrouter;
   nexthop_ipaddr = next_hop_ip.c_str();
+  real_port = rp;
+  vlanid = 0;
 }
 
 node_info::node_info(const node_info& ni)
@@ -584,6 +588,8 @@ node_info::node_info(const node_info& ni)
   remote_type = ni.remote_type;
   is_remote_router = ni.is_remote_router;
   nexthop_ipaddr = ni.nexthop_ipaddr;
+  real_port = ni.real_port;
+  vlanid = ni.vlanid;
 }
 
 node_info::~node_info()
@@ -599,6 +605,8 @@ node_info::operator=(const node_info& ni)
   remote_type = ni.remote_type;
   is_remote_router = ni.is_remote_router;
   nexthop_ipaddr = ni.nexthop_ipaddr;
+  real_port = ni.real_port;
+  vlanid = ni.vlanid;
   return *this;
 }
 
@@ -611,6 +619,8 @@ onld::operator<<(byte_buffer& buf, node_info& ni)
   buf << ni.is_remote_router;
   buf << ni.port;
   buf << ni.nexthop_ipaddr;
+  buf << ni.real_port;
+  buf << ni.vlanid;
   return buf;
 }
 
@@ -623,5 +633,7 @@ onld::operator>>(byte_buffer& buf, node_info& ni)
   buf >> ni.is_remote_router;
   buf >> ni.port;
   buf >> ni.nexthop_ipaddr;
+  buf >> ni.real_port;
+  buf >> ni.vlanid;
   return buf;
 }

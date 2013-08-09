@@ -51,6 +51,7 @@ using namespace onl;
 #define ONLDBUSER ""
 #define ONLDBPASS ""
 
+#define MAX_INTERCLUSTER_CAPACITY 10
 #define UNUSED_CLUSTER_COST 50
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
@@ -373,8 +374,8 @@ onldb_resp onldb::get_link_vport(unsigned int linkid, unsigned int rid, int port
     mysqlpp::StoreQueryResult res = query.store();
     if(res.empty()) return onldb_resp(-1,(std::string)"vportschedule not in database");
 
-    unsigned int p = res[0];
-    return onldb_resp(p,(std::string)"success");
+    vportinfo p = res[0];
+    return onldb_resp(p.virtualport,(std::string)"success");
   }
   catch(const mysqlpp::Exception& er)
   {
@@ -551,8 +552,8 @@ onldb_resp onldb::verify_clusters(topology *t) throw()
 //print_diff(lbl, (clock_t)(end - start));
 //}
 
-bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
-//bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
+//bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
+bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
 {
   // there are three cases to deal with: node->node (normal) links, node->vswitch
   // links, and vswitch->vswitch links. for node->node links, both node1_label
@@ -577,15 +578,15 @@ bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int l
     {
       node1_label = t->get_label("vgige" + to_string(vswc[1].vlanid));
       node1_port = vswc[1].port;
-      //node1_rport = node1_port;
+      node1_rport = node1_port;
     }
     node2_label = t->get_label("vgige" + to_string(vswc[0].vlanid));
     node2_port = vswc[0].port;
-    //node1_rport = node2_port;
+    node1_rport = node2_port;
   }
 
-  onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, rload, lload);
-  //onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, rload, lload);
+  //onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, rload, lload);
+  onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, rload, lload);
   if(r.result() != 1) { return false; }
 
   return true;
@@ -721,15 +722,15 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
           if(node1_label == 0)
           {
             node1_label = t->get_label(it3->node1);
-	    if(!it3->node1->has_vport)
+	    //see if this link had virtual ports
+	    onldb_resp vpr = get_link_vport(cur_link, rid, 1);
+	    if(vpr.result() < 0) //there were no virtual ports scheduled for this link
 	      {
 		node1_port = it3->node1port;
 		node1_rport = node1_port;
 	      }
 	    else
-	      {
-		onldb_resp vpr = get_link_vport(cur_link, rid, 1);
-		if(vpr.result() < 0) return onldb_resp(-1, vpr.msg());
+	      { 
 		node1_port = vpr.result();
 		node1_rport = it3->node1port;
 	      }
@@ -737,15 +738,15 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
           else if(node2_label == 0)
           {
             node2_label = t->get_label(it3->node1);
-	    if(!it3->node1->has_vport)
+	    //see if this link had virtual ports
+	    onldb_resp vpr = get_link_vport(cur_link, rid, 2);
+	    if(vpr.result() < 0) //there were no virtual ports scheduled for this link
 	      {
 		node2_port = it3->node1port;
 		node2_rport = node1_port;
 	      }
-	    else
+	      else//set virtual ports
 	      {
-		onldb_resp vpr = get_link_vport(cur_link, rid, 2);
-		if(vpr.result() < 0) return onldb_resp(-1, vpr.msg());
 		node2_port = vpr.result();
 		node2_rport = it3->node1port;
 	      }
@@ -1135,8 +1136,8 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
         (*res_lit)->level = level;
         (*abs_lit)->conns = (*res_lit)->conns;
 	//set real physical interfaces in the user link
-	if ((abs_node->label == (*abs->lit->node1->label)) ||
-	    (res_this_is_loopback && (abs_this_port == (*abs->lit->node1_port))))
+	if ((abs_node->label == ((*abs_lit)->node1->label)) ||
+	    (res_this_is_loopback && (abs_this_port == ((*abs_lit)->node1_port))))
 	  {
 	    (*abs_lit)->node1_rport = res_this_rport;
 	    (*abs_lit)->node2_rport = res_other_rport;
@@ -2823,7 +2824,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	    o_port = (*lit)->node1_port;
 	  is_right = false;
 	}
-      if (othernode && (othernode->type_type == "infrastructure" || (othernode == sink && (o_port == sink_port || sink->has_vport)))
+      if (othernode && (othernode->type_type == "infrastructure" || (othernode == sink && (o_port == sink_port || sink->has_vport))))
 	{
 	  if ((*lit)->in > 0 && 
 	      ((is_right && (((*lit)->potential_rcap < ulink->rload) || ((*lit)->potential_lcap < ulink->lload))) ||
@@ -3579,7 +3580,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	{
 	  unsigned int tmp_linkid = linkid;
 	  if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
-	  vportschedule vps(linkid, rid, (*lit)->node1_rport, (*lit)->node2_rport);
+	  vportschedule vps(linkid, rid, (*lit)->node1_port, (*lit)->node2_port);
 	  db_vports.push_back(vps);
 	  ++ar_db_count;
 	}
@@ -6191,14 +6192,14 @@ onldb_resp onldb::has_virtual_port(std::string type) throw()
   try
   {
     mysqlpp::Query query = onl->query();
-    query << "select virtualport from types where tid=" << mysqlpp::quote << type << ")";
+    query << "select hasvport from types where tid=" << mysqlpp::quote << type << ")";
     mysqlpp::StoreQueryResult res = query.store();
     if(res.empty())
     {
       return onldb_resp(-1,(std::string)"no such type");
     }
-    vportinfo vpi = res[0];
-    return onldb_resp(vpi.virtualport,(std::string)"success");
+    vporttype vpi = res[0];
+    return onldb_resp(vpi.hasvport,(std::string)"success");
   }
   catch(const mysqlpp::Exception& er)
   {

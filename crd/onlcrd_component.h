@@ -150,6 +150,7 @@ namespace onlcrd
       component& get_component() { return comp; }
 
       void set_vlan(switch_vlan v) { link_vlan = v; alloc_vlan = false; }
+      void set_rports(unsigned short p1, unsigned short p2) { endpoint1_rport = p1; endpoint2_rport = p2;}
 
       crd_component_ptr get_node1() { return endpoint1; }
       crd_component_ptr get_node2() { return endpoint2; }
@@ -177,8 +178,10 @@ namespace onlcrd
     protected:
       crd_component_ptr endpoint1;
       unsigned short endpoint1_port;
+      unsigned short endpoint1_rport;
       crd_component_ptr endpoint2;
       unsigned short endpoint2_port;
+      unsigned short endpoint2_rport;
       component comp;
 
       std::list<switch_port> switch_ports;
