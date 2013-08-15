@@ -1,0 +1,72 @@
+
+Default proxy port is 7070 and default syslog facility is Local0. On onl03
+syslog messages end up in /var/log/ONLproxy.  To start server
+
+  Linux/onlProxy --lvl Info -d
+     --lvl sets the message logging level
+     -d causes onlProxy to be run in the backgorund (call daemon()).
+
+Utilities:
+  pcmd: list active sessions:
+
+  onl03:onlProxy> ./Linux/pcmd
+  List of active sessions: 
+  Session:
+          ID 6, Flags (Session, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/7070 -- (80fc9974/1b9e)
+          Remote: onl03.arl.wustl.edu/35856 -- (80fc9974/8c10)
+          Stats: (Msgs/Bytes): Send 7510/690873, Recv 846/60933
+
+          ID 9, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35857 -- (80fc9974/8c11)
+          Remote: onl03.arl.wustl.edu/3555 -- (80fc9974/de3)
+          Stats: (Msgs/Bytes): Send 52/3763, Recv 51/3651
+
+          ID 10, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35870 -- (80fc9974/8c1e)
+          Remote: onl01.arl.wustl.edu/3552 -- (80fc9972/de0)
+          Stats: (Msgs/Bytes): Send 53/3434, Recv 53/2756
+
+          ID 11, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35871 -- (80fc9974/8c1f)
+          Remote: onl01.arl.wustl.edu/3551 -- (80fc9972/ddf)
+          Stats: (Msgs/Bytes): Send 235/14975, Recv 2545/218390
+
+          ID 12, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35879 -- (80fc9974/8c27)
+          Remote: onl22.arl.wustl.edu/3552 -- (80fc9968/de0)
+          Stats: (Msgs/Bytes): Send 281/17943, Recv 2458/200162
+
+          ID 13, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35880 -- (80fc9974/8c28)
+          Remote: onl22.arl.wustl.edu/3551 -- (80fc9968/ddf)
+          Stats: (Msgs/Bytes): Send 220/14015, Recv 2398/205814
+
+  Session:
+          ID 14, Flags (Session, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/7070 -- (80fc9974/1b9e)
+          Remote: onl03.arl.wustl.edu/35889 -- (80fc9974/8c31)
+          Stats: (Msgs/Bytes): Send 84/5254, Recv 85/6146
+
+          ID 15, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35890 -- (80fc9974/8c32)
+          Remote: onl03.arl.wustl.edu/3555 -- (80fc9974/de3)
+          Stats: (Msgs/Bytes): Send 18/1293, Recv 17/1242
+
+          ID 16, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35915 -- (80fc9974/8c4b)
+          Remote: onl17.arl.wustl.edu/3552 -- (80fc9963/de0)
+          Stats: (Msgs/Bytes): Send 64/4152, Recv 64/3328
+
+          ID 17, Flags (Fwd, Open), Proto tcp (6)
+          Local:  onl03.arl.wustl.edu/35916 -- (80fc9974/8c4c)
+          Remote: onl17.arl.wustl.edu/3551 -- (80fc9963/ddf)
+          Stats: (Msgs/Bytes): Send 0/0, Recv 0/0
+
+
+  kcmd: used to kill sessions.
+    kcmd --sid sid --addr serv --port dp -pr proto --lvl lvl
+
+  The sid and ID listed above are the same.  To kill the second session
+  above use:
+    kcmd --sid 14 

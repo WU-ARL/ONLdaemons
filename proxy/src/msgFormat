@@ -1,0 +1,133 @@
+
+  // simplified extractions from the C++ source The RLI-Proxy message header
+  // definition. All values are 2-Byte words in network byte order (big
+  // endian).
+  struct hdr_t {
+    uint16_t  len_; // total message length, header plus payload
+    uint16_t  cmd_; // see list of commands below.
+    uint16_t  mid_; // message ID, always set when you expect a reply
+                    // 0 is not a valid message ID, it is used to 
+                    // indicate no message ID.
+    uint16_t  cid_; // connection ID: 0 is not a valid connection ID
+                    // it is used to indicate no connection ID.
+  };
+
+  // Valid commands:
+
+  // cmdEcho: is just used for testing or to verify proxy/RLI
+  // connection data is unstructed, the payload is ssimply echo'ed back to the
+  // sender.  The reply message will be identical to the original with the
+  // exception of the command header field which is set to echoReply.
+  // Reply: Yes.
+  // Payload: Yes, unstructured.
+  uint16_t cmdEcho       = 0; // RLI <--> proxy
+
+  // fwdData: The payload is forwarded to the connection indicated in the
+  // header cid_ field. The payload is opaque to the proxy server.  No reply
+  // is sent to the RLI.
+  // Reply: No.
+  // Payload: yes, unstructured.
+  uint16_t fwdData       = 1; // RLI <--> proxy
+
+  // openConn: The payload contains the destination specification defined
+  // below. After completing the requested connection open a reply is sent to
+  // the RLI indicating success or failure and any additional flags as
+  // indicated below.
+  // Reply: Yes
+  // Payload: Yes, structured. See struct connData
+  uint16_t openConn      = 2; // RLI x--> proxy
+  // connData: this is the payload for an _openConn_ command.
+  // Each field is in network byte order (big endian).
+  struct connData {
+    uint16_t port; // port number as a 16-bit NBO
+    uint8_t  pr;   // expect to always be TCP = 6
+    char     host; // IP host name i.e. onl03.arl.wustl.edu
+  };
+
+  // closeConn: The payload must be empty. The proxy will close the connection
+  // indicating by the conID field in the header. After closing a reply is
+  // sent indicating success or failure (for example the connection was not
+  // open).
+  // Reply: Yes
+  // Payload: No.
+  uint16_t closeConn     = 3; // RLI x--> proxy
+
+  // getConnStatus: The RLI may request a connection's status at any time. A
+  // reply is sent with one data word indicating status, see below.
+  // Reply: Yes.
+  // Payload: No.
+  uint16_t getConnStatus = 4; // RLI x--> proxy
+
+  // cmdReply: The proxy sends this message as a reply to all commands
+  // expecting a reply. The model is the RLI sends a command, for example
+  // openConn, then after completing the requested task the Proxy sends a
+  // cmdReply command containing a 32-bit status word in the payload. The
+  // message ID is that of the original command from the RLI and conID is set
+  // if appropriate. The 32-bit status word is defined below (after the
+  // connStatus command.
+  // Reply: No -- this is the reply message.
+  // Payload: Yes, structured. See _Status Word_ below.
+  uint16_t cmdReply      = 5; // RLI <--x proxy
+
+  // This command originates at the proxy and is sent when an error has
+  // occured on any connection.  The message ID is zero (since no reply is
+  // required from the RLI) and connection ID is set to the failed connection.
+  // The payload contains a 32-bit status word indicating the nature of fault,
+  // this is the same status word sent by the cmdReply command.
+  // Reply: No
+  // Payload: Yes, structured. See _Status Word_ below.
+  uint16_t connStatus    = 6; // RLI <--x proxy
+
+  // Status Word:
+  // Status word used by the cmdReply and connStatus commands. The 32-bit
+  // status word is sent in network byte order (NBO) so it should be converted
+  // to the native byte order of the receiving host. It is currently divided
+  // into 3 bit fields defined by the mask values below. Within each bit field
+  // are a series of flags/values indicating some aspect of the reported
+  // status:
+  // The first bit field is used by the cmdReply command to indicate
+  // if the original command (identified by the header's message ID field)
+  // succedded:
+  uint32_t statusMask  = 0x0000000F;
+  uint32_t cmdSuccess  = 0x00000000; // commend completed with no errors
+  uint32_t cmdFailure  = 0x00000001; // command failed, see error flags
+  uint32_t cmdPending  = 0x00000002; // command has not completed.
+                                     // Not used unless we use async commands
+                                     // with strict request/response
+
+  // The next field is used to indicate a connection's state, the conenction
+  // is identified by the header's conID field. The state (or change in state)
+  // uses flags since the proxy may communicate that a connection has had an
+  // error but it is still open (or has been closed).
+  uint32_t connMask    = 0x00000FF0; 
+  uint32_t connOpen    = 0x00000010; // connect is open and available for use
+                                     // if this bit is not set then it can be
+                                     // assumed that the connection is/has
+                                     // been closed.
+  uint32_t connPending = 0x00000020; // connection state is changing,
+                                     // used if needed for async command
+  uint32_t connError   = 0x00000040; // Connection had an error and is not
+                                     // available Send a close command to free
+                                     // resources.
+
+  // If an error is being reported the 3rd field indicates the type of error.
+  // Here I do not map a specific error to a bit position since only one error
+  // at a time is reported.
+  uint32_t errMask     = 0x000FF000; 
+  uint32_t noError     = 0x00000000; 
+  uint32_t paramError  = 0x00001000; // one or more parameters are in error
+  uint32_t authError   = 0x00002000; // 'User' is not authorized to perform
+                                     // requested action
+  uint32_t timeOut     = 0x00003000; // requested action timed out without
+                                     // completing. If it should complete at a
+                                     // later time then it will be 'undone'
+  uint32_t destError   = 0x00004000; // unable to connect to target system
+                                     // (bad address)
+  uint32_t netError    = 0x00005000; // General network error, most likely
+                                     // transient
+  uint32_t badConnID   = 0x00006000; // connection ID has not been assigned
+  uint32_t connNotOpen = 0x00007000; // connection is assigned but is not in
+                                     // the Open state
+  uint32_t connFailure = 0x00008000; // Existing connection has 'failed',
+                                     // could be because the other end closed
+                                     // the connection.
