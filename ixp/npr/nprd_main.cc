@@ -174,7 +174,9 @@ namespace npr
 
     data_path_conn = new DataPathConn();
     plugin_conn = new PluginConn();
-    rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
+    std::string tmp_addr("127.0.0.1");
+    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
+    //rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
     plugin_control = new PluginControl();
     arp = new ARP();
     ipv4 = new IPv4();

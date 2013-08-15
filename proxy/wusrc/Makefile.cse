@@ -1,0 +1,172 @@
+#
+# $Source: /project/arl/arlcvs/cvsroot/wu_arl/wusrc/Makefile.cse,v $
+# $Author: fredk $
+# $Date: 2007/03/08 15:14:06 $
+# $Revision: 1.3 $
+#
+# Author: Fred Kuhns
+#         fredk@arl.wustl.edu
+# Organization: Applied Research Laboratory
+#               Washington UNiversity in St. Louis
+#
+ifndef WUSRC
+$(error "You must define the environment variable WUSRC!")
+endif
+
+MyOS    ?= $(shell uname -s)
+MyID    ?= $(shell whoami)
+MyHost  ?= $(shell hostname)
+
+## Cross compiling may override these values
+PREFIX ?=
+BINDIR ?=
+#
+## The convention is to place all object files within an OS
+# specific directory.
+OBJDIR ?= $(MyOS)
+
+## Don't think we need these any more. fredk
+## XXXifeq ($(MyOS), SunOS)
+## XXX  OSINC  = -I/pkg/gnu/lib/gcc-lib/sparc-sun-solaris2.5.1/2.8.1/include/
+
+## ---------- Defining C and C++ flags (for gcc/g++) -------------------
+WARNSTRICT = -W -Wall -Wundef -Wimplicit
+## -Winline
+WARNLIGHT  = -Wall 
+WARN       = ${WARNSTRICT}
+WARNC      = -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+WARNCXX    = -Wno-deprecated -Woverloaded-virtual
+
+## flags used for debugging
+DEBUGFLGS  = -g -ggdb -DWUDEBUG -UNDEBUG
+WUDEBUGXX  = ${DEBUGFLGS}
+WUDEBUG    = ${DEBUGFLGS}
+
+## Optimizing output flags
+OPFLAGS    = -DNDEBUG -O3
+
+## Common Flags
+# GNU's glib feature macros (Notes copied  from the glib docs)
+# _POSIX_SOURCE : functionality from the POSIX.1 standard (IEEE Standard
+#                 1003.1) is available,  as well as all of the ISO C
+#                 facilities.
+# _POSIX_C_SOURCE : control which POSIX functionality is made available.
+#         - greater than or equal to 1, then the functionality from the 1990
+#         edition of the POSIX.1 standard (IEEE Standard 1003.1-1990) is made
+#         available.
+#         - greater than or equal to 2, then the functionality from the 1992
+#         edition of the POSIX.2 standard (IEEE Standard 1003.2-1992) is made
+#         available.
+#         - greater than or equal to 199309L, then the functionality from the
+#         1993 edition of the POSIX.1b standard (IEEE Standard 1003.1b-1993)
+#         is made available.
+#         - Greater values for _POSIX_C_SOURCE will enable future extensions.
+#         - The 1996 edition of POSIX.1 (ISO/IEC 9945-1: 1996) states that if
+#         you define _POSIX_C_SOURCE to a value greater than or equal to
+#         199506L, then the functionality from the 1996 edition is made
+#         available.
+# _XOPEN_SOURC, _XOPEN_SOURCE_EXTENDED : If you define this macro,
+#         functionality described in the X/Open Portability Guide is included.
+#         This is a superset of the POSIX.1 and POSIX.2 functionality and in
+#         fact _POSIX_SOURCE and _POSIX_C_SOURCE are automatically defined.
+#         - As the unification of all Unices, functionality only available in
+#         BSD and SVID is also included.
+#         - If the macro _XOPEN_SOURCE_EXTENDED is also defined, even more
+#         functionality is available. The extra functions will make all
+#         functions available which are necessary for the X/Open Unix brand.
+#         - If the macro _XOPEN_SOURCE has the value 500 this includes all
+#         functionality described so far plus some new definitions from the
+#         Single Unix Specification, version 2.
+# _ISOC99_SOURCE : Until the revised ISO C standard is widely adopted the
+#         new features are not automatically enabled. The GNU libc
+#         nevertheless has a complete implementation of the new standard and
+#         to enable the new features the macro _ISOC99_SOURCE
+# _GNU_SOURCE : If you define this macro, everything is included: ISO C89,
+#         ISO C99, POSIX.1, POSIX.2, BSD, SVID, X/Open, LFS, and GNU
+#         extensions. In the cases where POSIX.1 conflicts with BSD, the POSIX
+#         definitions take precedence.
+# _REENTRANT, _THREAD_SAFE : If you define one of these macros, reentrant
+#         versions of several functions get declared. Some of the functions
+#         are specified in POSIX.1c but many others are only available on a
+#         few other systems or are unique to GNU libc.  The problem is the
+#         delay in the standardization of the thread safe C library interface.
+#
+# Setting _GNU_SOURCE is the same as defining (see features.h)
+#     _ISOC99_SOURCE            1
+#     _POSIX_SOURCE             1
+#     _POSIX_C_SOURCE      199506L
+#     _XOPEN_SOURCE           600
+#     _XOPEN_SOURCE_EXTENDED    1
+#     _LARGEFILE64_SOURCE       1
+#     _BSD_SOURCE               1
+#     _SVID_SOURCE              1
+GNUFLAGS   = -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE
+THRFLAGS   = -DPTHREADS
+
+## Kernel flags
+MODCFLGS    = -O2 -DMODULE -D__KERNEL__
+
+## Do we need this for C++ templates? fredk
+# CXXTEMPLATE = -fno-implicit-templates
+CXXTEMPLATE =
+## ?? -Wsynth
+
+APPCFLGS = $(APPFLGS) $(WARNSTRICT) $(GNUFLAGS)
+
+## Default definitions
+WUINC      ?=
+USRINC     ?=
+# Kernel includes
+ifeq ($(MyOS), Linux)
+  MODINC = -isystem /lib/modules/`uname -r`/build/include -I/lib/modules/`uname -r`/build/include
+else
+  MODINC =
+endif
+
+## Defintion used/modified by other Makefile/Makefile.inc's
+WUINCLUDES = ${WUINC} ${USRINC}
+
+WUCFLAGS_BASE = -DMyOS=$(MyOS) $(THRFLAGS) $(GNUFLAGS) $(WARNSTRICT) $(WARNC)
+WUCFLAGS_OP   = ${WUCFLAGS_BASE} $(OPFLAGS)
+WUCFLAGS_DB   = ${WUCFLAGS_BASE} $(WUDEBUG)
+WUCFLAGS      = ${WUCFLAGS_OP}
+
+WUCXXFLAGS_BASE = -DMyOS=$(MyOS)    \
+                  $(THRFLAGS)       \
+                  $(GNUFLAGS)       \
+                  $(WARNSTRICT) $(WARNCXX)
+WUCXXFLAGS_OP = ${WUCXXFLAGS_BASE} $(OPFLAGS)
+WUCXXFLAGS_DB = ${WUCXXFLAGS_BASE} $(WUDEBUGXX)
+WUCXXFLAGS    = ${WUCXXFLAGS_OP}
+
+## Compiler to use
+WUCC       = gcc
+WUCXX      = g++
+
+## Some definitions used for cross compiling
+WUTARGETDIR ?=
+WUTARGET    ?= host
+
+## allows for cross developement
+AR     = $(PREFIX)ar
+AS     = $(PREFIX)as
+CC     = $(PREFIX)${WUCC}
+CXX    = ${PREFIX}${WUCXX}
+CPP    = ${PREFIX}cpp
+RANLIB = $(PREFIX)ranlib
+LD     = $(PREFIX)ld
+NM     = $(PREFIX)nm
+
+# Libraries
+# The convention is to place all object files within an OS
+# specific directory. This is not currently true for plugin.
+
+# We could have Java defines here also
+# SYSJDIR   ?= /usr/java/jdk1.2.2/
+# SYSCDIR   ?= ${SYSJDIR}/jre/classes
+# CLASSDIR  = ./classes
+# JSUFFIXES = .class .java
+# SYSJBIN   = ${SYSJDIR}/bin
+# JAVAC     = ${SYSJBIN}/javac
+# JAR       = ${SYSJBIN}/jar
+# JFLAGS    = -d $(CLASSDIR)

@@ -40,7 +40,9 @@ int main()
 
   try
   {
-    rli_conn = new nccp_listener("127.0.0.1", Default_NMD_Port);
+    std::string tmp_addr("127.0.0.1");
+    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
+    //rli_conn = new nccp_listener("127.0.0.1", Default_NMD_Port);
   }
   catch(std::exception& e)
   {

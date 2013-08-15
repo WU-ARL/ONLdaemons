@@ -1,0 +1,58 @@
+##
+## $Source: /project/arl/arlcvs/cvsroot/wu_arl/wusrc/Makefile.ixp,v $
+## $Author: fredk $
+## $Date: 2007/03/12 18:38:55 $
+## $Revision: 1.13 $
+## $Name:  $
+##
+## File:   Makefile.ixp
+## Author: Fred Kuhns
+## Email:  fredk@cse.wustl.edu
+## Organization: Washington University in St. Louis
+## 
+## Created:  09/14/06 09:45:24 CDT
+## 
+## Description:
+##
+
+include ${WUSRC}/Makefile.mvl
+
+## Definitions used in Intel/Radisys make files.
+## TOOLSDIR    ?= ${MVL_CROSS_ROOT}
+## CROSSTOOLS  ?= ${MVL_CROSS_BIN}
+## CROSSBIN    ?= ${MVL_CROSS_BIN}
+## TOOL_PREFIX ?= ${MVL_TARGET_PREFIX}-
+## BSP_DIR     ?= ${KERNELDIR}
+## IXP_PREFIX   = ${TOOLSDIR}/${IXP_TARGET}
+MODINC := -I${KERNELDIR}/include
+
+## Where compiled code goes ... and system/application libraries exist
+WUTARGETDIR  = ${MVL_TARGET_FS}
+
+## I have run into a few build scripts that wanted these set
+## should be set to the native compiler/linker on the build host
+BUILDTOOL_CC   ?= gcc
+BUILDTOOL_CCLD ?= ld
+
+## Standard ARL makefile definitions
+PREFIX := ${MVL_CROSS_BIN}/${MVL_TARGET_PREFIX}-
+OBJDIR := ${MVL_TARGET_PREFIX}
+
+## 
+# IXPCFLAGS   := -Wno-trigraphs -fno-strict-aliasing -fno-common -mcpu-xscale -mbig-endian -msoft-float
+##IXPLDCONFIG := -EB -r -mbig-endian
+##IXPINCLUDES :=  -I${CROSSROOT}/${IXP_TARGET}
+
+WUIXP_CFLAGS   += -DIXP
+WUIXP_CXXFLAGS += -DIXP
+WUIXP_USRINC    = -I${MVL_TARGET_FS}/usr/include -I${MVL_TARGET_FS}/usr/local/include
+
+## Update the global defs used for building the source
+WUCFLAGS_OP   += ${WUIXP_CFLAGS}
+WUCFLAGS_DB   += ${WUIXP_CFLAGS}
+WUCXXFLAGS_OP += ${WUIXP_CXXFLAGS}
+WUCXXFLAGS_DB += ${WUIXP_CXXFLAGS}
+
+WULDFLAGS = -L${MVL_TARGET_FS}/lib -L${MVL_TARGET_FS}/usr/local/lib
+
+## WUINCLUDES    += ${WUIXP_USRINC}

@@ -107,7 +107,7 @@ int main(int argc, char** argv)
   {
     if (!testing)
       the_gige_conn = new nccp_connection("127.0.0.1", Default_NMD_Port);
-    std::string tmp_addr("10.0.1.7");
+    std::string tmp_addr("10.0.1.2");
     listener = new nccp_listener(tmp_addr, listen_port);
   }
   catch(std::exception& e)

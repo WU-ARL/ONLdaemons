@@ -1,0 +1,228 @@
+#
+# $Source: /project/arlcvs/cvsroot/wu_arl/wusrc/wuPP/Makefile,v $
+# $Author: fredk $
+# $Date: 2006/11/13 18:44:07 $
+# $Revision: 1.27 $
+#
+# Author:       Fred Kuhns
+#               fredk@arl.wustl.edu
+# Organization: Applied Research Laboratory
+#               Washington UNiversity in St. Louis
+#
+include ../Makefile.inc
+
+# Thread and Synchronization specific flags, for us it
+# # will always be PTHREADS
+THRFLAGS := -DPTHREADS
+
+#INCLUDES = ${WUINC}
+# CXXFLAGS = ${WUDEBUG} -DWUBUF_DEBUG ${WUCXXFLAGS} ${CXXTEMPLATE}
+# CXXFLAGS = ${WUDEBUGXX} ${WUCXXFLAGS} ${CXXTEMPLATE}
+#CXXFLAGS =  ${WARNSTRICT} ${GNUFLAGS} ${USRFLG} ${WUDEBUG}
+# CXXFLAGS += ${WUDEBUGXX}
+CXXFLAGS := ${WUCXXFLAGS_OP} ${WUTEMPLATE}
+INCLUDES = ${WUINCLUDES}
+# CXXFLAGS = -O2 ${WUCXXFLAGS} ${CXXTEMPLATE}
+#CXX      = ${WUCXX}
+LIBS     = $(WUCXXLIBS) $(WUCLIBS) -lpthread
+
+HFILES := addr.h net.h sock.h buf.h msg.h handle.h stringUtils.h token.h error.h valBuf.h
+SRCS   := buf.cc sock.cc addr.cc stringUtils.cc token.cc valBuf.cc error.cc
+OBJS=$(addprefix ${OBJDIR}/, $(patsubst %.cc,%.o,$(SRCS)))
+
+CSRC= bufTest.cc handleTest2.cc
+COBJ=$(addprefix ${OBJDIR}/, $(patsubst %.cc,%.o,$(CSRC)))
+CMDS=$(addprefix ${OBJDIR}/, $(basename $(CSRC)))
+
+all: $(OBJDIR) $(OBJDIR)/$(WUPLUSNAME) $(CMDS)
+
+ixp :
+	@echo "@@@ Building for the IXP target @@@"
+	@${MAKE} --no-print-directory WUTARGET="ixp" -e all
+
+ixp-clean :
+	@echo "@@@ Cleaning for the IXP target @@@"
+	@${MAKE} --no-print-directory WUTARGET="ixp" -e clean
+
+install : all
+
+$(OBJDIR) :
+	mkdir $(OBJDIR)
+
+$(OBJS) : ${OBJDIR}/%.o : %.cc Makefile
+	${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
+
+$(OBJDIR)/$(WUPLUSNAME) : $(OBJS)
+	$(AR) rc $@ $(OBJS)
+	$(RANLIB) $@
+
+$(COBJ) : ${OBJDIR}/%.o : %.cc ${HFILES} Makefile
+	${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
+
+$(CMDS) : ${OBJDIR}/% : $(OBJDIR)/%.o $(WULIBOBJ)
+	${CXX} ${CXXFLAGS} -o $@ $@.o ${LIBS}
+	chmod 0755 $@
+
+
+clean:
+	/bin/rm -f $(OBJDIR)/*
+
+realclean:
+	/bin/rm -f *~
+	/bin/rm -R $(OBJDIR)
+	/bin/rm -R $(CLASSDIR)
+
+depend:
+	makedepend -- $(CXXFLAGS) $(INCLUDES) -- $(SRCS) $(CSRC)
+
+# DO NOT DELETE
+
+buf.o: /usr/include/stdint.h /usr/include/features.h /usr/include/sys/cdefs.h
+buf.o: /usr/include/gnu/stubs.h /usr/include/bits/wchar.h
+buf.o: /usr/include/bits/wordsize.h /usr/include/unistd.h
+buf.o: /usr/include/bits/posix_opt.h /usr/include/bits/environments.h
+buf.o: /usr/include/bits/types.h
+buf.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/stddef.h
+buf.o: /usr/include/bits/typesizes.h /usr/include/bits/confname.h
+buf.o: /usr/include/getopt.h /usr/include/sys/types.h /usr/include/time.h
+buf.o: /usr/include/endian.h /usr/include/bits/endian.h
+buf.o: /usr/include/sys/select.h /usr/include/bits/select.h
+buf.o: /usr/include/bits/sigset.h /usr/include/bits/time.h
+buf.o: /usr/include/sys/sysmacros.h /usr/include/bits/pthreadtypes.h
+buf.o: /usr/include/bits/sched.h /usr/include/sys/socket.h
+buf.o: /usr/include/sys/uio.h /usr/include/bits/uio.h
+buf.o: /usr/include/bits/socket.h /usr/include/limits.h
+buf.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/limits.h
+buf.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
+buf.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
+buf.o: /usr/include/bits/xopen_lim.h /usr/include/bits/stdio_lim.h
+buf.o: /usr/include/bits/sockaddr.h /usr/include/asm/socket.h
+buf.o: /usr/include/asm/sockios.h /usr/include/arpa/inet.h
+buf.o: /usr/include/netinet/in.h /usr/include/bits/in.h
+buf.o: /usr/include/bits/byteswap.h /usr/include/netdb.h
+buf.o: /usr/include/rpc/netdb.h /usr/include/bits/siginfo.h
+buf.o: /usr/include/bits/netdb.h
+buf.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wulog.h
+buf.o: /usr/include/string.h /usr/include/xlocale.h net.h
+buf.o: /usr/include/errno.h /usr/include/bits/errno.h
+buf.o: /usr/include/linux/errno.h /usr/include/asm/errno.h
+buf.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wunet.h
+buf.o: /usr/include/sys/param.h /usr/include/linux/param.h
+buf.o: /usr/include/asm/param.h buf.h
+sock.o: /usr/include/stdint.h /usr/include/features.h
+sock.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
+sock.o: /usr/include/bits/wchar.h /usr/include/bits/wordsize.h
+sock.o: /usr/include/unistd.h /usr/include/bits/posix_opt.h
+sock.o: /usr/include/bits/environments.h /usr/include/bits/types.h
+sock.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/stddef.h
+sock.o: /usr/include/bits/typesizes.h /usr/include/bits/confname.h
+sock.o: /usr/include/getopt.h /usr/include/fcntl.h /usr/include/bits/fcntl.h
+sock.o: /usr/include/sys/types.h /usr/include/time.h /usr/include/endian.h
+sock.o: /usr/include/bits/endian.h /usr/include/sys/select.h
+sock.o: /usr/include/bits/select.h /usr/include/bits/sigset.h
+sock.o: /usr/include/bits/time.h /usr/include/sys/sysmacros.h
+sock.o: /usr/include/bits/pthreadtypes.h /usr/include/bits/sched.h
+sock.o: /usr/include/sys/stat.h /usr/include/bits/stat.h
+sock.o: /usr/include/sys/socket.h /usr/include/sys/uio.h
+sock.o: /usr/include/bits/uio.h /usr/include/bits/socket.h
+sock.o: /usr/include/limits.h
+sock.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/limits.h
+sock.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
+sock.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
+sock.o: /usr/include/bits/xopen_lim.h /usr/include/bits/stdio_lim.h
+sock.o: /usr/include/bits/sockaddr.h /usr/include/asm/socket.h
+sock.o: /usr/include/asm/sockios.h /usr/include/arpa/inet.h
+sock.o: /usr/include/netinet/in.h /usr/include/bits/in.h
+sock.o: /usr/include/bits/byteswap.h /usr/include/netinet/tcp.h
+sock.o: /usr/include/netdb.h /usr/include/rpc/netdb.h
+sock.o: /usr/include/bits/siginfo.h /usr/include/bits/netdb.h
+sock.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wulog.h
+sock.o: /usr/include/string.h /usr/include/xlocale.h net.h
+sock.o: /usr/include/errno.h /usr/include/bits/errno.h
+sock.o: /usr/include/linux/errno.h /usr/include/asm/errno.h
+sock.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wunet.h
+sock.o: /usr/include/sys/param.h /usr/include/linux/param.h
+sock.o: /usr/include/asm/param.h addr.h
+sock.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/net.h sock.h
+sock.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/addr.h
+addr.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wunet.h
+addr.o: /usr/include/sys/param.h /usr/include/limits.h
+addr.o: /usr/include/features.h /usr/include/sys/cdefs.h
+addr.o: /usr/include/gnu/stubs.h
+addr.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/limits.h
+addr.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
+addr.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
+addr.o: /usr/include/bits/xopen_lim.h /usr/include/bits/stdio_lim.h
+addr.o: /usr/include/linux/param.h /usr/include/asm/param.h
+addr.o: /usr/include/unistd.h /usr/include/bits/posix_opt.h
+addr.o: /usr/include/bits/environments.h /usr/include/bits/types.h
+addr.o: /usr/include/bits/wordsize.h
+addr.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/stddef.h
+addr.o: /usr/include/bits/typesizes.h /usr/include/bits/confname.h
+addr.o: /usr/include/getopt.h /usr/include/sys/types.h /usr/include/time.h
+addr.o: /usr/include/endian.h /usr/include/bits/endian.h
+addr.o: /usr/include/sys/select.h /usr/include/bits/select.h
+addr.o: /usr/include/bits/sigset.h /usr/include/bits/time.h
+addr.o: /usr/include/sys/sysmacros.h /usr/include/bits/pthreadtypes.h
+addr.o: /usr/include/bits/sched.h /usr/include/netdb.h
+addr.o: /usr/include/netinet/in.h /usr/include/stdint.h
+addr.o: /usr/include/bits/wchar.h /usr/include/sys/socket.h
+addr.o: /usr/include/sys/uio.h /usr/include/bits/uio.h
+addr.o: /usr/include/bits/socket.h /usr/include/bits/sockaddr.h
+addr.o: /usr/include/asm/socket.h /usr/include/asm/sockios.h
+addr.o: /usr/include/bits/in.h /usr/include/bits/byteswap.h
+addr.o: /usr/include/rpc/netdb.h /usr/include/bits/siginfo.h
+addr.o: /usr/include/bits/netdb.h /usr/include/arpa/inet.h
+addr.o: /usr/include/string.h /usr/include/xlocale.h
+stringUtils.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/stringUtils.h
+token.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/token.h
+valBuf.o: /usr/include/errno.h /usr/include/features.h
+valBuf.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
+valBuf.o: /usr/include/bits/errno.h /usr/include/linux/errno.h
+valBuf.o: /usr/include/asm/errno.h
+valBuf.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/stddef.h
+valBuf.o: /usr/include/inttypes.h /usr/include/stdint.h
+valBuf.o: /usr/include/bits/wchar.h /usr/include/bits/wordsize.h
+valBuf.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/valTypes.h
+valBuf.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/valBuf.h
+valBuf.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/error.h
+error.o: /usr/include/errno.h /usr/include/features.h
+error.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
+error.o: /usr/include/bits/errno.h /usr/include/linux/errno.h
+error.o: /usr/include/asm/errno.h
+error.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/error.h
+bufTest.o: /usr/include/stdint.h /usr/include/features.h
+bufTest.o: /usr/include/sys/cdefs.h /usr/include/gnu/stubs.h
+bufTest.o: /usr/include/bits/wchar.h /usr/include/bits/wordsize.h
+bufTest.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wulog.h
+bufTest.o: /usr/include/string.h
+bufTest.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/stddef.h
+bufTest.o: /usr/include/xlocale.h net.h /usr/include/errno.h
+bufTest.o: /usr/include/bits/errno.h /usr/include/linux/errno.h
+bufTest.o: /usr/include/asm/errno.h
+bufTest.o: /home/arl/student/cgw1/wu_arl/wusrc/wulib/wunet.h
+bufTest.o: /usr/include/sys/param.h /usr/include/limits.h
+bufTest.o: /usr/lib/gcc/i386-redhat-linux/3.4.5/include/limits.h
+bufTest.o: /usr/include/bits/posix1_lim.h /usr/include/bits/local_lim.h
+bufTest.o: /usr/include/linux/limits.h /usr/include/bits/posix2_lim.h
+bufTest.o: /usr/include/bits/xopen_lim.h /usr/include/bits/stdio_lim.h
+bufTest.o: /usr/include/linux/param.h /usr/include/asm/param.h
+bufTest.o: /usr/include/unistd.h /usr/include/bits/posix_opt.h
+bufTest.o: /usr/include/bits/environments.h /usr/include/bits/types.h
+bufTest.o: /usr/include/bits/typesizes.h /usr/include/bits/confname.h
+bufTest.o: /usr/include/getopt.h /usr/include/sys/types.h /usr/include/time.h
+bufTest.o: /usr/include/endian.h /usr/include/bits/endian.h
+bufTest.o: /usr/include/sys/select.h /usr/include/bits/select.h
+bufTest.o: /usr/include/bits/sigset.h /usr/include/bits/time.h
+bufTest.o: /usr/include/sys/sysmacros.h /usr/include/bits/pthreadtypes.h
+bufTest.o: /usr/include/bits/sched.h /usr/include/netdb.h
+bufTest.o: /usr/include/netinet/in.h /usr/include/sys/socket.h
+bufTest.o: /usr/include/sys/uio.h /usr/include/bits/uio.h
+bufTest.o: /usr/include/bits/socket.h /usr/include/bits/sockaddr.h
+bufTest.o: /usr/include/asm/socket.h /usr/include/asm/sockios.h
+bufTest.o: /usr/include/bits/in.h /usr/include/bits/byteswap.h
+bufTest.o: /usr/include/rpc/netdb.h /usr/include/bits/siginfo.h
+bufTest.o: /usr/include/bits/netdb.h /usr/include/arpa/inet.h buf.h
+handleTest2.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/handle.h
+handleTest2.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/tmpUtils.h
+handleTest2.o: /home/arl/student/cgw1/wu_arl/wusrc/wuPP/handle.cc

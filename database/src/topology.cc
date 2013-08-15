@@ -456,6 +456,7 @@ int topology::get_realport(unsigned int label, int node_ndx) throw()
       else return (*lit)->node2_rport;
     }
   }
+  return -1;
 }
 
 

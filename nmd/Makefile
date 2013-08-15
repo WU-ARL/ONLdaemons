@@ -20,7 +20,7 @@ DEBUG = -g
 CXXFLAGS = ${DEBUG} -DPTHREADS -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wall -Wundef -Wimplicit -Wno-deprecated -Woverloaded-virtual 
 INCLUDES = -I. -I../shared
 
-LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared
+LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt
 
 EXEC = $(OBJDIR)/nmd
 OBJS = $(OBJDIR)/nmd_requests.o \

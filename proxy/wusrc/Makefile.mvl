@@ -1,0 +1,35 @@
+##
+## $Source: /project/arl/arlcvs/cvsroot/wu_arl/wusrc/Makefile.mvl,v $
+## $Author: fredk $
+## $Date: 2007/03/12 18:38:55 $
+## $Revision: 1.1 $
+## $Name:  $
+##
+## File:   Makefile.ixp
+## Author: Fred Kuhns
+## Email:  fredk@cse.wustl.edu
+## Organization: Washington University in St. Louis
+## 
+## Created:  09/14/06 09:45:24 CDT
+## 
+## Description:
+##
+
+IXP_BASE          = /opt
+IXP_CROSSBUILD    = /opt/crossbuild
+IXP_LINUXSRC      = linux-2.4.20_mvl31
+
+MVL_TARGET_PREFIX = xscale_be
+IXP_TARGET_PREFIX = ${IXP_TARGET_PREFIX}
+MVL_ROOT          = ${IXP_BASE}/montavista
+
+MVL_CROSS_ROOT    = ${MVL_ROOT}/pro/devkit/arm/${MVL_TARGET_PREFIX}
+MVL_CROSS_BIN     = ${MVL_CROSS_ROOT}/bin
+MVL_TARGET_FS     = ${MVL_CROSS_ROOT}/target
+
+MVL_HOST_ROOT     = ${MVL_ROOT}/pro/host
+MVL_HOST_BIN      = ${MVL_HOST_ROOT}/bin
+
+MVL_KERNEL_DIR    = ${MVL_ROOT}/pro/devkit/lsp/intel-ixdp2800-arm_xscale_be/${IXP_LINUXSRC}
+## KERNELDIR         = ${MVL_KERNEL_DIR}
+KERNELDIR         = ${IXP_CROSSBUILD}/${IXP_LINUXSRC}

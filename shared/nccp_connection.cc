@@ -50,7 +50,107 @@
 
 using namespace onld;
 
-nccp_connection::nccp_connection(std::string addr, unsigned short port) throw(nccpconn_exception)
+nccp_connection::nccp_connection(const char* ccaddr, unsigned short port) throw(nccpconn_exception)
+{
+  struct sockaddr_in reqAddr;
+  struct in_addr address;
+  struct hostent *hp;
+  struct hostent hs;
+  char tmp[512];
+  int hosterror;
+  std::string addr(ccaddr);
+
+
+  sockfd = -1;
+  sock_ready = false;
+  closed = false;
+  finished = false;
+  message_count = 0;
+
+  std::string logstr = "nccp_connection::nccp_connection: connect to addr " + addr + " port " + int2str(port);
+  write_log(logstr);
+
+  if(port == 0)
+  {
+    return;
+  }
+
+/*
+  if((hp = gethostbyname(addr.c_str())) == NULL)
+  {
+    throw nccpconn_exception("gethostbyname error");
+  }
+*/
+  gethostbyname_r(addr.c_str(), &hs, tmp, 511, &hp, &hosterror);
+  if(!hp)
+  {
+    throw nccpconn_exception("gethostbyname_r error");
+  }
+
+  memcpy(&address.s_addr, hp->h_addr_list[0], 4);
+
+  local_addr = 0;
+  local_port = 0;
+  remote_addr = ntohl(address.s_addr);
+  remote_port = port;
+
+  bzero((char *)&reqAddr, sizeof(reqAddr));
+
+  reqAddr.sin_family = AF_INET;
+  reqAddr.sin_port = htons(port);
+  reqAddr.sin_addr.s_addr = address.s_addr;
+
+  if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  {
+    throw nccpconn_exception("socket creation error");
+  }
+
+  errno = 0; 
+  if(connect(sockfd, (struct sockaddr *)&reqAddr, sizeof(reqAddr)) == -1)
+  {
+    switch(errno)
+      {
+        case EACCES:
+          write_log("nccp_connection::connect error EACCES");
+          break;
+        case EPERM:
+          write_log("nccp_connection::connect error EPERM");
+          break;
+        case EADDRINUSE:
+          write_log("nccp_connection::connect error EADDRINUSE");
+          break;
+        case EAGAIN:
+          write_log("nccp_connection::connect error EAGAIN");
+          break;
+        case EALREADY:
+          write_log("nccp_connection::connect error EALREADY");
+          break;
+        case ECONNREFUSED:
+          write_log("nccp_connection::connect error ECONNREFUSED");
+          break;
+        case EFAULT:
+          write_log("nccp_connection::connect error EFAULT");
+          break;
+        case EINPROGRESS:
+          write_log("nccp_connection::connect error EINPROGRESS");
+          break;
+        case ETIMEDOUT:
+          write_log("nccp_connection::connect error ETIMEDOUT");
+          break;
+        default:
+          write_log("nccp_connection::connect error " + int2str(errno));
+       }
+    throw nccpconn_exception("connect error");
+  }
+
+  pthread_mutex_init((&write_lock), NULL);
+  pthread_mutex_init((&count_lock), NULL);
+
+  dispatcher_ = dispatcher::get_dispatcher();
+  
+}
+
+nccp_connection::nccp_connection(std::string& addr, unsigned short port) throw(nccpconn_exception)
 {
   struct sockaddr_in reqAddr;
   struct in_addr address;
