@@ -35,5 +35,3 @@ CXX    = $(PREFIX)g++
 RANLIB = $(PREFIX)ranlib
 LD     = $(PREFIX)ld
 NM     = $(PREFIX)nm
-
-

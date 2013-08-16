@@ -974,12 +974,12 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
 
 bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<assign_info_ptr>* >::iterator ali, std::list< std::list<assign_info_ptr>* >::iterator end, unsigned int level) throw()
 {
+  if(ali == end) return true;
   std::list<assign_info_ptr> al = **ali;
   std::list<assign_info_ptr>::iterator ai, clean;
   std::list<assign_info_ptr>::iterator ri;
   std::list< std::list<assign_info_ptr>* >::iterator alinew;
 
-  if(ali == end) return true;
   alinew = ali;
   ++alinew;
 
@@ -6192,7 +6192,7 @@ onldb_resp onldb::has_virtual_port(std::string type) throw()
   try
   {
     mysqlpp::Query query = onl->query();
-    query << "select hasvport from types where tid=" << mysqlpp::quote << type << ")";
+    query << "select hasvport from types where tid=" << mysqlpp::quote << type;// << ")";
     mysqlpp::StoreQueryResult res = query.store();
     if(res.empty())
     {
