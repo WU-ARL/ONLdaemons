@@ -176,6 +176,7 @@ session_manager::authenticate(std::string username, std::string password)
   onl::onldb_resp res = database->authenticate_user(username,password);
   if(res.result() < 1)
   {
+    write_log("session_manager::authenticate(): failed error:" + res.msg());
     return false;
   }
   return true;

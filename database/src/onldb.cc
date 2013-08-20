@@ -237,6 +237,8 @@ onldb::onldb() throw()
       getline(fs, onldbpass_str);
 
       onl = new mysqlpp::Connection(onldb_str.c_str(), onldbhost_str.c_str(), onldbuser_str.c_str(), onldbpass_str.c_str());//ONLDB,ONLDBHOST,ONLDBUSER,ONLDBPASS);
+      onl->set_option(new mysqlpp::ReconnectOption(true));
+      //onl->set_option(new mysqlpp::ConnectTimeoutOption(5));
     }
 
   nodestates::table("nodes");
