@@ -97,12 +97,12 @@ session_manager::~session_manager()
 void
 session_manager::initialize()
 {
-  std::string cmd = "/usr/testbed/scripts/send_crd_email.pl";
-  int ret = system(cmd.c_str());
-  if(ret < 0 || WEXITSTATUS(ret) != 1) write_log("session_manager::initialize(): Warning: starting email was not sent");
-
+  int ret;
   if(!testing)
   {
+    std::string cmd = "/usr/testbed/scripts/send_crd_email.pl";
+    ret = system(cmd.c_str());
+    if(ret < 0 || WEXITSTATUS(ret) != 1) write_log("session_manager::initialize(): Warning: starting email was not sent");
     database->clear_all_experiments();
   }
 

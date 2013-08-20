@@ -3638,6 +3638,7 @@ onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, st
   std::map<int, int> caps;
   std::map<int, int> rls;
   std::map<int, int> lls;
+  std::map<int, int> conn_caps;
   std::map<int, int>::iterator mit;
 
   for(lit = t->links.begin(); lit != t->links.end(); ++lit)
@@ -3647,15 +3648,28 @@ onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, st
       if(*cit == 0) { continue; }
       if(caps.find(*cit) == caps.end())
       {
-        caps[*cit] = (*lit)->capacity;
-	rls[*cit] = (*lit)->rload;
-	lls[*cit] = (*lit)->lload;
+        caps[*cit] = (*lit)->capacity;	
+	//get the connection capacity
+	mysqlpp::Query query2 = onl->query();
+	query2 << "select capacity from connections where cid=" << mysqlpp::quote << (*cit);
+	vector<capinfo> ci2;
+	query2.storein(ci2);
+	if(ci2.size() != 1) { return onldb_resp(-1, (std::string)"database consistency problem");} 
+	conn_caps[*cit] = ci2[0].capacity;
+	if (conn_caps[*cit] < (*lit)->rload) rls[*cit] = conn_caps[*cit];
+	else rls[*cit] = (*lit)->rload;
+	if (conn_caps[*cit] < (*lit)->lload) lls[*cit] = conn_caps[*cit];
+	else lls[*cit] = (*lit)->lload;
       }
       else
       {
         caps[*cit] += (*lit)->capacity;
-	rls[*cit] += (*lit)->rload;
-	lls[*cit] += (*lit)->lload;
+	if (conn_caps[*cit] < (*lit)->rload) rls[*cit] += conn_caps[*cit];
+	else rls[*cit] += (*lit)->rload;
+	if (conn_caps[*cit] < (*lit)->lload) lls[*cit] += conn_caps[*cit];
+	else lls[*cit] += (*lit)->lload;
+	//rls[*cit] += (*lit)->rload;
+	//lls[*cit] += (*lit)->lload;
       }
     }
   }
@@ -3672,16 +3686,21 @@ onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, st
       for(cap = ci.begin(); cap != ci.end(); ++cap) 
       {
         caps[mit->first] += cap->capacity;
-        rls[mit->first] += cap->rload;
-        lls[mit->first] += cap->lload;
+	if (conn_caps[mit->first] < cap->rload) rls[*cit] += conn_caps[mit->first];
+	else rls[*cit] += cap->rload;
+	if (conn_caps[mit->first] < cap->lload) lls[*cit] += conn_caps[mit->first];
+	else lls[mit->first] += cap->lload;
+        //rls[mit->first] += cap->rload;
+        //lls[mit->first] += cap->lload;
       }
 
-      mysqlpp::Query query2 = onl->query();
-      query2 << "select capacity from connections where cid=" << mysqlpp::quote << mit->first;
-      vector<capinfo> ci2;
-      query2.storein(ci2);
-      if(ci2.size() != 1) { return onldb_resp(-1, (std::string)"database consistency problem"); }
-      if(rls[mit->first] > ci2[0].capacity || lls[mit->first] > ci2[0].capacity)
+      //mysqlpp::Query query2 = onl->query();
+      //query2 << "select capacity from connections where cid=" << mysqlpp::quote << mit->first;
+      //vector<capinfo> ci2;
+      //query2.storein(ci2);
+      //if(ci2.size() != 1) { return onldb_resp(-1, (std::string)"database consistency problem"); }
+      //if(rls[mit->first] > ci2[0].capacity || lls[mit->first] > ci2[0].capacity)
+      if(rls[mit->first] > conn_caps[mit->first] || lls[mit->first] > conn_caps[mit->first])
       {
         return onldb_resp(0,(std::string)"too many resources in use");
       }
