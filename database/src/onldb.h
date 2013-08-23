@@ -85,8 +85,8 @@ namespace onl
       bool is_cluster_mapped(node_resource_ptr cluster) throw();
       void initialize_base_potential_loads(topology* base);
       int compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, topology* req, topology* base) throw();
-      int compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw();
-      int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path) throw();
+      int compute_path_costs(node_resource_ptr node, node_resource_ptr n, subnet_info_ptr subnet) throw();
+      int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw();
       node_resource_ptr map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw();
       node_resource_ptr get_new_vswitch(topology* req) throw();
       void map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* base) throw();
