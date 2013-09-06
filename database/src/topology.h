@@ -32,6 +32,7 @@ namespace onl
       std::string lowercase(std::string) throw();
       int intercluster_cost;
       int host_cost;
+      node_resource_ptr get_node(std::string nm) throw();
 
     public:
       topology() throw();

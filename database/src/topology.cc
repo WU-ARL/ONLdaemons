@@ -393,6 +393,17 @@ std::string topology::get_component(unsigned int label) throw()
   return "";
 }
 
+node_resource_ptr topology::get_node(std::string nm) throw()
+{
+  node_resource_ptr null_node;
+  list<node_resource_ptr>::iterator nit;
+  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
+  {
+    if ((*nit)->node == nm) return (*nit);
+  }
+  return null_node;
+}
+
 std::string topology::get_type(unsigned int label) throw()
 {
   list<node_resource_ptr>::iterator nit;

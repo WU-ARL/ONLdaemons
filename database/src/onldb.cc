@@ -1697,6 +1697,19 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
     {
       if ((*reqnit)->parent) continue; //if this is a child node skip it, we'll add the parent and treat the hwcluster as a single node
       inserted_new = false;
+      //if the node is fixed marked as mapped and set mapped node
+      if ((*reqnit)->fixed) 
+	{
+	  (*reqnit)->marked = true;
+	  (*reqnit)->mapped_node = base->get_node((*reqnit)->node);
+	  if ((*reqnit)->mapped_node)
+	    (*reqnit)->mapped_node->marked = true;
+	  else
+	    {
+	      cout << "onldb::find_embedding couldn't allocate fixed node " << (*reqnit)->node << endl;
+	      return false;
+	    }
+	}
       //order nodes fixed nodes first the rest based on cost, most costly first. 
       for(it = ordered_nodes.begin(); it != ordered_nodes.end(); ++it)
 	{
@@ -1716,6 +1729,7 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
   node_resource_ptr new_node;
   for(reqnit = ordered_nodes.begin(); reqnit != ordered_nodes.end(); ++reqnit)
     {
+      
       fcluster = find_feasible_cluster(*reqnit, cl, &req, base);
       if (fcluster)
 	{

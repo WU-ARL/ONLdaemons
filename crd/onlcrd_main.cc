@@ -106,10 +106,16 @@ int main(int argc, char** argv)
   try
   {
     if (!testing)
-      the_gige_conn = new nccp_connection("127.0.0.1", Default_NMD_Port);
-    std::string tmp_addr("10.0.1.2");//onlsrv
-    //std::string tmp_addr("10.0.1.7");//onlsrv2
-    listener = new nccp_listener(tmp_addr, listen_port);
+      {
+         the_gige_conn = new nccp_connection("127.0.0.1", Default_NMD_Port);
+         std::string tmp_addr("10.0.1.2");//onlsrv
+         listener = new nccp_listener(tmp_addr, listen_port);
+      }
+    else
+      {
+         std::string tmp_addr("10.0.1.7");//onlsrv2
+         listener = new nccp_listener(tmp_addr, listen_port);
+      }
   }
   catch(std::exception& e)
   {

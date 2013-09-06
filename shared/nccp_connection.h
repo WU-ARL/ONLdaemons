@@ -43,8 +43,7 @@ namespace onld
   {
     public:
       // connect to addr:port
-      nccp_connection(const char* ccaddr, unsigned short port) throw(nccpconn_exception);
-      nccp_connection(std::string& addr, unsigned short port) throw(nccpconn_exception);
+      nccp_connection(std::string addr, unsigned short port) throw(nccpconn_exception);
       // use already connected socket sfd
       nccp_connection(int sfd, uint32_t local_address, uint16_t local_portnum, uint32_t remote_address, uint16_t remote_portnum) throw(nccpconn_exception);
       ~nccp_connection() throw();
