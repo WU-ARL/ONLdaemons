@@ -72,8 +72,10 @@ namespace onl
     node_resource_ptr node1;
     unsigned int node1_port;
     int node1_rport;//real physical port this is may differ from node1_port for virtual ports
+    unsigned int node1_capacity;
     node_resource_ptr node2;
     unsigned int node2_port;
+    unsigned int node2_capacity;
     int node2_rport;//real physical port this is may differ from node2_port for virtual ports
 
     // these will be filled in if the resource becomes part of an actual experiment

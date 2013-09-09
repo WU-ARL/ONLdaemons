@@ -206,13 +206,18 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   return onldb_resp(1,(std::string)"success");
 }
 
-onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
+onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_cap, unsigned int node2_label, unsigned int node2_port, unsigned int node2_cap, unsigned int rload, unsigned int lload) throw()
 {
   return (add_link(label, capacity, node1_label, node1_port, node1_port, node2_label, node2_port, node2_port, rload, lload));
 }
 
+onldb_resp topology::add_cap_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_cap, unsigned int node2_label, unsigned int node2_port, unsigned int node2_cap, unsigned int rload, unsigned int lload) throw()
+{
+  return (add_link(label, capacity, node1_label, node1_port, node1_port, node2_label, node2_port, node2_port, rload, lload, node1_cap, node2_cap));
+}
 
-onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
+
+onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload, unsigned int node1_cap, unsigned int node2_cap) throw()
 {
   link_resource_ptr lrp(new link_resource());
   
@@ -225,6 +230,12 @@ onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigne
   lrp->node2_port = node2_port;
   lrp->node1_rport = node1_rport;
   lrp->node2_rport = node2_rport;
+  if (node1_cap > 0)
+    lrp->node1_capacity = node1_cap;
+  else lrp->node1_capacity = capacity;
+  if (node2_cap > 0)
+    lrp->node2_capacity = node2_cap;
+  else lrp->node2_capacity = capacity;
 
   lrp->marked = false;
   lrp->level = 0;
@@ -232,8 +243,6 @@ onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigne
   lrp->linkid = 0;
   lrp->added = false;
 
-  lrp->rload = 0;
-  lrp->lload = 0;
   lrp->cost = 0;
   lrp->potential_rcap = capacity-rload;
   lrp->potential_lcap = capacity-lload;
@@ -295,6 +304,8 @@ onldb_resp topology::add_copy_link(link_resource_ptr lnk) throw()
   lrp->node2_port = lnk->node2_port;
   lrp->node1_rport = lnk->node1_rport;
   lrp->node2_rport = lnk->node2_rport;
+  lrp->node1_capacity = lnk->node1_capacity;
+  lrp->node2_capacity = lnk->node2_capacity;
 
   lrp->marked = lnk->marked;
   lrp->level = lnk->level;
@@ -391,17 +402,6 @@ std::string topology::get_component(unsigned int label) throw()
     }
   }
   return "";
-}
-
-node_resource_ptr topology::get_node(std::string nm) throw()
-{
-  node_resource_ptr null_node;
-  list<node_resource_ptr>::iterator nit;
-  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
-  {
-    if ((*nit)->node == nm) return (*nit);
-  }
-  return null_node;
 }
 
 std::string topology::get_type(unsigned int label) throw()

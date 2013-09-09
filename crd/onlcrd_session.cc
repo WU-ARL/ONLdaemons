@@ -206,10 +206,13 @@ session::commit(session_ptr sess)
 
     std::string n1type = topology.get_type(req->getFromComponent().getID());
     int n1port = req->getFromPort();
-    int n1cap;
+    int n1cap = req->getFromCapacity();
     std::string n2type = topology.get_type(req->getToComponent().getID());
     int n2port = req->getToPort();
-    int n2cap;
+    int n2cap = req->getToCapacity();
+
+    bool hascap = true;
+    if (req->getVersion() <= 0x75) hascap = false;
 
     if(n1type == "vgige" && n2type == "vgige")
     {
@@ -219,25 +222,31 @@ session::commit(session_ptr sess)
     }
     else if(n1type == "vgige")
     {
-      n2cap = the_session_manager->get_capacity(n2type,n2port);
-      if (topology.has_virtual_port(req->getToComponent().getID()))
+      if (!hascap)
 	{
-	  if (n2cap < req->getCapacity()) n2cap = -1;
-	  else n2cap = req->getCapacity();
+	  n2cap = the_session_manager->get_capacity(n2type,n2port);
+	  if (topology.has_virtual_port(req->getToComponent().getID()))
+	    {
+	      if (n2cap < req->getCapacity()) n2cap = -1;
+	      else n2cap = req->getCapacity();
+	    }
 	}
       n1cap = n2cap;
     }
     else if(n2type == "vgige")
     {
-      n1cap = the_session_manager->get_capacity(n1type,n1port);
-      if (topology.has_virtual_port(req->getFromComponent().getID()))
+      if (!hascap)
 	{
-	  if (n1cap < req->getCapacity()) n1cap = -1;
-	  else n1cap = req->getCapacity();
+	  n1cap = the_session_manager->get_capacity(n1type,n1port);
+	  if (topology.has_virtual_port(req->getFromComponent().getID()))
+	    {
+	      if (n1cap < req->getCapacity()) n1cap = -1;
+	      else n1cap = req->getCapacity();
+	    }
 	}
       n2cap = n1cap;
     }
-    else
+    else if (!hascap)
     {
       n1cap = the_session_manager->get_capacity(n1type,n1port);
       if (the_session_manager->has_virtual_port(n1type))
@@ -253,7 +262,8 @@ session::commit(session_ptr sess)
 	}
     }
 
-    if(n1cap == -1 || n2cap == -1 || n1cap != n2cap)
+
+    if(n1cap == -1 || n2cap == -1 || (!hascap && n1cap != n2cap))
     {
       lnk_it = link_reqs.erase(lnk_it);
 
@@ -265,7 +275,7 @@ session::commit(session_ptr sess)
     }
     else
     {
-      onl::onldb_resp r = topology.add_link(c.getID(), n1cap, req->getFromComponent().getID(), n1port, req->getToComponent().getID(), n2port);
+      onl::onldb_resp r = topology.add_cap_link(c.getID(), n1cap, req->getFromComponent().getID(), n1port, n1cap, req->getToComponent().getID(), n2port, n2cap);
       if(r.result() < 1)
       {
         lnk_it = link_reqs.erase(lnk_it);

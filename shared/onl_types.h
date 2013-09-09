@@ -233,6 +233,8 @@ namespace onld
       std::string getNHIPAddr() { return nexthop_ipaddr.getString(); }
       uint32_t getVLan() { return vlanid;}
       void setVLan(uint32_t v) { vlanid = v;}
+      uint32_t getBandwidth() { return bandwidth;}
+      void setBandwidth(uint32_t bw) { bandwidth = bw;} 
 
       friend byte_buffer& operator<<(byte_buffer& buf, node_info& ni);
       friend byte_buffer& operator>>(byte_buffer& buf, node_info& ni);
@@ -243,6 +245,7 @@ namespace onld
       uint32_t port;//for components that support virtual ports this is the virtual port index
       uint32_t real_port;//used for components that support virtual ports this is the real interface assigned
       uint32_t vlanid;
+      uint32_t bandwidth; //in Mbits/s
       nccp_string remote_type;
       bool is_remote_router;
       nccp_string nexthop_ipaddr;

@@ -370,11 +370,11 @@ onldb_resp onldb::get_link_vport(unsigned int linkid, unsigned int rid, int port
   {
     mysqlpp::Query query = onl->query();
     if (port == 1)
-      query << "select port1 from vportschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
+      query << "select port1 from linkschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
     else
-      query << "select port2 from vportschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
+      query << "select port2 from linkschedule where rid=" << mysqlpp::quote << rid << " and linkid=" << mysqlpp::quote << linkid << ")";
     mysqlpp::StoreQueryResult res = query.store();
-    if(res.empty()) return onldb_resp(-1,(std::string)"vportschedule not in database");
+    if(res.empty()) return onldb_resp(-1,(std::string)"linkschedule not in database");
 
     vportinfo p = res[0];
     return onldb_resp(p.virtualport,(std::string)"success");
@@ -555,7 +555,7 @@ onldb_resp onldb::verify_clusters(topology *t) throw()
 //}
 
 //bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
-bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw()
+bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload, unsigned int node1_cap, unsigned int node2_cap) throw()
 {
   // there are three cases to deal with: node->node (normal) links, node->vswitch
   // links, and vswitch->vswitch links. for node->node links, both node1_label
@@ -588,7 +588,7 @@ bool onldb::add_link(topology* t, int rid, unsigned int cur_link, unsigned int l
   }
 
   //onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, rload, lload);
-  onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, rload, lload);
+  onldb_resp r = t->add_link(linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, rload, lload, node1_cap, node2_cap);
   if(r.result() != 1) { return false; }
 
   return true;
@@ -679,6 +679,13 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
     vector<linkinfo> li;
     query3.storein(li);
     vector<linkinfo>::iterator it3;
+
+    mysql::Query query4 = onl->query();
+    query4 << "select * from linkschedule where rid=" << mysqlpp:quote << rid << " order by vportschedule.linkid";
+    vector<linkschedule> vps;
+    query4.storein(vps);
+    vector<linkschedule>::iterator vps_it;
+
     if(!li.empty())
     {
       unsigned int cur_link = li.begin()->linkid;
@@ -689,15 +696,32 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       unsigned int node1_label = 0;
       unsigned int node1_port;
       unsigned int node1_rport;
+      unsigned int node1_cap = 0;
       unsigned int node2_label = 0;
       unsigned int node2_port;
       unsigned int node2_rport;
+      unsigned int node2_cap = 0;
+
+      for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
+	{
+	  if ((*vps_it)->linkid == cur_link)
+	    {
+	      node1_label = t->get_label((*vps_it)->node1);
+	      node1_port = (*vps_it)->node1port;
+	      node1_cap = (*vps_it)->node1capacity;
+	      node2_label = t->get_label((*vps_it)->node2);
+	      node2_port = (*vps_it)->node2port;
+	      node2_cap = (*vps_it)->node2capacity;
+	      break;
+	    }
+	}
+
       for(it3 = li.begin(); it3 != li.end(); ++it3)
       {
         if(cur_link != it3->linkid)
         {
           //if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
-	  if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload))
+	  if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload, node1_cap, node2_cap))
           {
             return onldb_resp(-1, (std::string)"database consistency problem");
           }
@@ -710,59 +734,64 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	  cur_lload = it3->lload;
           cur_conns.clear();
           node1_label = 0;
+	  node1_port = 0;
+	  node1_rport = 0;
+	  node1_cap = 0;
           node2_label = 0;
+	  node2_port = 0;
+	  node2_rport = 0;
+	  node2_cap = 0;
+     
+	  for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
+	    {
+	      if ((*vps_it)->linkid == cur_link)
+		{
+		  node1_label = t->get_label((*vps_it)->node1);
+		  node1_port = (*vps_it)->node1port;
+		  node1_cap = (*vps_it)->node1capacity;
+		  node2_label = t->get_label((*vps_it)->node2);
+		  node2_port = (*vps_it)->node2port;
+		  node2_cap = (*vps_it)->node2capacity;
+		  break;
+		}
+	    }
         }
       
         cur_conns.push_back(it3->cid);
-
-        // node 2 is always an infrastructure node, so just check node1
-        onldb_resp r1 = is_infrastructure(it3->node1); 
-        if(r1.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
-        if(r1.result() == 0)
-        {
-	  //VIRTUAL_PORTS
-          if(node1_label == 0)
-          {
-            node1_label = t->get_label(it3->node1);
-	    //see if this link had virtual ports
-	    onldb_resp vpr = get_link_vport(cur_link, rid, 1);
-	    if(vpr.result() < 0) //there were no virtual ports scheduled for this link
+	if (node1_label == 0 || node2_label = 0) //this is an oldstyle reservation
+	  {
+	    // node 2 is always an infrastructure node, so just check node1
+	    onldb_resp r1 = is_infrastructure(it3->node1); 
+	    if(r1.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
+	    if(r1.result() == 0) //node is not infrastructure
 	      {
-		node1_port = it3->node1port;
-		node1_rport = node1_port;
+		if(node1_label == 0) //if we haven't set the node1 label do so
+		  {
+		    node1_label = t->get_label(it3->node1);
+		    node1_port = it3->node1port;
+		    node1_rport = node1_port;
+		    node1_cap = cur_cap;
+		  }
+		else if(node2_label == 0) //if we haven't set the node2 label do so
+		  {
+		    node2_label = t->get_label(it3->node1);
+		    node2_port = it3->node1port;
+		    node2_rport = node1_port;
+		    node2_cap = cur_cap;
+		  }
 	      }
 	    else
-	      { 
-		node1_port = vpr.result();
-		node1_rport = it3->node1port;
-	      }
-          }
-          else if(node2_label == 0)
-          {
-            node2_label = t->get_label(it3->node1);
-	    //see if this link had virtual ports
-	    onldb_resp vpr = get_link_vport(cur_link, rid, 2);
-	    if(vpr.result() < 0) //there were no virtual ports scheduled for this link
 	      {
-		node2_port = it3->node1port;
-		node2_rport = node1_port;
+		return onldb_resp(-1, (std::string)"database consistency problem");
 	      }
-	      else//set virtual ports
-	      {
-		node2_port = vpr.result();
-		node2_rport = it3->node1port;
-	      }
-          }
-          else
-          {
-            return onldb_resp(-1, (std::string)"database consistency problem");
-          }
-        }
+	  }
+	else if (node1_label == it3->node1) node1_rport = it3->node1port;
+	else if (node2_label == it3->node1) node2_rport = it3->node2port;
       }
       if(!li.empty())
       {
         //if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node2_label, node2_port, cur_rload, cur_lload))
-	if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload))
+	if(!add_link(t, rid, cur_link, linkid, cur_cap, node1_label, node1_port, node1_rport, node2_label, node2_port, node2_rport, cur_rload, cur_lload, node1_cap, node2_cap))
         {
           return onldb_resp(-1, (std::string)"database consistency problem");
         }
@@ -1057,6 +1086,8 @@ bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<as
   return false;
 }
 
+//can we map the abstract node, abs_node, from a user topology to the physical hardware node, res_node, 
+//that's part of the reserved topo 
 bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node, unsigned int level) throw()
 {
   std::list<link_resource_ptr>::iterator abs_lit;
@@ -1088,7 +1119,9 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
 
     node_resource_ptr abs_other_end = (*abs_lit)->node1;
     unsigned int abs_this_port = (*abs_lit)->node2_port;
+    unsigned int abs_this_cap = (*abs_lit)->node2_capacity;
     unsigned int abs_other_port = (*abs_lit)->node1_port;
+    unsigned int abs_other_cap = (*abs_lit)->node1_capacity;
     bool abs_this_is_loopback = false;
     if((*abs_lit)->node1->label == (*abs_lit)->node2->label)
     {
@@ -1099,6 +1132,8 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
       abs_other_end = (*abs_lit)->node2;
       abs_this_port = (*abs_lit)->node1_port;
       abs_other_port = (*abs_lit)->node2_port;
+      abs_this_cap = (*abs_lit)->node1_capacity;
+      abs_other_cap = (*abs_lit)->node2_capacity;
     }
     
     for(res_lit = res_node->links.begin(); res_lit != res_node->links.end(); ++res_lit)
@@ -1110,6 +1145,8 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
       unsigned int res_other_port = (*res_lit)->node1_port;
       unsigned int res_this_rport = (*res_lit)->node2_rport;
       unsigned int res_other_rport = (*res_lit)->node1_rport;
+      unsigned int res_this_cap = (*res_lit)->node2_capacity;
+      unsigned int res_other_cap = (*res_lit)->node1_capacity;
       bool res_this_is_loopback = false;
       if((*res_lit)->node1->label == (*res_lit)->node2->label)
       {
@@ -1126,9 +1163,11 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
         res_other_port = (*res_lit)->node2_port;
         res_this_rport = (*res_lit)->node1_rport;
         res_other_rport = (*res_lit)->node2_rport;
+	res_this_cap = (*res_lit)->node1_capacity;
+	res_other_cap = (*res_lit)->node2_capacity;
       }
 
-      if(abs_this_port == res_this_port)
+      if(abs_this_port == res_this_port && (res_this_cap <= 0 || (res_this_cap == abs_this_cap)))
       {
         if(abs_other_end->type != res_other_end->type) return false;
         if(abs_other_port != res_other_port) return false;
@@ -1697,19 +1736,6 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
     {
       if ((*reqnit)->parent) continue; //if this is a child node skip it, we'll add the parent and treat the hwcluster as a single node
       inserted_new = false;
-      //if the node is fixed marked as mapped and set mapped node
-      if ((*reqnit)->fixed) 
-	{
-	  (*reqnit)->marked = true;
-	  (*reqnit)->mapped_node = base->get_node((*reqnit)->node);
-	  if ((*reqnit)->mapped_node)
-	    (*reqnit)->mapped_node->marked = true;
-	  else
-	    {
-	      cout << "onldb::find_embedding couldn't allocate fixed node " << (*reqnit)->node << endl;
-	      return false;
-	    }
-	}
       //order nodes fixed nodes first the rest based on cost, most costly first. 
       for(it = ordered_nodes.begin(); it != ordered_nodes.end(); ++it)
 	{
@@ -1729,7 +1755,6 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
   node_resource_ptr new_node;
   for(reqnit = ordered_nodes.begin(); reqnit != ordered_nodes.end(); ++reqnit)
     {
-      
       fcluster = find_feasible_cluster(*reqnit, cl, &req, base);
       if (fcluster)
 	{
@@ -1958,11 +1983,11 @@ onldb::calculate_edge_loads(topology* req) throw()
 	  //cycle through edges for each node in edge calculate the load generated from each side
 	  for (reqlit = (*reqnit)->links.begin(); reqlit != (*reqnit)->links.end(); ++reqlit)
 	    {
-	      load = (*reqlit)->capacity;
+	      //load = (*reqlit)->capacity;
 	      if ((*reqlit)->node1 == (*reqnit))
-		add_edge_load((*reqlit)->node1, (*reqlit)->node1_port, load, links_seen);
+		add_edge_load((*reqlit)->node1, (*reqlit)->node1_port, (*reqlit)->node1_capacity, links_seen);
 	      else
-		add_edge_load((*reqlit)->node2, (*reqlit)->node2_port, load, links_seen);
+		add_edge_load((*reqlit)->node2, (*reqlit)->node2_port, (*reqlit)->node2_capacity, links_seen);
 	    }
 	}
     }
@@ -3430,7 +3455,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
     //define lists for multiple db inserts
     std::vector<connschedule> db_connections;
     std::vector<vswitchschedule> db_vswitches;
-    std::vector<vportschedule> db_vports;
+    std::vector<linkschedule> db_links;
     std::vector<hwclusterschedule> db_hwclusters;
     std::vector<nodeschedule> db_nodes;
 
@@ -3625,14 +3650,14 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
     for(lit = t->links.begin(); lit != t->links.end(); ++lit)
     {
       //handle any virtual ports. need to put an entry in to link virtual ports to real physical interfaces
-      if ((*lit)->node1->has_vport ||(*lit)->node2->has_vport)
-	{
-	  unsigned int tmp_linkid = linkid;
-	  if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
-	  vportschedule vps(linkid, rid, (*lit)->node1_port, (*lit)->node2_port);
-	  db_vports.push_back(vps);
+      //if ((*lit)->node1->has_vport ||(*lit)->node2->has_vport)
+      //{
+      //  unsigned int tmp_linkid = linkid;
+      //  if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
+	  linkschedule lnks(linkid, rid, (*lit)->node1->node, (*lit)->node1_port, (*lit)->node1_capacity, (*lit)->node2->node, (*lit)->node2_port, (*lit)->node2_capacity);
+	  db_links.push_back(lnks);
 	  ++ar_db_count;
-	}
+	  //}
       if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
       // add the link entries
       for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
@@ -3657,12 +3682,12 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	ins.execute();
 	db_connections.clear();
       }
-    if (!db_vports.empty())
+    if (!db_links.empty())
       {
 	mysqlpp::Query ins = onl->query();
-	ins.insert(db_vports.begin(), db_vports.end());
+	ins.insert(db_links.begin(), db_links.end());
 	ins.execute();
-	db_vports.clear();
+	db_links.clear();
       }
   }
   catch (const mysqlpp::Exception& er)
@@ -4877,10 +4902,10 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
   begin2_unix = time_db2unix(begin2);
   begin2_unix = discretize_time(begin2_unix, divisor);
   begin2_db = time_unix2db(begin2_unix);
-
+  
   std::string JDD="jdd";
   std::string JP="jp";
-
+  /*
   std::string demo1_begin = "20090814100000";
   std::string demo1_end = "20090814120000";
 
@@ -4896,7 +4921,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
   time_t demo2_end_unix = time_db2unix(demo2_end);
   time_t demo3_begin_unix = time_db2unix(demo3_begin);
   time_t demo3_end_unix = time_db2unix(demo3_end);
-
+  */
   // start with some basic sanity checking of arguments
   try
   {
@@ -5008,6 +5033,32 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
     new_type->grpmaxnum = 0;
     type_list.push_back(new_type);
   }
+
+  //check to see if any of the port capacities violate the max capacity for the type's interfaces
+  std::list<link_resource_ptr>::iterator lit;
+  for (lit = t->links.begin(); lit != t->links.end(); ++lit)
+    {
+      if ((*lit)->node1->type != "vgige")
+	{
+	  onldb_resp r = get_capacity((*lit)->node1->type);
+	  if ((int)(*lit)->node1_capacity > r.result())
+	    {
+	      std::string errmsg;
+	      errmsg = "node1 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      return onldb_resp(-1,errmsg);
+	    }
+	} 
+      if ((*lit)->node2->type != "vgige")
+	{
+	  onldb_resp r = get_capacity((*lit)->node2->type);
+	  if ((int)(*lit)->node2_capacity > r.result())
+	    {
+	      std::string errmsg;
+	      errmsg = "node2 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      return onldb_resp(-1,errmsg);
+	    }
+	}
+    }
 
   //end1 is the first possible end time for the experiment if it started at begin1
   end1_unix = add_time(begin1_unix, len*60);
@@ -5320,7 +5371,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
       if(rts.empty())
       {
         if (username == JDD || username == JP) {
-          cout << "Warning: " << username << ": found no reservations for: b1_db: " << b1_db << "e2_db: " << e2_db << endl;
+	cout << "Warning: " << username << ": found no reservations for: b1_db: " << b1_db << "e2_db: " << e2_db << endl;
         }
         time_range_ptr new_time(new time_range());
         new_time->b1_unix = (*tr)->b1_unix;
@@ -5334,8 +5385,8 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
         // each time in here overlaps the time range in tr
         bool add_left_over = false;
         vector<restimes>::iterator restime;
-        if (username == JDD || username == JP) {
-        cout << "Warning: " << username << ": found reservations for: b1_db: " << b1_db << "e2_db: " << e2_db << endl;}
+        //if (username == JDD || username == JP) {
+        //cout << "Warning: " << username << ": found reservations for: b1_db: " << b1_db << "e2_db: " << e2_db << endl;}
        
         //look at each overlapping reservation and find any unused portions of the possible range that we 
         //could schedule the experiment 

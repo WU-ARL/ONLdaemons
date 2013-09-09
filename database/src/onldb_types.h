@@ -152,11 +152,15 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, port,
     mysqlpp::sql_smallint_unsigned, linkid)
 
-  sql_create_4(vportschedule,2,4,
+  sql_create_8(linkschedule,2,8,
     mysqlpp::sql_smallint_unsigned, linkid,
     mysqlpp::sql_mediumint_unsigned, rid,
+    mysqlpp::sql_varchar, node1,
     mysqlpp::sql_smallint_unsigned, port1,
-    mysqlpp::sql_smallint_unsigned, port2)
+    mysqlpp::sql_smallint_unsigned, port1capacity,
+    mysqlpp::sql_varchar, node2,
+    mysqlpp::sql_smallint_unsigned, port2,
+    mysqlpp::sql_smallint_unsigned, port2capacity)
 
   sql_create_3(policy,1,3,
     mysqlpp::sql_varchar, parameter,
@@ -167,7 +171,7 @@ namespace onl
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_varchar, grp,
     mysqlpp::sql_datetime, begin,
-    mysqlpp::sql_datetime, end,
+1   mysqlpp::sql_datetime, end,
     mysqlpp::sql_smallint_unsigned, maxlen,
     mysqlpp::sql_smallint_unsigned, usermaxnum,
     mysqlpp::sql_smallint_unsigned, usermaxusage,

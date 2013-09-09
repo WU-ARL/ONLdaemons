@@ -1,0 +1,72 @@
+Using the Pentium cycle counter:
+  1) Include the header file <wulib/timer.h>
+  2) call init_timers() and check the return code, if -1 then the
+     timer code could not be initialized. Check error messages for
+     cause.
+  3) Then call getnsecs() for nanosecond resolution or getusecs() for
+     microsecond. See the header file for the exact function signature.
+
+Using the stats module:
+  First you must include the header file <wulib/stats.h> then in your main
+  function call init_mstats() to allocate the stats object and initialize its
+  contents. See the <wulib/stats.h> header file for its signature but you will
+  generally want the following:
+
+  stats_t *stats;
+  
+  stats = init_mstats (nsamples, loops, fname, STATS_NSEC_SCALE);
+  // nsamples == maximum number of samples you will collect
+  // window == bin size for histogram data. If you do not want histogram data
+  //       to be reported then set this to 0.
+  // fname == if not NULL then results are written to 4 files with this name and
+  //       the .freq, .sum, .samp and .cdf. See the source for a description.
+  // STATS_NSEC_SCALE == this argument specifies a scale for the data output.
+  //       the constant STATS_NSEC_SCALE will report results in nsecs. There
+  //       is also STATS_USEC_SCALE, STATS_MSEC_SCALE and STATS_SEC_SCALE.
+
+  if (stats == NULL) {
+    // print error and exit
+  }
+
+  // if you calculate the operation overhead then add this to the stats object
+  set_ohead(stats, env->ohead);
+
+  // for each sample collected add to stats object, see header file for
+  // signature.
+  add_sample (stats, delta);
+
+  ...
+
+  // when all done calculate stats:
+  do_figuring(stats);
+  // then print results to stdout
+  print_stats (stats);
+  // return stats object so it can be freed
+  release_stats (stats);
+
+Using the wulog facility
+  First you must include the <wulib/wulog.h> header file and initialize the
+  wulog facility. If you have application defined logging modules they must be
+  passed as a list to the init function. For now assume you do not, then do
+  the following:
+    wulogInit(NULL, 0, wulogVerb, argv[0], wulog_useLocal);
+
+  You can ignore the first two arguments for now. The third wulogVerb sets the
+  default logging level, in this case verbose and above messages will be
+  printed to the output while remaining levels will be suppressed. The 4th
+  argument is the application name used in if messages are sent to the syslog
+  facility (we will not do that here so this could be set to NULL). The final
+  argument tell wulog to send the messages to either standard out (i.e.
+  stdout) or the syslog daemon. You should specify wulog_useLocal to send them
+  to standard out.
+
+  Then the report text messages you call wulog() as follows:
+     wulog(wulogApp, wulogInfo, "Setting rt prio to %d\n", prio);
+  It looks just like printf() with two extra arguments. The first argument
+  specifies the reporting module and the second the reporting level. You should always
+  use wulogApp for module, the level can be one of wulogFatal, wulogError,
+  wulogWarn, wulogNote, wulogInfo, wulogVerb or wulogLoud. The meaning should
+  be self explanatory. If not then see the code.
+
+  There are additional capabilities of the wulog facility but for now this
+  will suffice.

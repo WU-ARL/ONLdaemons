@@ -566,6 +566,7 @@ node_info::node_info()
   is_remote_router = false;
   nexthop_ipaddr = "";
   vlanid = 0;
+  bandwidth = 1000;
 }
 
 node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rp)
@@ -578,6 +579,7 @@ node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::stri
   nexthop_ipaddr = next_hop_ip.c_str();
   real_port = rp;
   vlanid = 0;
+  bandwidth = 1000;
 }
 
 node_info::node_info(const node_info& ni)
@@ -590,6 +592,7 @@ node_info::node_info(const node_info& ni)
   nexthop_ipaddr = ni.nexthop_ipaddr;
   real_port = ni.real_port;
   vlanid = ni.vlanid;
+  bandwidth = ni.bandwidth;
 }
 
 node_info::~node_info()
@@ -607,6 +610,7 @@ node_info::operator=(const node_info& ni)
   nexthop_ipaddr = ni.nexthop_ipaddr;
   real_port = ni.real_port;
   vlanid = ni.vlanid;
+  bandwidth = ni.bandwidth;
   return *this;
 }
 
@@ -621,6 +625,7 @@ onld::operator<<(byte_buffer& buf, node_info& ni)
   buf << ni.nexthop_ipaddr;
   buf << ni.real_port;
   buf << ni.vlanid;
+  buf << ni.bandwidth;
   return buf;
 }
 
@@ -635,5 +640,6 @@ onld::operator>>(byte_buffer& buf, node_info& ni)
   buf >> ni.nexthop_ipaddr;
   buf >> ni.real_port;
   buf >> ni.vlanid;
+  buf >> ni.bandwidth;
   return buf;
 }
