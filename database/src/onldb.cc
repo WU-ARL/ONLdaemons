@@ -1778,28 +1778,40 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
 		}*/
 
 	  node_resource_ptr unode_to_add_to = (*reqnit)->user_nodes.front();
+	  link_resource_ptr link_to_add_to;
+	  //find the first link with a user link (i.e. one that was not added due to a split)
+	  for (lit = (*reqnit)->links.begin(); lit != (*reqnit)->links.end(); ++lit)
+	    {
+	      if (!(*lit)->added) 
+		{
+		  link_to_add_to = (*lit)->user_link;
+		  break;
+		}
+	    }
 	  for (lit = (*reqnit)->links.begin(); lit != (*reqnit)->links.end(); ++lit)
 	    {
 	      //check if this was a newly created link between a split vgige that will not appear in req.links
-	      if ((*lit)->added && ((*lit)->node2 == (*reqnit))) //this link will appear in two nodes but only add it to one
+	      if ((*lit)->added) //this link will appear in two nodes but only add it to one
 		{
-		  if (unode_to_add_to) unode_to_add_to->links.push_back(*lit);
+		  //if (unode_to_add_to) unode_to_add_to->links.push_back(*lit);
+		  //else
+		  //{
+		  //  cerr << "onldb::find_embedding error adding link for split vgige" << endl;
+		  //  return false;
+		  //}
+		  
+		  //add the extra connections for the new link to an existing user link for a real user node represented by the vgige
+		  for (blit = (*lit)->mapped_path.begin(); blit != (*lit)->mapped_path.end(); ++blit)
+		  {
+		  //PROBLEM WANT TO USE unode getting failure
+		    if (link_to_add_to) link_to_add_to->conns.push_back((*blit)->conns.front());//insert(link_to_add_to->conns.begin(),(*blit)->conns.begin(), (*blit)->conns.end());
 		  else
 		    {
 		      cerr << "onldb::find_embedding error adding link for split vgige" << endl;
 		      return false;
 		    }
-		  //add the extra connections for the new link to an existing user link
-		  //for (blit = (*lit)->mapped_path.begin(); blit != (*lit)->mapped_path.end(); ++blit)
-		  //{
-		  //PROBLEM WANT TO USE unode getting failure
-		  //if (link_to_add) link_to_add->conns.insert(link_to_add->conns.begin(),(*blit)->conns.begin(), (*blit)->conns.end());
-		  //  else
-		  //	{
-		  //	  cerr << "onldb::find_embedding error adding link for split vgige" << endl;
-		  //	  return false;
-		  //	}
-		  //}
+		  }
+		  (*lit)->mapped_path.clear();//clear the path so the connections are only added once
 		}
 	    }
 	}
@@ -3460,10 +3472,10 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
         for(lit = (*nit)->links.begin(); lit != (*nit)->links.end(); ++lit)
         {
 	  if ((*lit)->added)
-	    {
-	      added_links.push_back(*lit);
-	      continue;
-	    }
+	  {
+	    //added_links.push_back(*lit);
+	    continue;
+	  }
           if((*lit)->linkid == 0)
           {
             if((*lit)->conns.empty())
@@ -3509,6 +3521,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
           //vins.execute();
         }
 	//now process links that were added
+	/*
         for(lit = added_links.begin(); lit != added_links.end(); ++lit)
         {  
 	  if((*lit)->linkid == 0)
@@ -3538,7 +3551,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 		}
 	      (*lit)->linkid = linkid;
 	    }
-	}
+	    }*/
       }
       else if((*nit)->type_type == "hwcluster")
       {
