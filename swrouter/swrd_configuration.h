@@ -86,39 +86,44 @@ namespace swr
 
  *     void get_port_rates(port_rates *) throw();
  *     void set_port_rates(port_rates *) throw();
- *     unsigned int get_port_rate(unsigned int) throw(Configuration_exception); 
- *     void set_port_rate(unsigned int, unsigned int) throw(Configuration_exception); 
 
  *     unsigned int get_port_mac_addr_hi16(unsigned int) throw(Configuration_exception);
  *     unsigned int get_port_mac_addr_low32(unsigned int) throw(Configuration_exception);
 
- *     unsigned int get_port_addr(unsigned int port) throw();
- *     unsigned int get_next_hop_addr(unsigned int port) throw();
- *     void set_username(std::string un) throw();
- *     std::string get_username() throw();
 */
       
+      void set_username(std::string un) throw();
+      std::string get_username() throw();
+
+/*
+      unsigned int get_port_addr(unsigned int port) throw();
+      unsigned int get_next_hop_addr(unsigned int port) throw();
+*/
+
+      unsigned int get_port_rate(unsigned int) throw(Configuration_exception); 
+      void set_port_rate(unsigned int, unsigned int) throw(Configuration_exception); 
+
       void set_port_info(uint32_t portnum, std::string nic, uint16_t vlan, std::string ip, std::string netmask, uint32_t maxRate, uint32_t minRate );
 
       // Add route to main central routing table with no gateway
-      void add_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort);
+      void add_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort) throw(Configuration_exception);
       // Add route to main central routing table with gateway
-      void add_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort, uint32_t nextHopIpAddr);
+      void add_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort, uint32_t nextHopIpAddr) throw(Configuration_exception);
 
       // Add route to per port routing table with no gateway
-      void add_route_port(uint16_t portNum, std::string prefix, uint16_t length, uint16_t outputPort);
+      void add_route_port(uint16_t portNum, uint32_t prefix, uint32_t mask, uint16_t outputPort) throw(Configuration_exception);
       // Add route to per port routing table with gateway
-      void add_route_port(uint16_t portNum, std::string prefix, uint16_t length, uint16_t outputPort, uint32_t nextHopIpAddr);
+      void add_route_port(uint16_t portNum, uint32_t prefix, uint32_t mask, uint16_t outputPort, uint32_t nextHopIpAddr) throw(Configuration_exception);
 
       // Delete route from main central routing table with no gateway
-      void del_route_main(std::string prefix, uint16_t length, uint16_t outputPort);
+      void del_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort) throw(Configuration_exception);
       // Delete route from main central routing table with gateway
-      void del_route_main(std::string prefix, uint16_t length, uint16_t outputPort, uint32_t nextHopIpAddr);
+      void del_route_main(uint32_t prefix, uint32_t mask, uint16_t outputPort, uint32_t nextHopIpAddr) throw(Configuration_exception);
 
       // Delete route from per port routing table with no gateway
-      void del_route_port(uint16_t portNum, std::string prefix, uint16_t length, uint16_t outputPort);
+      void del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t outputPort) throw(Configuration_exception);
       // Delete route from per port routing table with gateway
-      void del_route_port(uint16_t portNum, std::string prefix, uint16_t length, uint16_t outputPort, uint32_t nextHopIpAddr);
+      void del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t outputPort, uint32_t nextHopIpAddr) throw(Configuration_exception);
 
 
 

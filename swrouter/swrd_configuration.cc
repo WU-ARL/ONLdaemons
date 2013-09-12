@@ -26,6 +26,9 @@
 #include <exception>
 #include <stdexcept>
 
+#include <errno.h>
+#include <string.h>
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -52,13 +55,9 @@ Configuration::Configuration() throw(Configuration_exception)
   struct ifreq ifr;
   char addr_str[INET_ADDRSTRLEN];
   struct sockaddr_in sa,*temp;
-  int socklen;
 
   int temp_sock;
   int temp_port=5555;
-
-  int status;
-
 
   // get my ip addr
   if((temp_sock = socket(PF_INET,SOCK_DGRAM,0)) < 0)
@@ -88,16 +87,16 @@ Configuration::Configuration() throw(Configuration_exception)
   state = STOP;
 
   numConfiguredNics = 0;
-  for (int i=0; i < max_nic; i++)
+  for (unsigned int i=0; i < max_nic; i++)
   {
-    nicTable[i].configured = FALSE;
+    nicTable[i].configured = false;
     nicTable[i].rate = 0;
   }
 
   numConfiguredPorts = 0;
-  for (int i=0; i < max_port; i++)
+  for (unsigned int i=0; i < max_port; i++)
   {
-    portTable[i].configured = FALSE;
+    portTable[i].configured = false;
   }
 
   username = "";
@@ -120,10 +119,6 @@ Configuration::~Configuration() throw()
 //                 Initialize routes and ip_tables so that we do NOT route to or from control interface.
 void Configuration::start_router() throw(Configuration_exception)
 {
-  unsigned int addr;
-  
-  int status;
-  
   autoLock glock(conf_lock);
 
   if(state == START)
@@ -192,8 +187,8 @@ Configuration::configure_port(unsigned int port, std::string ip, std::string nex
   inet_pton(AF_INET, nexthop.c_str(), &addr);
   portTable[port].next_hop = addr.s_addr;
 
-  if (portTable[port].configured == FALSE) {
-    portTable[port] = TRUE;
+  if (portTable[port].configured == false) {
+    portTable[port].configured = true;
     numConfiguredPorts++;
     write_log("Reconfiguring port " + int2str(port));
   }
@@ -218,7 +213,7 @@ Configuration::configure_port(unsigned int port, std::string ip, std::string nex
 void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
-  std:string nic;
+  std::string nic;
 
   write_log("add_route: entering");
 
@@ -236,15 +231,26 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     char shcmd[256];
     char prefixStr[32];
     char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
 
     // convert prefix and mask to ip dot string
-    prefixStr = addr_int2str(prefix);
-    maskStr = addr_int2str(mask);
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[port].nic_index].nic;
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[port].vlan, portTable[port].next_hop);
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
+    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %s %d", prefixStr, maskStr, nic, vlanStr, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_router_main failed");
@@ -260,7 +266,7 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   return;
 }
 
-void Configuration::add_route_port(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
 
@@ -280,16 +286,28 @@ void Configuration::add_route_port(uint32_t prefix, uint32_t mask, uint16_t outp
     char shcmd[256];
     char prefixStr[32];
     char maskStr[32];
-    std:string nic;
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
 
     // convert prefix and mask to ip dot string
-    prefixStr = addr_int2str(prefix);
-    maskStr = addr_int2str(mask);
+    
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[port].nic_index].nic;
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[port].vlan, portTable[port].next_hop);
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_router_port failed");
@@ -305,7 +323,7 @@ void Configuration::add_route_port(uint32_t prefix, uint32_t mask, uint16_t outp
   return;
 }
 
-void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint32_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
 
@@ -325,16 +343,25 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint32_t outp
     char shcmd[256];
     char prefixStr[32];
     char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
     std::string nic;
 
     // convert prefix and mask to ip dot string
-    prefixStr = addr_int2str(prefix);
-    maskStr = addr_int2str(mask);
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[port].nic_index].nic;
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[port].vlan, portTable[port].next_hop);
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    //sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_router_main failed");
@@ -350,7 +377,7 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint32_t outp
   return;
 }
 
-void Configuration::del_route_port(uint32_t prefix, uint32_t mask, uint32_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
 
@@ -370,16 +397,26 @@ void Configuration::del_route_port(uint32_t prefix, uint32_t mask, uint32_t outp
     char shcmd[256];
     char prefixStr[32];
     char maskStr[32];
+    char nicStr[32];
     std::string nic;
+    std::string tmp;
 
     // convert prefix and mask to ip dot string
-    prefixStr = addr_int2str(prefix);
-    maskStr = addr_int2str(mask);
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[port].nic_index].nic;
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[port].vlan, portTable[port].next_hop);
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    //sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_router_port failed");
@@ -396,6 +433,7 @@ void Configuration::del_route_port(uint32_t prefix, uint32_t mask, uint32_t outp
 }
 
 
+/*
 unsigned int Configuration::conv_str_to_uint(std::string str) throw(Configuration_exception)
 {
   const char* cstr = str.c_str();
@@ -417,7 +455,9 @@ unsigned int Configuration::conv_str_to_uint(std::string str) throw(Configuratio
   }
   return val;
 }
+*/
 
+/*
 unsigned int Configuration::get_proto(std::string proto_str) throw(Configuration_exception)
 {
   if(proto_str == "icmp" || proto_str == "ICMP")
@@ -451,7 +491,9 @@ unsigned int Configuration::get_proto(std::string proto_str) throw(Configuration
   }
   return val;
 }
+*/
 
+/*
 unsigned int Configuration::get_tcpflags(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(Configuration_exception)
 {
   unsigned val = 0;
@@ -482,7 +524,9 @@ unsigned int Configuration::get_tcpflags(unsigned int fin, unsigned int syn, uns
 
   return val;
 }
+*/
 
+/*
 unsigned int Configuration::get_tcpflags_mask(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(Configuration_exception)
 {
   unsigned val = 0;
@@ -513,7 +557,9 @@ unsigned int Configuration::get_tcpflags_mask(unsigned int fin, unsigned int syn
 
   return val;
 }
+*/
 
+/*
 unsigned int Configuration::get_output_port(std::string port_str) throw(Configuration_exception)
 {
   if(port_str == "")
@@ -540,6 +586,7 @@ unsigned int Configuration::get_output_port(std::string port_str) throw(Configur
   }
   return val;
 }
+*/
 
 /*
 unsigned int Configuration::get_outputs(std::string port_str, std::string plugin_str) throw(Configuration_exception)
@@ -716,6 +763,7 @@ void Configuration::set_port_rate(unsigned int port, unsigned int rate) throw(Co
   portTable[port].rate = rate;
 }
 
+/*
 unsigned int Configuration::get_port_addr(unsigned int port) throw()
 {
   if(port > 4)
@@ -733,6 +781,7 @@ unsigned int Configuration::get_next_hop_addr(unsigned int port) throw()
   }
   return (portTable[port].next_hop);
 }
+*/
 
 void Configuration::set_username(std::string un) throw()
 {
@@ -744,24 +793,6 @@ std::string Configuration::get_username() throw()
 {
   return username;
 }
-
-unsigned int Configuration::get_prefix_length(unsigned int addr_mask) throw()
-{
-  unsigned int length = 0;
-  for(int i=31; i>=0; --i)
-  {
-    if((addr_mask & (1<<i)) != 0)
-    {
-      ++length;
-    }
-    else
-    {
-      break;
-    }
-  }
-  return length;
-}
-
 
 std::string Configuration::addr_int2str(uint32_t addr)
 {
