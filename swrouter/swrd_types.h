@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart
+ * and Washington University in St. Louis
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 #ifndef _SWRD_TYPES_H
 #define _SWRD_TYPES_H
 
@@ -6,35 +23,19 @@ namespace swr
 
   #define WILDCARD_VALUE 0xffffffff
 
-  typedef union __attribute__ ((__packed__)) _route_key
-  {
-    struct __attribute__ ((__packed__))
-    {
-      unsigned int daddr : 32;
-      unsigned int saddr : 32;
-      unsigned int ptag  : 5;
-      unsigned int port  : 3;
-    };
-    unsigned int v[3];
-    unsigned char c[9];
-  } route_key;
+  // These types do not need to be packed as they were in the NPR.
+  // These are not going to be used to write directly into a device memory like the NPR.
 
-  typedef union __attribute__ ((__packed__)) _route_result
+/*
+  typedef struct _route_key
   {
-    struct __attribute__ ((__packed__))
-    {
-      unsigned int entry_valid  : 1;
-      unsigned int nh_ip_valid  : 1;
-      unsigned int nh_mac_valid : 1;
-      unsigned int ip_mc_valid  : 1;
-      unsigned int uc_mc_bits   : 12;
-      unsigned int qid          : 16;
-      unsigned int stats_index  : 16;
-      unsigned int nh_hi16      : 16;
-      unsigned int nh_low32     : 32;
-    };
-    unsigned int v[3];
-    unsigned char c[12];
+    uint32_t daddr;
+  } ;
+
+  typedef struct _route_result
+  {
+      uint16_t outputPort;   // typedef struct _port_info holds the vlan and device info
+      uint32_t gateway;
   } route_result;
 
   typedef struct _route_entry
@@ -43,65 +44,36 @@ namespace swr
     route_key mask;
     route_result result;
   } route_entry;
+*/
 
-  typedef union __attribute__ ((__packed__)) _pfilter_key
+  typedef struct _filter_key
   {
-    struct __attribute__ ((__packed__))
-    {
-      unsigned int daddr      : 32;
-      unsigned int saddr      : 32;
-      unsigned int ptag       : 5;
-      unsigned int port       : 3;
-      unsigned int proto      : 8;
-      unsigned int dport      : 16;
-      unsigned int sport      : 16;
-      unsigned int exceptions : 16;
-      unsigned int tcp_flags  : 12;
-      unsigned int res        : 4;
-    };
-    unsigned int v[5];
-    unsigned char c[18];
-  } pfilter_key;
+      uint32_t daddr;
+      uint32_t dmask;
+      uint32_t saddr;
+      uint32_t smask;
+      uint16_t dport;
+      uint16_t sport;
+      uint8_t proto;
+      uint8_t tcp_flags;
+  } filter_key;
 
-  typedef union __attribute__ ((__packed__)) _pfilter_result
+  typedef struct _filter_result
   {
-    struct  __attribute__ ((__packed__))
-    {
-      unsigned int entry_valid  : 1;
-      unsigned int nh_ip_valid  : 1;
-      unsigned int nh_mac_valid : 1;
-      unsigned int ip_mc_valid  : 1;
-      unsigned int uc_mc_bits   : 12;
-      unsigned int qid          : 16;
-      unsigned int stats_index  : 16;
-      unsigned int nh_hi16      : 16;
-      unsigned int nh_low32     : 32;
-    };
-    unsigned int v[3];
-    unsigned char c[12];
-  } pfilter_result;
+      uint16_t qid;
+      uint8_t drop;
+      uint16_t outputPort;   // typedef struct _port_info holds the vlan and device info
+      uint32_t gateway;
+  } filter_result;
 
-  typedef struct _pfilter_entry
+  typedef struct _filter_entry
   {
-    pfilter_key key;
-    pfilter_key mask;
-    pfilter_result result;
-    unsigned int priority : 8;
-  } pfilter_entry;
+    filter_key key;
+    filter_key mask;
+    filter_result result;
+    uint8_t priority;
+  } filter_entry;
 
-
-  typedef union __attribute__ ((__packed__)) _port_rates
-  {
-    struct __attribute__ ((__packed__))
-    {
-      unsigned int port0_rate;
-      unsigned int port1_rate;
-      unsigned int port2_rate;
-      unsigned int port3_rate;
-      unsigned int port4_rate;
-    };
-    unsigned int i[5];
-  } port_rates;
 
 };
 

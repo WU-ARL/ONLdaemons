@@ -23,14 +23,14 @@ else
   ../bin/cfgRouterPort.sh 7 data1 247 $rtr_subnet7 255.255.255.0 1000000 1000 247
   ../bin/cfgRouterPort.sh 8 data1 248 $rtr_subnet8 255.255.255.0 1000000 1000 248
 
-  ../bin/cfgRouterAddRoute.sh  192.168.81.0 255.255.255 data0 241
-  ../bin/cfgRouterAddRoute.sh  192.168.82.0 255.255.255 data0 242
-  ../bin/cfgRouterAddRoute.sh  192.168.83.0 255.255.255 data0 243
-  ../bin/cfgRouterAddRoute.sh  192.168.84.0 255.255.255 data0 244
-  ../bin/cfgRouterAddRoute.sh  192.168.85.0 255.255.255 data1 245
-  ../bin/cfgRouterAddRoute.sh  192.168.86.0 255.255.255 data1 246
-  ../bin/cfgRouterAddRoute.sh  192.168.87.0 255.255.255 data1 247
-  ../bin/cfgRouterAddRoute.sh  192.168.88.0 255.255.255 data1 248
+  ../bin/cfgRouterAddRoute.sh  192.168.81.0 255.255.255.0 data0 241
+  ../bin/cfgRouterAddRoute.sh  192.168.82.0 255.255.255.0 data0 242
+  ../bin/cfgRouterAddRoute.sh  192.168.83.0 255.255.255.0 data0 243
+  ../bin/cfgRouterAddRoute.sh  192.168.84.0 255.255.255.0 data0 244
+  ../bin/cfgRouterAddRoute.sh  192.168.85.0 255.255.255.0 data1 245
+  ../bin/cfgRouterAddRoute.sh  192.168.86.0 255.255.255.0 data1 246
+  ../bin/cfgRouterAddRoute.sh  192.168.87.0 255.255.255.0 data1 247
+  ../bin/cfgRouterAddRoute.sh  192.168.88.0 255.255.255.0 data1 248
 fi
 
 

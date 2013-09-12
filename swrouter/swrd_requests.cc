@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart
+ * and Washington University in St. Louis
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -47,7 +64,7 @@ configure_node_req::handle()
   try
   {
     configuration->set_username(exp.getExpInfo().getUserName());
-    configuration->configure_port(node_conf.getPort(), node_conf.getIPAddr(), node_conf.getNHIPAddr());
+    configuration->configure_port(node_conf.getPort(), node_conf.getDevice(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getNHIPAddr());
   }
   catch(std::exception& e)
   { 
@@ -61,42 +78,33 @@ configure_node_req::handle()
   return true;
 }
 
-add_route_req::add_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+add_route_main_req::add_route_main_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
 
-add_route_req::~add_route_req()
+add_route_main_req::~add_route_main_req()
 {
 }
 
 bool
-add_route_req::handle()
+add_route_main_req::handle()
 {
   rli_response* rliresp;
-  bool fail = false;
 
-  write_log("add_route_req::handle(): route(prefix,mask,output port, nexthop ip)=(" + int2str(prefix) + "," + int2str(mask) + "," + int2str(port) + "," + int2str(nexthop_ip) + ")");
+  write_log("add_route_main_req::handle(): route(prefix,mask,output port, nexthop ip)=(" + int2str(prefix) + "," + int2str(mask) + "," + int2str(port) + "," + int2str(nexthop_ip) + ")");
 
-  if (fail)
-    {
-      std::string msg = "add route failed";
-      rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    }
-  else
-    rliresp = new rli_response(this, NCCP_Status_Fine);
-  /*
   try
   {
-    configuration->add_route(&rkey, &rmask, &rres);
+    configuration->add_route_main(prefix, mask, output_port, nexthop_ip);
 
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
   catch(std::exception& e)
   {
     std::string msg = e.what();
-    write_log("add_route_req::handle(): got exception: " + msg);
+    write_log("add_route_main_req::handle(): got exception: " + msg);
     rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    }*/
+  }
 
   rliresp->send();
   delete rliresp;
@@ -105,7 +113,7 @@ add_route_req::handle()
 }
 
 void
-add_route_req::parse()
+add_route_main_req::parse()
 {
   rli_request::parse();
 
@@ -114,30 +122,34 @@ add_route_req::parse()
   output_port = params[2].getInt();
   nexthop_ip = params[3].getInt();
 }
- 
-delete_route_req::delete_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+
+add_route_port_req::add_route_port_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
 
-delete_route_req::~delete_route_req()
+add_route_port_req::~add_route_port_req()
 {
 }
 
 bool
-delete_route_req::handle()
+add_route_port_req::handle()
 {
   rli_response* rliresp;
-  bool fail = false;
 
-  write_log("delete_route_req::handle(): route(prefix,port)=(" + int2str(prefix) + "," + int2str(port) + ")");
+  write_log("add_route_port_req::handle(): route(port, prefix,mask,output port, nexthop ip)=(" +int2str(port) + "," + int2str(prefix) + "," + int2str(mask) + "," + int2str(output_port) + "," + int2str(nexthop_ip) + ")");
 
-  if (fail)
-    {
-      std::string msg = "delete route failed";
-      rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    }
-  else
+  try
+  {
+    configuration->add_route_port(port, prefix, mask, output_port, nexthop_ip);
+
     rliresp = new rli_response(this, NCCP_Status_Fine);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("add_route_port_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
 
   rliresp->send();
   delete rliresp;
@@ -146,13 +158,110 @@ delete_route_req::handle()
 }
 
 void
-delete_route_req::parse()
+add_route_port_req::parse()
+{
+  rli_request::parse();
+
+  // port is already part of rli_request
+  prefix = params[0].getInt();
+  mask = params[1].getInt();
+  output_port = params[2].getInt();
+  nexthop_ip = params[3].getInt();
+}
+ 
+
+del_route_main_req::del_route_main_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+del_route_main_req::~del_route_main_req()
+{
+}
+
+bool
+del_route_main_req::handle()
+{
+  rli_response* rliresp;
+
+  write_log("del_route_main_req::handle(): route(prefix,mask,output port, nexthop ip)=(" + int2str(prefix) + "," + int2str(mask) + "," + int2str(port) + "," + int2str(nexthop_ip) + ")");
+
+  try
+  {
+    configuration->del_route_main(prefix, mask, output_port, nexthop_ip);
+
+    rliresp = new rli_response(this, NCCP_Status_Fine);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("del_route_main_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+del_route_main_req::parse()
 {
   rli_request::parse();
 
   prefix = params[0].getInt();
+  mask = params[1].getInt();
+  output_port = params[2].getInt();
+  nexthop_ip = params[3].getInt();
+}
+
+del_route_port_req::del_route_port_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+del_route_port_req::~del_route_port_req()
+{
+}
+
+bool
+del_route_port_req::handle()
+{
+  rli_response* rliresp;
+
+  write_log("del_route_port_req::handle(): route(port, prefix,mask,output port, nexthop ip)=(" +int2str(port) + "," + int2str(prefix) + "," + int2str(mask) + "," + int2str(output_port) + "," + int2str(nexthop_ip) + ")");
+
+  try
+  {
+    configuration->del_route_port(port, prefix, mask, output_port, nexthop_ip);
+
+    rliresp = new rli_response(this, NCCP_Status_Fine);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("del_route_port_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+del_route_port_req::parse()
+{
+  rli_request::parse();
+
+  // port is already part of rli_request
+  prefix = params[0].getInt();
+  mask = params[1].getInt();
+  output_port = params[2].getInt();
+  nexthop_ip = params[3].getInt();
 }
  
+/*
 add_filter_req::add_filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -410,7 +519,9 @@ delete_filter_req::parse()
   tcp_ack = params[17].getInt();
   tcp_urg = params[18].getInt();
 }
+*/
  
+/*
 set_queue_params_req::set_queue_params_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -451,6 +562,7 @@ set_queue_params_req::parse()
   threshold = params[1].getInt();
   quantum = params[2].getInt();
 }
+*/
  
 set_port_rate_req::set_port_rate_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
@@ -715,162 +827,6 @@ get_reg_byte_req::handle()
 
 void
 get_reg_byte_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
-}
- 
-get_stats_preq_pkt_req::get_stats_preq_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_stats_preq_pkt_req::~get_stats_preq_pkt_req()
-{
-}
-
-bool
-get_stats_preq_pkt_req::handle()
-{
-  rli_response* rliresp;
-  uint32_t stats_counter = 1;
-  try
-  {
-    uint32_t val = monitor->read_stats_counter(stats_index, stats_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_stats_preq_pkt_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_stats_preq_pkt_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
-}
- 
-get_stats_postq_pkt_req::get_stats_postq_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_stats_postq_pkt_req::~get_stats_postq_pkt_req()
-{
-}
-
-bool
-get_stats_postq_pkt_req::handle()
-{
-  rli_response* rliresp;
-  uint32_t stats_counter = 3;
-  try
-  {
-    uint32_t val = monitor->read_stats_counter(stats_index, stats_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_stats_postq_pkt_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_stats_postq_pkt_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
-}
- 
-get_stats_preq_byte_req::get_stats_preq_byte_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_stats_preq_byte_req::~get_stats_preq_byte_req()
-{
-}
-
-bool
-get_stats_preq_byte_req::handle()
-{
-  rli_response* rliresp;
-  uint32_t stats_counter = 0;
-  try
-  {
-    uint32_t val = monitor->read_stats_counter(stats_index, stats_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_stats_preq_byte_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_stats_preq_byte_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
-}
- 
-get_stats_postq_byte_req::get_stats_postq_byte_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_stats_postq_byte_req::~get_stats_postq_byte_req()
-{
-}
-
-bool
-get_stats_postq_byte_req::handle()
-{
-  rli_response* rliresp;
-  uint32_t stats_counter = 2;
-  try
-  {
-    uint32_t val = monitor->read_stats_counter(stats_index, stats_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_stats_postq_byte_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_stats_postq_byte_req::parse()
 {
   rli_request::parse();
   
