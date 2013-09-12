@@ -210,6 +210,61 @@ Configuration::configure_port(unsigned int port, std::string ip, std::string nex
  * exit 0
  */
 
+// Add route to main route table with no gateway (next hop ip)
+void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+  std::string nic;
+
+  write_log("add_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("add_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_main failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("add_route: done");
+
+  return;
+}
+
+// Add route to main route table with a gateway (next hop ip)
 void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
@@ -266,6 +321,63 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   return;
 }
 
+// Add route to a port specific route table with no gateway (next hop ip)
+void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("add_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("add_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("add_route: done");
+
+  return;
+}
+// Add route to a port specific route table with a gateway (next hop ip)
 void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
@@ -323,6 +435,61 @@ void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask
   return;
 }
 
+// Delete a route from the main route table with no gateway (next hop ip)
+void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("del_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_main failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("del_route: done");
+
+  return;
+}
+
+// Delete a route from the main route table with a gateway (next hop ip)
 void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
@@ -377,6 +544,61 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   return;
 }
 
+// Delete a route from a port specific route table with no gateway (next hop ip)
+void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("del_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string nic;
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("del_route: done");
+
+  return;
+}
+// Delete a route from a port specific route table with a gateway (next hop ip)
 void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
   bool is_multicast = false;
