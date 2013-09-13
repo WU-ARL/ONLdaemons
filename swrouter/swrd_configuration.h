@@ -56,7 +56,7 @@ namespace swr
       void start_router() throw(Configuration_exception);
       void stop_router() throw();
       unsigned int router_started() throw();
-      void configure_port(unsigned int port, std::string ip, std::string nexthop) throw(Configuration_exception);
+      void configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, std::string ip, std::string maskStr, uint32_t rate) throw(Configuration_exception);
 
 /*
  *     void add_route(route_key *, route_key *, route_result *) throw(Configuration_exception);

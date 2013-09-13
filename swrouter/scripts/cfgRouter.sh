@@ -11,7 +11,7 @@ else
 
   ../bin/cfgRouterBase.sh
 
-  #Usage: ../bin/cfgRouterPort.sh <portNum> <iface> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefRate> <vlanNum> <iptMark>
+  #Usage: ../bin/cfgRouterPort.sh <portNum> <iface> <vlan> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefRate> <iptMark>
 
 
   ../bin/cfgRouterPort.sh 1 data0 241 $rtr_subnet1 255.255.255.0 1000000 1000 241

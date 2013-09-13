@@ -175,8 +175,20 @@ unsigned int Configuration::router_started() throw()
 }
 
 void
-Configuration::configure_port(unsigned int port, std::string ip, std::string nexthop) throw(Configuration_exception)
+Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, std::string ip, std::string maskStr, uint32_t rate) throw(Configuration_exception)
 {
+  // For software router, port is virtual port and realPort is index to add to "data" to get the device
+  // For example for an 8 port software router we might have this:
+  //  port    realPort   Device
+  //   0         0        data0
+  //   1         0        data0
+  //   2         0        data0
+  //   3         0        data0
+  //   4         1        data1
+  //   5         1        data1
+  //   6         1        data1
+  //   7         1        data1
+
   // update portTable with this ports info
   struct in_addr addr;
 
@@ -188,9 +200,16 @@ Configuration::configure_port(unsigned int port, std::string ip, std::string nex
   portTable[port].next_hop = addr.s_addr;
 
   if (portTable[port].configured == false) {
+    char shcmd[256];
+    char *device = "dataX"; // change device[4] to 0, 1, ... depending on which device
     portTable[port].configured = true;
     numConfiguredPorts++;
     write_log("Reconfiguring port " + int2str(port));
+    //echo "Usage: $0 <portnum> <iface> <vlanNum> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefaultMin> <iptMark>"
+    //echo "Example: $0 1 data0 241 192.168.82.1 255.255.255.0 1000000 241"
+    device[4] = '0' + (unsigned char) realPort;
+#define IFACE_DEFAULT_MIN 1000
+    sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d", port, device, vlan, ip, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
   }
   else {
     write_log("Initial configuration of port " + int2str(port));
@@ -248,10 +267,10 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_main failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
     }
 
 
@@ -303,12 +322,10 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     nic.copy(nicStr, 0, 32);
 
-    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
-    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %s %d", prefixStr, maskStr, nic, vlanStr, nexthop_ip);
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_main failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
     }
 
 
@@ -362,10 +379,10 @@ void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask
     nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_port failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
     }
 
 
@@ -418,11 +435,10 @@ void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask
     nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    //sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
-    sprintf(shcmd, "/usr/local/bin/swrd_add_router_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_add_router_port failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
     }
 
 
@@ -473,10 +489,10 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_main failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
     }
 
 
@@ -527,11 +543,10 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     nic.copy(nicStr, 0, 32);
 
-    //sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_main failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
     }
 
 
@@ -583,10 +598,10 @@ void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask
     nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_port failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");
     }
 
 
@@ -637,11 +652,10 @@ void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask
     nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    //sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d %s", prefixStr, maskStr, nic, portTable[output_port].vlan, portTable[output_port].next_hop);
-    sprintf(shcmd, "/usr/local/bin/swrd_del_router_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
-      throw Configuration_exception("system (/usr/local/bin/swrd_del_router_port failed");
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");
     }
 
 

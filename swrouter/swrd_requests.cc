@@ -64,7 +64,7 @@ configure_node_req::handle()
   try
   {
     configuration->set_username(exp.getExpInfo().getUserName());
-    configuration->configure_port(node_conf.getPort(), node_conf.getDevice(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getNHIPAddr());
+    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getRate());
   }
   catch(std::exception& e)
   { 
