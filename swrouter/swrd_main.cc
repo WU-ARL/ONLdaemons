@@ -48,7 +48,7 @@
 
 extern "C"
 {
-  #include "api.h"
+//  #include "api.h"
 }
 
 namespace swr
@@ -76,7 +76,7 @@ namespace swr
 
     write_log("init: Initializing");
 
-    configuration = new Configuration(npu, macs);
+    configuration = new Configuration();
 
     rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
     monitor = new Monitor();
@@ -134,19 +134,19 @@ int main()
   // manage routes
   // main router route table
   register_req<add_route_main_req>(SWR_AddRouteMain);
-  register_req<delete_route_main_req>(SWR_DeleteRouteMain);
+  register_req<del_route_main_req>(SWR_DeleteRouteMain);
 
   // per port route tables
   register_req<add_route_port_req>(SWR_AddRoutePort);
-  register_req<delete_route_port_req>(SWR_DeleteRoutePort);
+  register_req<del_route_port_req>(SWR_DeleteRoutePort);
 
   // manage filters
   register_req<add_filter_req>(SWR_AddFilter);
-  register_req<delete_filter_req>(SWR_DeleteFilter);
+  register_req<del_filter_req>(SWR_DeleteFilter);
   
   // configure queues 
   register_req<add_queue_req>(SWR_AddQueue);
-  register_req<delete_queue_req>(SWR_DeleteQueue);
+  register_req<del_queue_req>(SWR_DeleteQueue);
   register_req<set_queue_params_req>(SWR_SetQueueParams);
 
   // configure ports

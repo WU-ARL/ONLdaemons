@@ -64,7 +64,7 @@ configure_node_req::handle()
   try
   {
     configuration->set_username(exp.getExpInfo().getUserName());
-    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getRate());
+    //configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getRate());
   }
   catch(std::exception& e)
   { 
@@ -169,7 +169,6 @@ add_route_port_req::parse()
   nexthop_ip = params[3].getInt();
 }
  
-
 del_route_main_req::del_route_main_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }

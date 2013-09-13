@@ -285,5 +285,6 @@ namespace swr
       uint32_t qid;
   }; // class get_queue_len_req
 */
+};  //namespace swr
 
 #endif // _SWRD_REQUESTS_H

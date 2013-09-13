@@ -24,7 +24,7 @@ namespace swr
 
   extern nccp_listener* rli_conn;
 
-  extern configuration* conf;
+  extern Configuration* configuration;
   extern Monitor* monitor;
 }; // namespace swr
 

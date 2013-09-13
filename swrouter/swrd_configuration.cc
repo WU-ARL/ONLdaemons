@@ -175,7 +175,7 @@ unsigned int Configuration::router_started() throw()
 }
 
 void
-Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, std::string ip, std::string maskStr, uint32_t rate) throw(Configuration_exception)
+Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, std::string ip, std::string mask, uint32_t rate) throw(Configuration_exception)
 {
   // For software router, port is virtual port and realPort is index to add to "data" to get the device
   // For example for an 8 port software router we might have this:
@@ -196,12 +196,18 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
   portTable[port].ip_addr = addr.s_addr;
 
 
-  inet_pton(AF_INET, nexthop.c_str(), &addr);
-  portTable[port].next_hop = addr.s_addr;
+  portTable[port].next_hop = ""; // no predefined next hop for this port
 
   if (portTable[port].configured == false) {
     char shcmd[256];
-    char *device = "dataX"; // change device[4] to 0, 1, ... depending on which device
+    char device[] = "dataX"; // change device[4] to 0, 1, ... depending on which device
+    char ipStr[32];
+    char maskStr[32];
+
+    // convert prefix and mask to ip dot string
+    ip.copy(ipStr, 0, 32);
+    mask.copy(maskStr, 0, 32);
+
     portTable[port].configured = true;
     numConfiguredPorts++;
     write_log("Reconfiguring port " + int2str(port));
@@ -209,7 +215,7 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
     //echo "Example: $0 1 data0 241 192.168.82.1 255.255.255.0 1000000 241"
     device[4] = '0' + (unsigned char) realPort;
 #define IFACE_DEFAULT_MIN 1000
-    sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d", port, device, vlan, ip, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
   }
   else {
     write_log("Initial configuration of port " + int2str(port));
