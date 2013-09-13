@@ -20,6 +20,7 @@
 
 namespace swr
 {
+  static const NCCP_OperationType SWR_ConfigureNode = 70;
   class configure_node_req : public configure_node
   {
     public:

@@ -140,6 +140,7 @@ int main()
   register_req<add_route_port_req>(SWR_AddRoutePort);
   register_req<del_route_port_req>(SWR_DeleteRoutePort);
 
+/*
   // manage filters
   register_req<add_filter_req>(SWR_AddFilter);
   register_req<del_filter_req>(SWR_DeleteFilter);
@@ -148,20 +149,25 @@ int main()
   register_req<add_queue_req>(SWR_AddQueue);
   register_req<del_queue_req>(SWR_DeleteQueue);
   register_req<set_queue_params_req>(SWR_SetQueueParams);
+*/
 
   // configure ports
-  register_req<configure_port_req>(SWR_SetPortRate);
+  register_req<configure_node_req>(SWR_SetPortRate);
   register_req<set_port_rate_req>(SWR_SetPortRate);
 
+/*
   // Monitoring
   // Per port rx and tx byte and pkt counts
   register_req<get_rx_pkt_req>(SWR_GetRXPkt);
   register_req<get_rx_byte_req>(SWR_GetRXByte);
   register_req<get_tx_pkt_req>(SWR_GetTXPkt);
   register_req<get_tx_byte_req>(SWR_GetTXByte);
+*/
 
+/*
   // queue lengths
   register_req<get_queue_len_req>(SWR_GetQueueLength);
+*/
 
   rli_conn->receive_messages(true);
 
