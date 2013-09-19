@@ -122,11 +122,13 @@ namespace onlcrd
       std::string getFromIP() { return from_ip.getString(); }
       std::string getFromSubnet() { return from_subnet.getString(); }
       std::string getFromNHIP() { return from_nhip.getString(); }
+      uint32_t getFromCapacity() { return from_cap;}
       component& getToComponent() { return to_comp; }
       uint16_t getToPort() { return to_port; }
       std::string getToIP() { return to_ip.getString(); }
       std::string getToSubnet() { return to_subnet.getString(); }
       std::string getToNHIP() { return to_nhip.getString(); }
+      uint32_t getToCapacity() { return to_cap;}
       uint32_t getCapacity() { return bandwidth;}
 
       virtual bool handle();
@@ -139,11 +141,13 @@ namespace onlcrd
       nccp_string from_ip;
       nccp_string from_subnet;
       nccp_string from_nhip;
+      uint32_t from_cap;
       component to_comp;
       uint16_t to_port;
       nccp_string to_ip;
       nccp_string to_subnet;
       nccp_string to_nhip;
+      uint32_t to_cap;
       uint32_t bandwidth;
   }; // class session_add_link_req
 
@@ -266,11 +270,13 @@ namespace onlcrd
       nccp_string from_ip;
       nccp_string from_subnet;
       nccp_string from_nhip;
+      uint32_t from_cap;
       component to_comp;
       uint16_t to_port;
       nccp_string to_ip;
       nccp_string to_subnet;
       nccp_string to_nhip;
+      uint32_t to_cap;
       uint32_t bandwidth;
   }; // class reservation_add_link_req
 

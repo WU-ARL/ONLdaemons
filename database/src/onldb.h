@@ -53,7 +53,7 @@ namespace onl
 
 
       //bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw();
-      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload) throw();
+      bool add_link(topology* t, int rid, unsigned int cur_link, unsigned int linkid, unsigned int cur_cap, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport, unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload, unsigned int node1_cap = 0, unsigned int node2_cap = 0) throw();
       onldb_resp get_topology(topology *t, int rid) throw();
       void build_assign_list(node_resource_ptr hw, std::list<assign_info_ptr> *l) throw();
       onldb_resp fill_in_topology(topology *t, int rid) throw();
@@ -139,11 +139,11 @@ namespace onl
       onldb_resp return_resources(std::string username, topology *t) throw();
       
       onldb_resp get_expired_sessions(std::list<std::string>& users) throw();
-      onldb_resp get_capacity(std::string type, unsigned int port) throw();
+      onldb_resp get_capacity(std::string type, unsigned int port = 0) throw();
       onldb_resp get_switch_ports(unsigned int cid, switch_port_info& info1, switch_port_info& info2) throw();
 
       onldb_resp has_virtual_port(std::string type) throw();
   };
 };
-#define MAX_INTERCLUSTER_CAPACITY 10
+#define MAX_INTERCLUSTER_CAPACITY 10000 //Mbps
 #endif // _ONLDB_H

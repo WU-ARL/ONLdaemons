@@ -361,8 +361,11 @@ session_manager::check_for_expired_sessions()
     users.pop_front();
  
     session_ptr sess = get_session(user);
-    sess->expired();
-    sess->clear();
+    if (sess)
+      {
+	sess->expired();
+	sess->clear();
+      }
   }
 }
 

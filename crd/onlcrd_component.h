@@ -155,6 +155,9 @@ namespace onlcrd
       crd_component_ptr get_node1() { return endpoint1; }
       crd_component_ptr get_node2() { return endpoint2; }
 
+      unsigned int get_node1_capacity() { return endpoint1_cap;}
+      unsigned int get_node2_capacity() { return endpoint2_cap;}
+
       void set_switch_ports(std::list<int>& connlist);
 
       void set_add_request(session_add_link_req* req) { linkreq = req; }
@@ -179,9 +182,11 @@ namespace onlcrd
       crd_component_ptr endpoint1;
       unsigned short endpoint1_port;
       unsigned short endpoint1_rport;
+      unsigned int endpoint1_cap;
       crd_component_ptr endpoint2;
       unsigned short endpoint2_port;
       unsigned short endpoint2_rport;
+      unsigned int endpoint2_cap;
       component comp;
 
       std::list<switch_port> switch_ports;
