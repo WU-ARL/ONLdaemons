@@ -51,7 +51,7 @@ using namespace onl;
 #define ONLDBUSER ""
 #define ONLDBPASS ""
 
-#define MAX_INTERCLUSTER_CAPACITY 10
+//#define MAX_INTERCLUSTER_CAPACITY 10
 #define UNUSED_CLUSTER_COST 50
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
@@ -66,6 +66,22 @@ bool base_sort_comp(node_resource_ptr i, node_resource_ptr j)
   return(i->priority < j->priority);
 }
 
+
+//int
+//get_available_cluster_size(node_resource_ptr cluster)
+//{
+//  std::list<link_resource_ptr>::iterator clusterlit;
+//  int rtn = 0;
+//  node_resource_ptr other;
+//  for (clusterlit = cluster->links.begin(); clusterlit != cluster->links.end(); ++clusterlit)
+//    {
+//      other = (*clusterlit)->node1;
+//      if ((*clusterlit)->node2 != cluster) other = (*clusterlit)->node2;
+//      if (other->type_type != "infrastructure" && !other->marked) ++rtn;
+//    }
+//  return rtn;
+//}
+
 int calculate_edge_cost(int rload, int lload)
 {
   int rtraffic = rload;
@@ -75,6 +91,9 @@ int calculate_edge_cost(int rload, int lload)
     rtraffic = MAX_INTERCLUSTER_CAPACITY;
   if (ltraffic > MAX_INTERCLUSTER_CAPACITY)
     ltraffic = MAX_INTERCLUSTER_CAPACITY;
+  //divide by 1000 to account for the change from loads in Gbps to Mbps
+  rtraffic = rtraffic/1000;
+  ltraffic = ltraffic/1000;
   rtn = rtraffic + ltraffic + (fabs(rtraffic - ltraffic)/2);
   return rtn;
 }
@@ -680,8 +699,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
     query3.storein(li);
     vector<linkinfo>::iterator it3;
 
-    mysql::Query query4 = onl->query();
-    query4 << "select * from linkschedule where rid=" << mysqlpp:quote << rid << " order by vportschedule.linkid";
+    mysqlpp::Query query4 = onl->query();
+    query4 << "select * from linkschedule where rid=" << mysqlpp::quote << rid << " order by linkschedule.linkid";
     vector<linkschedule> vps;
     query4.storein(vps);
     vector<linkschedule>::iterator vps_it;
@@ -704,14 +723,14 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 
       for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
 	{
-	  if ((*vps_it)->linkid == cur_link)
+	  if (vps_it->linkid == cur_link)
 	    {
-	      node1_label = t->get_label((*vps_it)->node1);
-	      node1_port = (*vps_it)->node1port;
-	      node1_cap = (*vps_it)->node1capacity;
-	      node2_label = t->get_label((*vps_it)->node2);
-	      node2_port = (*vps_it)->node2port;
-	      node2_cap = (*vps_it)->node2capacity;
+	      node1_label = t->get_label(vps_it->node1);
+	      node1_port = vps_it->port1;
+	      node1_cap = vps_it->port1capacity;
+	      node2_label = t->get_label(vps_it->node2);
+	      node2_port = vps_it->port2;
+	      node2_cap = vps_it->port2capacity;
 	      break;
 	    }
 	}
@@ -744,21 +763,21 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
      
 	  for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
 	    {
-	      if ((*vps_it)->linkid == cur_link)
+	      if (vps_it->linkid == cur_link)
 		{
-		  node1_label = t->get_label((*vps_it)->node1);
-		  node1_port = (*vps_it)->node1port;
-		  node1_cap = (*vps_it)->node1capacity;
-		  node2_label = t->get_label((*vps_it)->node2);
-		  node2_port = (*vps_it)->node2port;
-		  node2_cap = (*vps_it)->node2capacity;
+		  node1_label = t->get_label(vps_it->node1);
+		  node1_port = vps_it->port1;
+		  node1_cap = vps_it->port1capacity;
+		  node2_label = t->get_label(vps_it->node2);
+		  node2_port = vps_it->port2;
+		  node2_cap = vps_it->port2capacity;
 		  break;
 		}
 	    }
         }
       
         cur_conns.push_back(it3->cid);
-	if (node1_label == 0 || node2_label = 0) //this is an oldstyle reservation
+	if (node1_label == 0 || node2_label == 0) //this is an oldstyle reservation
 	  {
 	    // node 2 is always an infrastructure node, so just check node1
 	    onldb_resp r1 = is_infrastructure(it3->node1); 
@@ -785,8 +804,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 		return onldb_resp(-1, (std::string)"database consistency problem");
 	      }
 	  }
-	else if (node1_label == it3->node1) node1_rport = it3->node1port;
-	else if (node2_label == it3->node1) node2_rport = it3->node2port;
+	else if (node1_label == t->get_label(it3->node1)) node1_rport = it3->node1port;
+	else if (node2_label == t->get_label(it3->node1)) node2_rport = it3->node1port;
       }
       if(!li.empty())
       {
@@ -1319,7 +1338,7 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
     {
       if(it3->cid == 0) { continue; }
 
-      int cap = it3->capacity;
+      int cap = it3->capacity * 1000;//capacity is in Gbps we need to convert to Mbps
       int rl = 0;
       int ll = 0;
       mysqlpp::Query query4 = onl->query();
@@ -2096,6 +2115,7 @@ onldb::find_available_node(node_resource_ptr cluster, std::string ntype) throw()
   return (find_available_node(cluster, ntype, nodes_used));
 }
 
+
 node_resource_ptr
 onldb::find_available_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw()
 {
@@ -2374,6 +2394,14 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
 
   cout << " unmapped cost " << unmapped_cost << ",";
   cluster_cost += unmapped_cost;
+
+  //add a cost for the available nodes left on the cluster this will favor a mapping 
+  //that gives a higher utilization of a cluster. cost equal number of available nodes left
+  //after mapping cluster divided by 2
+  //  int cluster_available = get_available_cluster_size(cluster);
+  //cluster_available = (cluster_available - (lneighbors.size() - unmapped_nodes.size()))/2;
+  //cluster_cost += cluster_available;
+  //cout << " cluster utilization cost " << cluster_available << ",";
 
   //the rest of the computation only applies for vgiges that have some unmapped nodes
   if (node->type != "vgige" || (unmapped_nodes.empty() && total_load > 0)) 
@@ -3652,28 +3680,28 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
       //handle any virtual ports. need to put an entry in to link virtual ports to real physical interfaces
       //if ((*lit)->node1->has_vport ||(*lit)->node2->has_vport)
       //{
-      //  unsigned int tmp_linkid = linkid;
-      //  if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
-	  linkschedule lnks(linkid, rid, (*lit)->node1->node, (*lit)->node1_port, (*lit)->node1_capacity, (*lit)->node2->node, (*lit)->node2_port, (*lit)->node2_capacity);
-	  db_links.push_back(lnks);
-	  ++ar_db_count;
-	  //}
-      if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
-      // add the link entries
-      for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
-      {
-	int rload = (*lit)->rload;
-	if (rload > (*lit)->capacity) rload = (*lit)->capacity;
-	int lload = (*lit)->lload;
-	if (lload > (*lit)->capacity) lload = (*lit)->capacity;
-        connschedule cs(linkid, rid, *cit, (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload);
-	db_connections.push_back(cs);
-        //mysqlpp::Query ins = onl->query();
-        //ins.insert(cs);
+        unsigned int tmp_linkid = linkid;
+        if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
+	linkschedule lnks(tmp_linkid, rid, (*lit)->node1->node, (*lit)->node1_port, (*lit)->node1_capacity, (*lit)->node2->node, (*lit)->node2_port, (*lit)->node2_capacity);
+	db_links.push_back(lnks);
 	++ar_db_count;
-        //ins.execute();
-      }
-      ++linkid;
+	  //}
+	if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
+	// add the link entries
+	for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
+	  {
+	    int rload = (*lit)->rload;
+	    if (rload > (*lit)->capacity) rload = (*lit)->capacity;
+	    int lload = (*lit)->lload;
+	    if (lload > (*lit)->capacity) lload = (*lit)->capacity;
+	    connschedule cs(linkid, rid, *cit, (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload);
+	    db_connections.push_back(cs);
+	    //mysqlpp::Query ins = onl->query();
+	    //ins.insert(cs);
+	    ++ar_db_count;
+	    //ins.execute();
+	  }
+	++linkid;
     }
     if (!db_connections.empty())
       {
@@ -5044,7 +5072,8 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
 	  if ((int)(*lit)->node1_capacity > r.result())
 	    {
 	      std::string errmsg;
-	      errmsg = "node1 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      //errmsg = "node1 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      errmsg = "node1 in link(" + (*lit)->node1->type + ", "  + (*lit)->node2->type + ") violates bandwidth of interface";
 	      return onldb_resp(-1,errmsg);
 	    }
 	} 
@@ -5054,7 +5083,8 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
 	  if ((int)(*lit)->node2_capacity > r.result())
 	    {
 	      std::string errmsg;
-	      errmsg = "node2 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      //errmsg = "node2 in link(" + (*lit)->node1->type + (*lit)->node1->label + ".p" + (*lit)->node1_port + ", "  + (*lit)->node2->type + (*lit)->node2->label + ".p" + (*lit)->node2_port + ") violates bandwidth of interface";
+	      errmsg = "node2 in link(" + (*lit)->node1->type + ", "  + (*lit)->node2->type + ") violates bandwidth of interface";
 	      return onldb_resp(-1,errmsg);
 	    }
 	}
@@ -6297,7 +6327,8 @@ onldb_resp onldb::get_capacity(std::string type, unsigned int port) throw()
       return onldb_resp(-1,(std::string)"no such port");
     }
     bwinfo bw = res[0];
-    return onldb_resp(bw.bandwidth,(std::string)"success");
+    //bandwidth is returned in Gbps we need to convert it to Mbps
+    return onldb_resp((1000*bw.bandwidth),(std::string)"success");
   }
   catch(const mysqlpp::Exception& er)
   {

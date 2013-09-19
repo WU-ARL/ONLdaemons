@@ -145,5 +145,5 @@ namespace onl
       onldb_resp has_virtual_port(std::string type) throw();
   };
 };
-#define MAX_INTERCLUSTER_CAPACITY 10
+#define MAX_INTERCLUSTER_CAPACITY 10000 //Mbps
 #endif // _ONLDB_H

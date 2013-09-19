@@ -305,7 +305,7 @@ session_add_link_req::parse()
   buf >> from_ip;
   buf >> from_subnet;
   buf >> from_nhip;
-  if (version > 0x75)
+  if (version >= 0x80)
     buf >> from_cap;
   else from_cap = 0;
   buf >> to_comp;
@@ -313,7 +313,7 @@ session_add_link_req::parse()
   buf >> to_ip;
   buf >> to_subnet;
   buf >> to_nhip;
-  if (version > 0x75)
+  if (version >= 0x80)
     buf >> to_cap;
   else to_cap = 0;
   buf >> bandwidth;
@@ -590,7 +590,7 @@ reservation_add_link_req::parse()
   buf >> from_ip;
   buf >> from_subnet;
   buf >> from_nhip;
-  if (version > 0x75)
+  if (version >= 0x80)
     buf >> from_cap;
   else from_cap = 0;
   buf >> to_comp;
@@ -598,7 +598,7 @@ reservation_add_link_req::parse()
   buf >> to_ip;
   buf >> to_subnet;
   buf >> to_nhip;
-  if (version > 0x75)
+  if (version >= 0x80)
     buf >> to_cap;
   else to_cap = 0;
   buf >> bandwidth;

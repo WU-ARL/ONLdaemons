@@ -171,7 +171,7 @@ namespace onl
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_varchar, grp,
     mysqlpp::sql_datetime, begin,
-1   mysqlpp::sql_datetime, end,
+    mysqlpp::sql_datetime, end,
     mysqlpp::sql_smallint_unsigned, maxlen,
     mysqlpp::sql_smallint_unsigned, usermaxnum,
     mysqlpp::sql_smallint_unsigned, usermaxusage,

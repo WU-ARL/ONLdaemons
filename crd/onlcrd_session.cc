@@ -212,7 +212,7 @@ session::commit(session_ptr sess)
     int n2cap = req->getToCapacity();
 
     bool hascap = true;
-    if (req->getVersion() <= 0x75) hascap = false;
+    if (req->get_version() <= 0x75) hascap = false;
 
     if(n1type == "vgige" && n2type == "vgige")
     {
@@ -225,11 +225,6 @@ session::commit(session_ptr sess)
       if (!hascap)
 	{
 	  n2cap = the_session_manager->get_capacity(n2type,n2port);
-	  if (topology.has_virtual_port(req->getToComponent().getID()))
-	    {
-	      if (n2cap < req->getCapacity()) n2cap = -1;
-	      else n2cap = req->getCapacity();
-	    }
 	}
       n1cap = n2cap;
     }
@@ -238,28 +233,13 @@ session::commit(session_ptr sess)
       if (!hascap)
 	{
 	  n1cap = the_session_manager->get_capacity(n1type,n1port);
-	  if (topology.has_virtual_port(req->getFromComponent().getID()))
-	    {
-	      if (n1cap < req->getCapacity()) n1cap = -1;
-	      else n1cap = req->getCapacity();
-	    }
 	}
       n2cap = n1cap;
     }
     else if (!hascap)
     {
       n1cap = the_session_manager->get_capacity(n1type,n1port);
-      if (the_session_manager->has_virtual_port(n1type))
-	{
-	  if (n1cap < req->getCapacity()) n1cap = -1;
-	  else n1cap = req->getCapacity();
-	}
       n2cap = the_session_manager->get_capacity(n2type,n2port);
-      if (the_session_manager->has_virtual_port(n2type))
-	{
-	  if (n2cap < req->getCapacity()) n2cap = -1;
-	  else n2cap = req->getCapacity();
-	}
     }
 
 

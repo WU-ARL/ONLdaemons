@@ -46,7 +46,7 @@ namespace onl
       //onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
       onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload = 0, unsigned int lload = 0) throw(); 
       onldb_resp add_cap_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_cap, unsigned int node2_label, unsigned int node2_port, unsigned int node2_cap, unsigned int rload = 0, unsigned int lload = 0) throw();
-      onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport,  unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int node2_cap, unsigned int rload, unsigned int lload unsigned int node1_cap = 0, unsigned int node2_cap = 0) throw();
+      onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_rport,  unsigned int node2_label, unsigned int node2_port, unsigned int node2_rport, unsigned int rload, unsigned int lload, unsigned int node1_cap = 0, unsigned int node2_cap = 0) throw();
       onldb_resp add_copy_link(link_resource_ptr lnk) throw();
 
       onldb_resp remove_node(unsigned int label) throw();

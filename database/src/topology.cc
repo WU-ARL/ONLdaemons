@@ -206,7 +206,7 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   return onldb_resp(1,(std::string)"success");
 }
 
-onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node1_cap, unsigned int node2_label, unsigned int node2_port, unsigned int node2_cap, unsigned int rload, unsigned int lload) throw()
+onldb_resp topology::add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload, unsigned int lload) throw()
 {
   return (add_link(label, capacity, node1_label, node1_port, node1_port, node2_label, node2_port, node2_port, rload, lload));
 }
