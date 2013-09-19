@@ -9,10 +9,10 @@ INCLUDES = -I. -I../shared
 LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared 
 
 EXEC = $(OBJDIR)/swrd
-OBJS = $(OBJDIR)/swrd_monitor.o \
-       $(OBJDIR)/swrd_configuration.o \
+OBJS = $(OBJDIR)/swrd_configuration.o \
        $(OBJDIR)/swrd_requests.o \
-       $(OBJDIR)/swrd_main.o
+       $(OBJDIR)/swrd_main.o \
+       $(OBJDIR)/swrd_monitor.o 
 
 all: ${OBJDIR} ${OBJS} ${EXEC}
 

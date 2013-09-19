@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart
+ * and Washington University in St. Louis
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -31,6 +48,18 @@ Monitor::Monitor() throw()
 Monitor::~Monitor() throw()
 { 
 }
+
+/*
+ * // Monitoring
+ * // Per port rx and tx byte and pkt counts
+ * register_req<get_rx_pkt_req>(SWR_GetRXPkt);
+ * register_req<get_rx_byte_req>(SWR_GetRXByte);
+ * register_req<get_tx_pkt_req>(SWR_GetTXPkt);
+ * register_req<get_tx_byte_req>(SWR_GetTXByte);
+ *
+ * // queue lengths
+ * register_req<get_queue_len_req>(SWR_GetQueueLength);
+ */
 
 // index is one set of couters, counter is one of: pre-q packet, pre-q byte, post-q packet, post-q byte
 unsigned int Monitor::read_stats_counter(unsigned int index, unsigned int counter) throw (monitor_exception)

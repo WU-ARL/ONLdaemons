@@ -231,7 +231,7 @@ namespace onld
       std::string getRemoteType() { return remote_type.getString(); }
       bool isRemoteRouter() { return is_remote_router; }
       std::string getNHIPAddr() { return nexthop_ipaddr.getString(); }
-      uint32_t getVLan() { return vlanid;}
+      uint32_t getVlan() { return vlanid;}
       void setVLan(uint32_t v) { vlanid = v;}
 
       friend byte_buffer& operator<<(byte_buffer& buf, node_info& ni);

@@ -16,9 +16,10 @@
 include ../../Makefile.inc
 
 CFLAGS = -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wall -Wundef -Wimplicit -Wno-deprecated -Woverloaded-virtual
-INCLUDES = -I/usr/include/mysql -I../include -I/opt/gurobi300/linux64/include
-#LIBS = -lpthread -L/usr/lib64/mysql -L ../lib/$(OBJDIR) -lonldb -lmysqlclient_r -lmysqlpp -L/opt/gurobi300/linux64/lib -lgurobi_c++ -lgurobi30 -lssl
-LIBS = /usr/lib64/librt.a -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp -L/opt/gurobi300/linux64/lib -lgurobi_c++ -lgurobi30 /usr/lib64/libssl.a /usr/lib64/libcrypto.a -lz -lkrb5 -lk5crypto -ldl /usr/lib64/libstdc++.so.6
+INCLUDES = -I/usr/include/mysql -I../include 
+#LIBS = -lpthread -L/usr/lib64/mysql -L ../lib/$(OBJDIR) -lonldb -lmysqlclient_r -lmysqlpp -lssl
+#LIBS = /usr/lib64/librt.a -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp /usr/lib64/libssl.a /usr/lib64/libcrypto.a -lz -lkrb5 -lk5crypto -ldl /usr/lib64/libstdc++.so.6
+LIBS = -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp 
 
 DEBUG = -g
 #CC     = g++

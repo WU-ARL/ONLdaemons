@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart
+ * and Washington University in St. Louis
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -8,6 +25,9 @@
 #include <map>
 #include <exception>
 #include <stdexcept>
+
+#include <errno.h>
+#include <string.h>
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -22,12 +42,6 @@
 #include <pthread.h>
 #include <glob.h>
 
-#include "halMev2Api.h"
-#include "hal_sram.h"
-#include "hal_scratch.h"
-#include "hal_global.h"
-#include "uclo.h"
-
 #include "shared.h"
 
 #include "swrd_types.h"
@@ -36,40 +50,34 @@
 
 using namespace swr;
 
-Configuration::Configuration(rtm_mac_addrs *ms) throw(configuration_exception)
+Configuration::Configuration() throw(Configuration_exception)
 {
-  unsigned short port = DEFAULT_TCAMD_PORT;
-  unsigned int tcamd_addr;
-
   struct ifreq ifr;
   char addr_str[INET_ADDRSTRLEN];
   struct sockaddr_in sa,*temp;
-  int socklen;
 
   int temp_sock;
-
-  int status;
-
+  int temp_port=5555;
 
   // get my ip addr
   if((temp_sock = socket(PF_INET,SOCK_DGRAM,0)) < 0)
   {
-    throw configuration_exception("socket failed");
+    throw Configuration_exception("socket failed");
   }
-  strcpy(ifr.ifr_name, "eth0");
+  strcpy(ifr.ifr_name, "control");
   if(ioctl(temp_sock, SIOCGIFADDR, &ifr) < 0)
   {
-    throw configuration_exception("ioctl failed");
+    throw Configuration_exception("ioctl failed");
   }
   close(temp_sock);
   sa.sin_family = AF_INET;
-  sa.sin_port = htons(port);
+  sa.sin_port = htons(temp_port);
   temp = (struct sockaddr_in *)&ifr.ifr_addr;
   sa.sin_addr.s_addr = temp->sin_addr.s_addr;
   control_address = (unsigned int) sa.sin_addr.s_addr;
   if(inet_ntop(AF_INET,&sa.sin_addr,addr_str,INET_ADDRSTRLEN) == NULL)
   {
-    throw configuration_exception("inet_ntop failed");
+    throw Configuration_exception("inet_ntop failed");
   }
   // done getting ip addr
 
@@ -78,22 +86,17 @@ Configuration::Configuration(rtm_mac_addrs *ms) throw(configuration_exception)
 
   state = STOP;
 
-  next_id = 0;
-
-  for(int i=0; i<=MAX_PREFIX_LEN; ++i)
+  numConfiguredNics = 0;
+  for (unsigned int i=0; i < max_nic; i++)
   {
-    mc_routes[i] = NULL;
-    uc_routes[i] = NULL;
-  }
-  for(int i=0; i<=MAX_PRIORITY; ++i)
-  {
-    pfilters[i] = NULL;
+    nicTable[i].configured = false;
+    nicTable[i].rate = 0;
   }
 
-  for(unsigned int i=0; i<5; ++i)
+  numConfiguredPorts = 0;
+  for (unsigned int i=0; i < max_port; i++)
   {
-    macs.port_hi16[i] = ms->port_hi16[i];
-    macs.port_low32[i] = ms->port_low32[i];
+    portTable[i].configured = false;
   }
 
   username = "";
@@ -111,74 +114,39 @@ Configuration::~Configuration() throw()
 
 }
 
-void Configuration::start_router() throw(configuration_exception)
+// start_router(): Do all the initial setup stuff before we start receiving RLI messages
+//                 Turn on ip forwarding
+//                 Initialize routes and ip_tables so that we do NOT route to or from control interface.
+void Configuration::start_router() throw(Configuration_exception)
 {
-  unsigned int addr;
-  
-  int status;
-  
   autoLock glock(conf_lock);
 
   if(state == START)
   {
     write_log("start_router called, but the router has already been started..");
+    glock.unlock();
     return;
   }
 
   write_log("start_router: entering");
 
- 
-    
+  // Turn on ip_forwarding
 
-  // initialize port rates
-  port_rates pr;
-  pr.port0_rate = DEF_PORT_RATE;
-  pr.port1_rate = DEF_PORT_RATE;
-  pr.port2_rate = DEF_PORT_RATE;
-  pr.port3_rate = DEF_PORT_RATE;
-  pr.port4_rate = DEF_PORT_RATE;
-  set_port_rates(&pr);
+  write_log("start_router: ip_forwarding turned on");
 
+  // set up ip_tables rules so we do not route in/out the control interface
 
-  char logstr[256];
-  sprintf(logstr, "start_router: port 0 mac address: %.4x%.8x", macs.port_hi16[0],macs.port_low32[0]);
-  write_log(logstr);
-  sprintf(logstr, "start_router: port 1 mac address: %.4x%.8x", macs.port_hi16[1],macs.port_low32[1]);
-  write_log(logstr);
-  sprintf(logstr, "start_router: port 2 mac address: %.4x%.8x", macs.port_hi16[2],macs.port_low32[2]);
-  write_log(logstr);
-  sprintf(logstr, "start_router: port 3 mac address: %.4x%.8x", macs.port_hi16[3],macs.port_low32[3]);
-  write_log(logstr);
-  sprintf(logstr, "start_router: port 4 mac address: %.4x%.8x", macs.port_hi16[4],macs.port_low32[4]);
-  write_log(logstr);
-
-
-
-  write_log("start_router: done initializing route lists");
-
- 
-
-  write_log("start_router: done initializing filter lists");
-
-
-  write_log("start_router: done initializing arp list");
-
-  /* now get the router base uof file into memory, load the microengines and start them */
-  write_log("start_router: done setting up router base code");
-
-  start_mes();
+  write_log("start_router: done initializing ip_tables");
 
   /* the router is all ready to go now */
   state = START;
-
-  // give the MEs a chance to get going before we do anything else
-  sleep(2);
 
   glock.unlock();
 
   return;
 }
 
+// stop_router(): Turn off ip forwarding
 void Configuration::stop_router() throw()
 {
 
@@ -189,6 +157,9 @@ void Configuration::stop_router() throw()
     write_log("stop_router called, but the router is already stopped..");
     return;
   }
+  // Turn off ip forwarding?
+  write_log("stop_router: ip_forwarding turned off");
+
   state = STOP;
 
   write_log("stop_router: done");
@@ -204,82 +175,508 @@ unsigned int Configuration::router_started() throw()
 }
 
 void
-Configuration::configure_port(unsigned int port, std::string ip, std::string nexthop) throw(configuration_exception)
+Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, std::string ip, std::string mask, uint32_t rate) throw(Configuration_exception)
 {
-  // add default filters so that packets for the router are delivered
+  // For software router, port is virtual port and realPort is index to add to "data" to get the device
+  // For example for an 8 port software router we might have this:
+  //  port    realPort   Device
+  //   0         0        data0
+  //   1         0        data0
+  //   2         0        data0
+  //   3         0        data0
+  //   4         1        data1
+  //   5         1        data1
+  //   6         1        data1
+  //   7         1        data1
 
+  // update portTable with this ports info
   struct in_addr addr;
-  inet_pton(AF_INET, ip.c_str(), &addr);
-  port_addrs[port] = addr.s_addr;
-  write_log("Configuration::configure_port: port=" + int2str(port) + ", ipstr=" + ip + ", ip=" + int2str(port_addrs[port]));
 
-  inet_pton(AF_INET, nexthop.c_str(), &addr);
-  next_hops[port] = addr.s_addr;
+  inet_pton(AF_INET, ip.c_str(), &addr);
+  portTable[port].ip_addr = addr.s_addr;
+
+
+  portTable[port].next_hop = ""; // no predefined next hop for this port
+
+  if (portTable[port].configured == false) {
+    char shcmd[256];
+    char device[] = "dataX"; // change device[4] to 0, 1, ... depending on which device
+    char ipStr[32];
+    char maskStr[32];
+
+    // convert prefix and mask to ip dot string
+    ip.copy(ipStr, 0, 32);
+    mask.copy(maskStr, 0, 32);
+
+    portTable[port].configured = true;
+    numConfiguredPorts++;
+    write_log("Reconfiguring port " + int2str(port));
+    //echo "Usage: $0 <portnum> <iface> <vlanNum> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefaultMin> <iptMark>"
+    //echo "Example: $0 1 data0 241 192.168.82.1 255.255.255.0 1000000 241"
+    device[4] = '0' + (unsigned char) realPort;
+#define IFACE_DEFAULT_MIN 1000
+    sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
+  }
+  else {
+    write_log("Initial configuration of port " + int2str(port));
+  }
+
+  write_log("Configuration::configure_node: port=" + int2str(port) + ", ipstr=" + ip + ", ip=" + portTable[port].ip_addr);
+
 
 }
 
 
-void Configuration::add_route(route_key *key, route_key *mask, route_result *result) throw(configuration_exception)
+/* scripts/cfgRouterAddRoute.sh
+ * echo "Usage: $0 <prefix> <mask> <dev> <vlan> [<gw>]"
+ * echo "Example: $0 192.168.81.0 255.255.255.0 data0 241"
+ * echo "  OR"
+ * echo "Example: $0 192.168.81.0 255.255.255.0 data0 241 192.168.81.249"
+ * exit 0
+ */
+
+// Add route to main route table with no gateway (next hop ip)
+void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
 {
-  bool failed = false;
   bool is_multicast = false;
-  unsigned int prefix_len;
+  std::string nic;
+
   write_log("add_route: entering");
-  
 
   // for routes, there are two cases: unicast and multicast
-  // for unicast, we do LPM on destination IP addy, so TCAM entries need to be in LP first order on dest IP
-  // for multicast, we do exact match on dest IP addy and LPM on source IP addy, so TCAM entries need to be in LP first order on source IP, and all multicast entries should come before the unicast entries
 
   autoLock glock(conf_lock);
-  // get an index in the TCAM for this entry
   if(is_multicast) // multicast route
   {
-    unsigned int prefix_length = get_prefix_length(mask->saddr); //not sure we care about this anymore left it in because it was harmless
-    write_log("add_route: got multicast route, prefix length " + int2str(prefix_length));
+    write_log("add_route: got multicast route");
 
   }
   else // unicast route
   {
-    unsigned int prefix_length = get_prefix_length(mask->daddr);
-    write_log("add_route: got unicast route, prefix length " + int2str(prefix_length));
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
+    }
+
 
   }
-
-  // get an index into SRAM for the result
 
   glock.unlock();
-
-  if(failed)
-  {
-    throw configuration_exception("adding the route failed!");
-  }
 
   write_log("add_route: done");
 
   return;
 }
 
-void Configuration::del_route(route_key *key) throw(configuration_exception)
+// Add route to main route table with a gateway (next hop ip)
+void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
 {
-  bool failed = false;
+  bool is_multicast = false;
+  std::string nic;
+
+  write_log("add_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("add_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("add_route: done");
+
+  return;
+}
+
+// Add route to a port specific route table with no gateway (next hop ip)
+void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("add_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("add_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("add_route: done");
+
+  return;
+}
+// Add route to a port specific route table with a gateway (next hop ip)
+void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("add_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("add_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("add_route: done");
+
+  return;
+}
+
+// Delete a route from the main route table with no gateway (next hop ip)
+void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
 
   write_log("del_route: entering");
 
-  *k = *key;
+  // for routes, there are two cases: unicast and multicast
 
-  if(failed)
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
   {
-    throw configuration_exception("deleting the route failed!");
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
+    }
+
+
   }
 
+  glock.unlock();
 
   write_log("del_route: done");
 
   return;
 }
 
-unsigned int Configuration::conv_str_to_uint(std::string str) throw(configuration_exception)
+// Delete a route from the main route table with a gateway (next hop ip)
+void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("del_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string tmp;
+    std::string nic;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("del_route: done");
+
+  return;
+}
+
+// Delete a route from a port specific route table with no gateway (next hop ip)
+void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("del_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string nic;
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("del_route: done");
+
+  return;
+}
+// Delete a route from a port specific route table with a gateway (next hop ip)
+void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint16_t output_port, uint32_t nexthop_ip) throw(Configuration_exception)
+{
+  bool is_multicast = false;
+
+  write_log("del_route: entering");
+
+  // for routes, there are two cases: unicast and multicast
+
+  autoLock glock(conf_lock);
+  if(is_multicast) // multicast route
+  {
+    write_log("del_route: got multicast route");
+
+  }
+  else // unicast route
+  {
+    // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
+    char shcmd[256];
+    char prefixStr[32];
+    char maskStr[32];
+    char nicStr[32];
+    std::string nic;
+    std::string tmp;
+
+    // convert prefix and mask to ip dot string
+    tmp = addr_int2str(prefix);
+    tmp.copy(prefixStr, 0, 32);
+    //prefixStr = addr_int2str(prefix);
+    tmp = addr_int2str(mask);
+    tmp.copy(maskStr, 0, 32);
+    //maskStr = addr_int2str(mask);
+
+    // get device and vlan from port_info struct
+    // <gw> is optional?
+    nic = nicTable[portTable[output_port].nicIndex].nic;
+    nic.copy(nicStr, 0, 32);
+
+    // port is used to direct this to a route table dedicated to a particular port
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    if(system(shcmd) < 0)
+    {
+      throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");
+    }
+
+
+  }
+
+  glock.unlock();
+
+  write_log("del_route: done");
+
+  return;
+}
+
+
+/*
+unsigned int Configuration::conv_str_to_uint(std::string str) throw(Configuration_exception)
 {
   const char* cstr = str.c_str();
   char* endptr;
@@ -288,20 +685,22 @@ unsigned int Configuration::conv_str_to_uint(std::string str) throw(configuratio
   val = strtoul(cstr, &endptr, 0);
   if((errno == ERANGE && (val == ULONG_MAX)) || (errno != 0 && val == 0))
   {
-    throw configuration_exception("invalid value");
+    throw Configuration_exception("invalid value");
   }
   if(endptr == cstr)
   {
-    throw configuration_exception("invalid value");
+    throw Configuration_exception("invalid value");
   }
   if(*endptr != '\0')
   {
-    throw configuration_exception("invalid value");
+    throw Configuration_exception("invalid value");
   }
   return val;
 }
+*/
 
-unsigned int Configuration::get_proto(std::string proto_str) throw(configuration_exception)
+/*
+unsigned int Configuration::get_proto(std::string proto_str) throw(Configuration_exception)
 {
   if(proto_str == "icmp" || proto_str == "ICMP")
   {
@@ -330,146 +729,80 @@ unsigned int Configuration::get_proto(std::string proto_str) throw(configuration
   }
   catch(std::exception& e)
   {
-    throw configuration_exception("protocol string is not valid");
+    throw Configuration_exception("protocol string is not valid");
   }
   return val;
 }
+*/
 
-unsigned int Configuration::get_tcpflags(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(configuration_exception)
+/*
+unsigned int Configuration::get_tcpflags(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(Configuration_exception)
 {
   unsigned val = 0;
 
   if(fin == 0 || fin == WILDCARD_VALUE) { }
   else if(fin == 1) { val = val | 1; }
-  else { throw configuration_exception("tcpfin value is not valid"); }
+  else { throw Configuration_exception("tcpfin value is not valid"); }
 
   if(syn == 0 || syn == WILDCARD_VALUE) { }
   else if(syn == 1) { val = val | 2; }
-  else { throw configuration_exception("tcpsyn value is not valid"); }
+  else { throw Configuration_exception("tcpsyn value is not valid"); }
 
   if(rst == 0 || rst == WILDCARD_VALUE) { }
   else if(rst == 1) { val = val | 4; }
-  else { throw configuration_exception("tcprst value is not valid"); }
+  else { throw Configuration_exception("tcprst value is not valid"); }
 
   if(psh == 0 || psh == WILDCARD_VALUE) { }
   else if(psh == 1) { val = val | 8; }
-  else { throw configuration_exception("tcppsh value is not valid"); }
+  else { throw Configuration_exception("tcppsh value is not valid"); }
 
   if(ack == 0 || ack == WILDCARD_VALUE) { }
   else if(ack == 1) { val = val | 16; }
-  else { throw configuration_exception("tcpack value is not valid"); }
+  else { throw Configuration_exception("tcpack value is not valid"); }
 
   if(urg == 0 || urg == WILDCARD_VALUE) { }
   else if(urg == 1) { val = val | 32; }
-  else { throw configuration_exception("tcpurg value is not valid"); }
+  else { throw Configuration_exception("tcpurg value is not valid"); }
 
   return val;
 }
+*/
 
-unsigned int Configuration::get_tcpflags_mask(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(configuration_exception)
+/*
+unsigned int Configuration::get_tcpflags_mask(unsigned int fin, unsigned int syn, unsigned int rst, unsigned int psh, unsigned int ack, unsigned urg) throw(Configuration_exception)
 {
   unsigned val = 0;
 
   if(fin == WILDCARD_VALUE) { }
   else if(fin == 0 || fin == 1) { val = val | 1; }
-  else { throw configuration_exception("tcpfin value is not valid"); }
+  else { throw Configuration_exception("tcpfin value is not valid"); }
 
   if(syn == WILDCARD_VALUE) { }
   else if(syn == 0 || syn == 1) { val = val | 2; }
-  else { throw configuration_exception("tcpsyn value is not valid"); }
+  else { throw Configuration_exception("tcpsyn value is not valid"); }
 
   if(rst == WILDCARD_VALUE) { }
   else if(rst == 0 || rst == 1) { val = val | 4; }
-  else { throw configuration_exception("tcprst value is not valid"); }
+  else { throw Configuration_exception("tcprst value is not valid"); }
 
   if(psh == WILDCARD_VALUE) { }
   else if(psh == 0 || psh == 1) { val = val | 8; }
-  else { throw configuration_exception("tcppsh value is not valid"); }
+  else { throw Configuration_exception("tcppsh value is not valid"); }
 
   if(ack == WILDCARD_VALUE) { }
   else if(ack == 0 || ack == 1) { val = val | 16; }
-  else { throw configuration_exception("tcpack value is not valid"); }
+  else { throw Configuration_exception("tcpack value is not valid"); }
 
   if(urg == WILDCARD_VALUE) { }
   else if(urg == 0 || urg == 1) { val = val | 32; }
-  else { throw configuration_exception("tcpurg value is not valid"); }
+  else { throw Configuration_exception("tcpurg value is not valid"); }
 
   return val;
 }
+*/
 
-unsigned int Configuration::get_exceptions(unsigned int nonip, unsigned int arp, unsigned int ipopt, unsigned int ttl) throw(configuration_exception)
-{
-  unsigned val = 0;
-
-  if(nonip == 0 || nonip == WILDCARD_VALUE) { }
-  else if(nonip == 1) { val = val | 1; }
-  else { throw configuration_exception("nonip value is not valid"); }
-
-  if(arp == 0 || arp == WILDCARD_VALUE) { }
-  else if(arp == 1) { val = val | 2; }
-  else { throw configuration_exception("arp value is not valid"); }
-
-  if(ipopt == 0 || ipopt == WILDCARD_VALUE) { }
-  else if(ipopt == 1) { val = val | 4; }
-  else { throw configuration_exception("ipopt value is not valid"); }
-
-  if(ttl == 0 || ttl == WILDCARD_VALUE) { }
-  else if(ttl == 1) { val = val | 8; }
-  else { throw configuration_exception("ttl value is not valid"); }
-
-  return val;
-}
-
-unsigned int Configuration::get_exceptions_mask(unsigned int nonip, unsigned int arp, unsigned int ipopt, unsigned int ttl) throw(configuration_exception)
-{
-  unsigned val = 0;
-
-  if(nonip == WILDCARD_VALUE) { }
-  else if(nonip == 0 || nonip == 1) { val = val | 1; }
-  else { throw configuration_exception("nonip value is not valid"); }
-
-  if(arp == WILDCARD_VALUE) { }
-  else if(arp == 0 || arp == 1) { val = val | 2; }
-  else { throw configuration_exception("arp value is not valid"); }
-
-  if(ipopt == WILDCARD_VALUE) { }
-  else if(ipopt == 0 || ipopt == 1) { val = val | 4; }
-  else { throw configuration_exception("ipopt value is not valid"); }
-
-  if(ttl == WILDCARD_VALUE) { }
-  else if(ttl == 0 || ttl == 1) { val = val | 8; }
-  else { throw configuration_exception("ttl value is not valid"); }
-
-  return val;
-}
-
-unsigned int Configuration::get_pps(std::string pps_str, bool multicast) throw(configuration_exception)
-{
-  if(pps_str == "plugin(unicast)")
-  {
-    if(multicast) { throw configuration_exception("invalid port_plugin_selection for multicast filter"); }
-    return 1;
-  }
-  if(pps_str == "port(unicast)")
-  {
-    if(multicast) { throw configuration_exception("invalid port_plugin_selection for multicast filter"); }
-    return 0;
-  }
-  if(pps_str == "ports and plugins (multicast)")
-  {
-    if(!multicast) { throw configuration_exception("invalid port_plugin_selection for unicast filter"); }
-    return 0;
-  }
-  if(pps_str == "plugins(multicast)")
-  {
-    if(!multicast) { throw configuration_exception("invalid port_plugin_selection for unicast filter"); }
-    return 1;
-  }
-  throw configuration_exception("invalid port_plugin_selection");
-  return 0;
-}
-
-unsigned int Configuration::get_output_port(std::string port_str) throw(configuration_exception)
+/*
+unsigned int Configuration::get_output_port(std::string port_str) throw(Configuration_exception)
 {
   if(port_str == "")
   {
@@ -487,39 +820,18 @@ unsigned int Configuration::get_output_port(std::string port_str) throw(configur
   }
   catch(std::exception& e)
   {
-    throw configuration_exception("output port is not valid");
+    throw Configuration_exception("output port is not valid");
   }
   if(val > 4)
   {
-    throw configuration_exception("output port is not valid");
+    throw Configuration_exception("output port is not valid");
   }
   return val;
 }
+*/
 
-unsigned int Configuration::get_output_plugin(std::string plugin_str) throw(configuration_exception)
-{
-  if(plugin_str == "")
-  {
-    return 0;
-  }
-
-  unsigned int val;
-  try
-  {
-    val = conv_str_to_uint(plugin_str);
-  }
-  catch(std::exception& e)
-  {
-    throw configuration_exception("output plugin is not valid");
-  }
-  if(val > 4)
-  {
-    throw configuration_exception("output plugin is not valid");
-  }
-  return val;
-}
-
-unsigned int Configuration::get_outputs(std::string port_str, std::string plugin_str) throw(configuration_exception)
+/*
+unsigned int Configuration::get_outputs(std::string port_str, std::string plugin_str) throw(Configuration_exception)
 {
   unsigned int ports = 0;
   char portcstr[port_str.size()+1];
@@ -534,7 +846,7 @@ unsigned int Configuration::get_outputs(std::string port_str, std::string plugin
       unsigned int val = conv_str_to_uint(tmp);
       if(val > 4)
       {
-        throw configuration_exception("output port is not valid");
+        throw Configuration_exception("output port is not valid");
       }
       ports = ports | (1 << val); 
     
@@ -543,7 +855,7 @@ unsigned int Configuration::get_outputs(std::string port_str, std::string plugin
   }
   catch(std::exception& e)
   {
-    throw configuration_exception("output port is not valid");
+    throw Configuration_exception("output port is not valid");
   }
 
   unsigned int plugins = 0;
@@ -559,7 +871,7 @@ unsigned int Configuration::get_outputs(std::string port_str, std::string plugin
       unsigned int val = conv_str_to_uint(tmp);
       if(val > 4)
       {
-        throw configuration_exception("output plugin is not valid");
+        throw Configuration_exception("output plugin is not valid");
       }
       plugins = plugins | (1 << val);
 
@@ -568,14 +880,15 @@ unsigned int Configuration::get_outputs(std::string port_str, std::string plugin
   }
   catch(std::exception& e)
   {
-    throw configuration_exception("output plugin is not valid");
+    throw Configuration_exception("output plugin is not valid");
   }
 
   return ((ports << 5) | (plugins));
 }
+*/
 
-
-void Configuration::add_filter(pfilter_key *key, pfilter_key *mask, unsigned int priority, pfilter_result *result) throw(configuration_exception)
+/*
+void Configuration::add_filter(pfilter_key *key, pfilter_key *mask, unsigned int priority, pfilter_result *result) throw(Configuration_exception)
 {
   bool failed = false;
 
@@ -583,7 +896,7 @@ void Configuration::add_filter(pfilter_key *key, pfilter_key *mask, unsigned int
 
   if(priority > MAX_PRIORITY)
   {
-    throw configuration_exception("invalid priority");
+    throw Configuration_exception("invalid priority");
   }
 
 
@@ -592,7 +905,7 @@ void Configuration::add_filter(pfilter_key *key, pfilter_key *mask, unsigned int
 
   if(failed)
   {
-    throw configuration_exception("adding the filter failed!");
+    throw Configuration_exception("adding the filter failed!");
   }
 
   write_log("add_filter: done");
@@ -600,7 +913,7 @@ void Configuration::add_filter(pfilter_key *key, pfilter_key *mask, unsigned int
   return;
 }
 
-void Configuration::del_filter(pfilter_key *key) throw(configuration_exception)
+void Configuration::del_filter(pfilter_key *key) throw(Configuration_exception)
 {
   bool failed = false;
   write_log("del_filter: entering");
@@ -608,45 +921,16 @@ void Configuration::del_filter(pfilter_key *key) throw(configuration_exception)
 
   if(failed)
   {
-    throw configuration_exception("deleting the filter failed!");
+    throw Configuration_exception("deleting the filter failed!");
   }
 
   write_log("del_filter: done");
 
   return;
 }
-
-/*
-void Configuration::get_sample_rates(aux_sample_rates *rates) throw()
-{
-  unsigned int addr = COPY_BLOCK_CONTROL_MEM_BASE;
-
-  write_log("get_sample_rates:");
-  
-  autoLock slock(sram_lock);
-
-  rates->rate00 = SRAM_READ(SRAM_BANK_3, addr);
-  rates->rate01 = SRAM_READ(SRAM_BANK_3, addr+4);
-  rates->rate10 = SRAM_READ(SRAM_BANK_3, addr+8);
-  rates->rate11 = SRAM_READ(SRAM_BANK_3, addr+12);
-}
-
-void Configuration::set_sample_rates(aux_sample_rates *rates) throw()
-{
-  unsigned int addr = COPY_BLOCK_CONTROL_MEM_BASE;
-
-  write_log("set_sample_rates:");
-
-  autoLock slock(sram_lock);
-
-  SRAM_WRITE(SRAM_BANK_3, addr, rates->rate00);
-  SRAM_WRITE(SRAM_BANK_3, addr+4, rates->rate01);
-  SRAM_WRITE(SRAM_BANK_3, addr+8, rates->rate10);
-  SRAM_WRITE(SRAM_BANK_3, addr+12, rates->rate11);
-}
 */
 
-
+/*
 unsigned int Configuration::get_queue_quantum(unsigned int port, unsigned int queue) throw()
 {
 
@@ -686,93 +970,49 @@ void Configuration::set_queue_threshold(unsigned int port, unsigned int queue, u
   write_log("set_queue_threshold: queue " + int2str(queue) + ", threshold " + int2str(threshold));
 
 }
-
-// rates are in Kbps
-void Configuration::get_port_rates(port_rates *rates) throw()
-{
-  unsigned int z = 1;
-
-  write_log("get_port_rates:");
-
-  rates->port0_rate = z * QPORT_RATE_CONVERSION;
-  rates->port1_rate = z * QPORT_RATE_CONVERSION;
-  rates->port2_rate = z * QPORT_RATE_CONVERSION;
-  rates->port3_rate = z * QPORT_RATE_CONVERSION;
-  rates->port4_rate = z * QPORT_RATE_CONVERSION;
-}
-
-// rates are in Kbps
-void Configuration::set_port_rates(port_rates *rates) throw()
-{
-  unsigned int z;
-
-  write_log("set_port_rates:");
-  
-  autoLock slock(sram_lock);
-
-  z = rates->port0_rate / QPORT_RATE_CONVERSION;
-  z = rates->port1_rate / QPORT_RATE_CONVERSION;
-
-  z = rates->port2_rate / QPORT_RATE_CONVERSION;
-
-  z = rates->port3_rate / QPORT_RATE_CONVERSION;
-
-  z = rates->port4_rate / QPORT_RATE_CONVERSION;
-}
+*/
 
 // rates should be in Kbps
-unsigned int Configuration::get_port_rate(unsigned int port) throw(configuration_exception)
+unsigned int Configuration::get_port_rate(unsigned int port) throw(Configuration_exception)
 {
   write_log("get_port_rate:");
 
-  if(port > 4)
+  if(port > max_port)
   {
-    throw configuration_exception("invalid port");
+    throw Configuration_exception("invalid port");
+  }
+  if(!portTable[port].configured)
+  {
+    throw Configuration_exception("unconfigured port");
   }
 
-  unsigned int z = 1;
-
-  return (z * QPORT_RATE_CONVERSION);
+  return (portTable[port].rate);
 }
 
 // rates should be in Kbps
-void Configuration::set_port_rate(unsigned int port, unsigned int rate) throw(configuration_exception)
+void Configuration::set_port_rate(unsigned int port, unsigned int rate) throw(Configuration_exception)
 {
   write_log("set_port_rate:");
 
-  if(port > 4)
+  if(port > max_port)
   {
-    throw configuration_exception("invalid port");
+    throw Configuration_exception("invalid port");
   } 
-}
-
-unsigned int Configuration::get_port_mac_addr_hi16(unsigned int port) throw(configuration_exception)
-{
-  if(port > 4)
+  if(!portTable[port].configured)
   {
-    throw configuration_exception("invalid port");
+    throw Configuration_exception("unconfigured port");
   }
-
-  return macs.port_hi16[port];
+  portTable[port].rate = rate;
 }
 
-unsigned int Configuration::get_port_mac_addr_low32(unsigned int port) throw(configuration_exception)
-{
-  if(port > 4)
-  {
-    throw configuration_exception("invalid port");
-  }
-
-  return macs.port_low32[port];
-}
-
+/*
 unsigned int Configuration::get_port_addr(unsigned int port) throw()
 {
   if(port > 4)
   {
     return 0;
   }
-  return port_addrs[port];
+  return (portTable[port].ip_addr);
 }
 
 unsigned int Configuration::get_next_hop_addr(unsigned int port) throw()
@@ -781,8 +1021,9 @@ unsigned int Configuration::get_next_hop_addr(unsigned int port) throw()
   {
     return 0;
   }
-  return next_hops[port];
+  return (portTable[port].next_hop);
 }
+*/
 
 void Configuration::set_username(std::string un) throw()
 {
@@ -795,121 +1036,15 @@ std::string Configuration::get_username() throw()
   return username;
 }
 
-unsigned int Configuration::get_prefix_length(unsigned int addr_mask) throw()
+std::string Configuration::addr_int2str(uint32_t addr)
 {
-  unsigned int length = 0;
-  for(int i=31; i>=0; --i)
+  char addr_cstr[INET_ADDRSTRLEN];
+  struct in_addr ia;
+  ia.s_addr = htonl(addr);
+  if(inet_ntop(AF_INET,&ia,addr_cstr,INET_ADDRSTRLEN) == NULL)
   {
-    if((addr_mask & (1<<i)) != 0)
-    {
-      ++length;
-    }
-    else
-    {
-      break;
-    }
+    return "";
   }
-  return length;
+  return std::string(addr_cstr);
 }
-
-unsigned int Configuration::get_free_index(indexlist **head) throw(configuration_exception)
-{
-  indexlist *node;
-  unsigned int index;
-
-  if((*head) == NULL)
-  {
-    throw configuration_exception("no more free TCAM entries");
-  }
-
-  // we simply take the index from the left side of the first free range
-  index = (*head)->left;
-
-  // if the range has more entries, simply update the left value
-  if((*head)->left != (*head)->right)
-  {
-    (*head)->left++;
-  }
-  // otherwise, remove the current node from the list
-  else
-  {
-    node = *head;
-    *head = (*head)->next;
-    delete node;
-  }
-
-  return index;
-}
-
-void Configuration::add_free_index(indexlist **head, unsigned int index) throw()
-{
-  indexlist *node, *last, *tmp;
-
-  if((*head) == NULL)
-  {
-    *head = new indexlist();
-    (*head)->left = index;
-    (*head)->right = index;
-    (*head)->next = NULL;
-  }
-  else
-  {
-    last = *head;
-    node = *head;
-    while((node != NULL) && (node->right < index))
-    {
-      last = node;
-      node = node->next;
-    }
-
-    if(last->right == (index - 1))
-    {
-      last->right = index;
-      if((node != NULL) && (node->left == (index + 1)))
-      {
-        last->right = node->right;
-        last->next = node->next;
-        delete node;
-      }
-    }
-    else if(node == NULL)
-    {
-      node = new indexlist();
-      node->left = index;
-      node->right = index;
-      node->next = NULL;
-      last->next = node;
-    }
-    else if(node->left == (index + 1))
-    {
-      node->left = index;
-    }
-    else
-    {
-      tmp = new indexlist();
-      tmp->left = index;
-      tmp->right = index;
-      tmp->next = node;
-      if(last == node)
-      {
-        *head = tmp;
-      }
-      else
-      {
-        last->next = tmp;
-      }
-    }
-  }
-}
-
-void Configuration::free_list_mem(indexlist **list) throw()
-{
-  indexlist *tmp;
-  while(*list != NULL)
-  {
-    tmp = *list;
-    (*list) = (*list)->next;
-    delete tmp;
-  }
-} 
 

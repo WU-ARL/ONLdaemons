@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart
+ * and Washington University in St. Louis
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ *    limitations under the License.
+ */
+
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -31,7 +48,7 @@
 
 extern "C"
 {
-  #include "api.h"
+//  #include "api.h"
 }
 
 namespace swr
@@ -50,9 +67,6 @@ namespace swr
 
   void* handle_task(void *); // thread main
 
-  //enum conns { PLUGINCONN, DATAPATHCONN };
-
-
 
   bool init()
   {
@@ -62,15 +76,7 @@ namespace swr
 
     write_log("init: Initializing");
 
-    Configuration::rtm_mac_addrs *macs = NULL;
-    if(macs == NULL)
-    {
-      write_log("radisys api get mac addresses failed");
-      return false;
-    }
- 
-    configuration = new Configuration(npu, macs);
-    delete macs;
+    configuration = new Configuration();
 
     rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
     monitor = new Monitor();
@@ -126,63 +132,58 @@ int main()
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
 
   // manage routes
-  register_req<add_route_req>(SWR_AddRoute);
-  register_req<delete_route_req>(SWR_DeleteRoute);
+  // main router route table
+  register_req<add_route_main_req>(SWR_AddRouteMain);
+  register_req<del_route_main_req>(SWR_DeleteRouteMain);
 
+  // per port route tables
+  register_req<add_route_port_req>(SWR_AddRoutePort);
+  register_req<del_route_port_req>(SWR_DeleteRoutePort);
+
+/*
   // manage filters
   register_req<add_filter_req>(SWR_AddFilter);
-  register_req<delete_filter_req>(SWR_DeleteFilter);
+  register_req<del_filter_req>(SWR_DeleteFilter);
   
-  // configure queues and ports
-  //register_req<set_queue_params_req>(SWR_SetQueueParams);
+  // configure queues 
+  register_req<add_queue_req>(SWR_AddQueue);
+  register_req<del_queue_req>(SWR_DeleteQueue);
+  register_req<set_queue_params_req>(SWR_SetQueueParams);
+*/
+
+  // configure ports
+  register_req<configure_node_req>(SWR_SetPortRate);
   register_req<set_port_rate_req>(SWR_SetPortRate);
 
-  /*
-  // read counters and such
+/*
+  // Monitoring
+  // Per port rx and tx byte and pkt counts
   register_req<get_rx_pkt_req>(SWR_GetRXPkt);
   register_req<get_rx_byte_req>(SWR_GetRXByte);
   register_req<get_tx_pkt_req>(SWR_GetTXPkt);
   register_req<get_tx_byte_req>(SWR_GetTXByte);
-  register_req<get_reg_pkt_req>(SWR_GetRegPkt);
-  register_req<get_reg_byte_req>(SWR_GetRegByte);
-  register_req<get_stats_preq_pkt_req>(SWR_GetStatsPreQPkt);
-  register_req<get_stats_postq_pkt_req>(SWR_GetStatsPostQPkt);
-  register_req<get_stats_preq_byte_req>(SWR_GetStatsPreQByte);
-  register_req<get_stats_postq_byte_req>(SWR_GetStatsPostQByte);
+*/
+
+/*
+  // queue lengths
   register_req<get_queue_len_req>(SWR_GetQueueLength);
-  */
+*/
 
   rli_conn->receive_messages(true);
 
-  // now loop forever checking for messages from data path and plugins
+/*
+  // now loop forever checking for messages 
   bool started = false;
   while(true)
   {
     if(!started) { started = configuration->router_started(); }
     //this sets up a thread that processes any messages coming from the router process
     //for the npr this would have checked messages coming from the ixp
-      /*
-	if(started)
-	{
-	pthread_t tid;
-      pthread_attr_t tattr;
-      int *arg = new int();
-      if(pthread_attr_init(&tattr) != 0)
-      {
-      write_log("pthread_attr_init failed"); break;
-      }
-      if(pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED) != 0)
-      {
-      write_log("pthread_attr_setdetachstate failed"); break;
-      }
-      if(pthread_create(&tid, &tattr, swr::handle_task, (void *)arg) != 0)
-      {
-      write_log("pthread_create failed"); break;
-      }
-      
-      }
-      */
+    // For the software router we have nothing for this while(true) loop.
+    // Nothing comes to the controller except from the RLI.
+    // so we can just exit this thread. The RLI thread will continue.
   }
+*/
 
   pthread_exit(NULL);
 }
