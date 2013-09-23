@@ -720,6 +720,13 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       unsigned int node2_port;
       unsigned int node2_rport;
       unsigned int node2_cap = 0;
+	 
+      if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
+	{
+	  cur_cap = cur_cap * 1000;
+	  cur_rload = cur_rload * 1000;
+	  cur_lload = cur_lload * 1000;
+	}
 
       for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
 	{
@@ -751,6 +758,12 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
           cur_cap = it3->capacity;
 	  cur_rload = it3->rload;
 	  cur_lload = it3->lload;
+	  if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
+	    {
+	      cur_cap = cur_cap * 1000;
+	      cur_rload = cur_rload * 1000;
+	      cur_lload = cur_lload * 1000;
+	    }
           cur_conns.clear();
           node1_label = 0;
 	  node1_port = 0;
