@@ -100,6 +100,7 @@ namespace onl
       int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node, std::list<node_load_ptr>& neighbors);
       //added to support virtual ports
       onldb_resp get_link_vport(unsigned int linkid, unsigned int rid, int port);
+      bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin);
 
     public:
       onldb() throw();
