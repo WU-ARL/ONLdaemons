@@ -819,10 +819,10 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 		    node2_rport = node1_port;
 		    node2_cap = cur_cap;
 		  }
-	      }
-	    else
-	      {
-		return onldb_resp(-1, (std::string)"database consistency problem");
+		else
+		  {
+		    return onldb_resp(-1, (std::string)"database consistency problem");
+		  }
 	      }
 	  }
 	else if (node1_label == t->get_label(it3->node1)) node1_rport = it3->node1port;
@@ -1371,16 +1371,25 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       for(it4 = ci.begin(); it4 != ci.end(); ++it4)
       {
         //cap -= it4->capacity;
-	rl += it4->rload;
-	ll += it4->lload;
+	if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
+	  {
+	    rl += (it4->rload * 1000);
+	    ll += (it4->lload * 1000);
+	  }
+	else
+	  {
+	    rl += it4->rload;
+	    ll += it4->lload;
+	  }
       }
       
       if(cap <= rl || cap <= ll) { continue; }
 
+      //this doesn't make sense these links aren't added to the available topology
       //because of the way loads are recorded in the database loads can be larger than the capacity of the link
       //before calculating a reservation we want to make sure the loads aren't bigger than tha capacity of the link
-      if (rl > cap) rl = cap;
-      if (ll > cap) ll = cap;
+      //if (rl > cap) rl = cap;
+      //if (ll > cap) ll = cap;
 
       unsigned int node1_label = 0;
       unsigned int node2_label = 0;
