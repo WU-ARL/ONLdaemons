@@ -573,9 +573,9 @@ node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::stri
 {
   ipaddr = ip.c_str();
   subnet = sn.c_str();
-  port = portnum;
   remote_type = rtype.c_str();
   is_remote_router = rrouter;
+  port = portnum;
   nexthop_ipaddr = next_hop_ip.c_str();
   real_port = rp;
   vlanid = 0;

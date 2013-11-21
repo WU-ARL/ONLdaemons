@@ -54,7 +54,7 @@ namespace onld
       void receive_messages_forever();
       void process_message(uint8_t* mbuf, uint32_t size);
 
-      bool send_message(onld::message *msg) throw();
+      bool send_message(onld::message *msg, bool print_debug=false) throw();
      
       bool isClosed() { return closed; }
       bool isFinished() { return finished; }

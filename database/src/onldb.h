@@ -81,6 +81,8 @@ namespace onl
       node_resource_ptr find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr> cl, topology* req, topology* base) throw();
       node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype) throw();
       node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
+      node_resource_ptr find_fixed_node(node_resource_ptr cluster, std::string ntype) throw();
+      node_resource_ptr find_fixed_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
       void get_subnet(node_resource_ptr vgige, subnet_info_ptr subnet) throw();
       bool is_cluster_mapped(node_resource_ptr cluster) throw();
       void initialize_base_potential_loads(topology* base);

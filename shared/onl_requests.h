@@ -119,6 +119,7 @@ namespace onld
       virtual void parse();
       virtual void write();
 
+
     protected:
       node_info node_conf;
   }; // class configure_node

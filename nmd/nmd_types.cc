@@ -93,6 +93,12 @@ bool vlan::delete_port(switch_port p)
   return status;
 }
 
+void vlan::initialize()
+{
+  ports.clear();
+  inUse = false;
+}
+
 bool vlan::clear_vlan()
 {
   // iterate through ports and build list of switches to clear vlan state from
@@ -155,6 +161,14 @@ vlan_set::~vlan_set()
 {
   // is this right?
   delete vlans;
+}
+
+void vlan_set::initialize_vlans()
+{
+  uint32_t i;
+  for (i = 0; i < num_vlans; i++) {
+    vlans[i].initialize();   
+  }
 }
 
 

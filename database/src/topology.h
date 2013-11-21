@@ -59,6 +59,7 @@ namespace onl
 
       void get_conns(unsigned int label, std::list<int>& conn_list) throw();
       int get_realport(unsigned int label, int node_ndx) throw();
+      int get_capacity(unsigned int label, int node_ndx) throw();
       int compute_host_cost();
       int compute_intercluster_cost();
   };

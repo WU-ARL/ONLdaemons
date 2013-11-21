@@ -483,7 +483,7 @@ nccp_connection::process_message(uint8_t* mbuf, uint32_t size)
 }
 
 bool
-nccp_connection::send_message(onld::message* msg) throw()
+nccp_connection::send_message(onld::message* msg, bool print_debug) throw()
 {
   autoLock rlock(write_lock);
 
@@ -505,6 +505,11 @@ nccp_connection::send_message(onld::message* msg) throw()
     close();
     return false;
   }
+
+  if (print_debug)
+    {
+      write_log("nccp_connection::send_message: msg_length " + int2str(msg_length) + " buf_size " + int2str(buf->getSize()));
+    }
 
   if(send(sockfd, (char *)buf->getData(), buf->getSize(), MSG_NOSIGNAL) < 0)
   {

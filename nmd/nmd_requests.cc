@@ -216,6 +216,9 @@ bool initialize_req::handle()
   delete [] threads;
   delete [] p;
   
+  if (status == NCCP_Status_Fine)//only initialize vlans if switch initialization was successful
+    vlans->initialize_vlans();
+
   switch_response* resp = new switch_response(this, status); 
   resp->send(); 
   delete resp;

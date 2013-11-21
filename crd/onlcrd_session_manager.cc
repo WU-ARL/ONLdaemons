@@ -531,6 +531,7 @@ session_manager::add_vlan()
 	}
       
       vlan = addresp->getVlan();
+      write_log("session_manager::add_vlan() vlan " + int2str(vlan));
       
       delete addresp;
       delete addvlan;
@@ -618,9 +619,12 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
 	{
 	  remove_port_from_outstanding_list(port);
 	  delete delfromvlan;
-	  if(last_port && !delete_vlan(vlan))
+	  if(last_port)
 	    {
-	      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+	      if (delete_vlan(vlan))
+		write_log("session_manager::remove_port_from_vlan(): delete vlan " + int2str(vlan));
+	      else
+		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
 	    }
 	  return false;
 	}
@@ -632,9 +636,12 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
 	{
 	  delete swresp;
 	  delete delfromvlan;
-	  if(last_port && !delete_vlan(vlan))
+	  if(last_port)
 	    {
-	      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+	      if (delete_vlan(vlan))
+		write_log("session_manager::remove_port_from_vlan(): b delete vlan " + int2str(vlan));
+	      else
+		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
 	    }
 	  return false;
 	}
@@ -645,9 +652,12 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
   else //testing
     remove_port_from_outstanding_list(port);
 
-  if(last_port && !delete_vlan(vlan))
+  if(last_port)
   {
-    write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+    if (delete_vlan(vlan))
+      write_log("session_manager::remove_port_from_vlan(): c delete vlan " + int2str(vlan));
+    else
+      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
   }
   return true;
 }
@@ -664,6 +674,7 @@ session_manager::delete_vlan(switch_vlan vlan)
       onld::delete_vlan* delvlan = new onld::delete_vlan(vlan);
       delvlan->set_connection(the_gige_conn);
       
+      write_log("session_manager::delete_vlan() vlan " + int2str(vlan));
       if(!delvlan->send_and_wait())
 	{
 	  delete delvlan;

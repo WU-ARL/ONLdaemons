@@ -38,6 +38,7 @@ class vlan {
     bool delete_port(switch_port p);
     bool clear_vlan();
     void print_ports();
+    void initialize();
 
   private:
     port_list get_switch_ports(string switch_id);
@@ -61,6 +62,7 @@ class vlan_set {
     bool delete_vlan(switch_vlan vlan_id);
     bool add_to_vlan(switch_vlan vlan_id, switch_port port);
     bool delete_from_vlan(switch_vlan vlan_id, switch_port port);
+    void initialize_vlans();
 
   private:
     switch_vlan alloc_vlan();

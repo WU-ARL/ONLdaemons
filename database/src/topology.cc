@@ -470,6 +470,20 @@ int topology::get_realport(unsigned int label, int node_ndx) throw()
   return -1;
 }
 
+int topology::get_capacity(unsigned int label, int node_ndx) throw()
+{
+  list<link_resource_ptr>::iterator lit;
+  for(lit = links.begin(); lit != links.end(); ++lit)
+  {
+    if((*lit)->label == label)
+    {
+      if (node_ndx == 1) return (*lit)->node1_capacity;
+      else return (*lit)->node2_capacity;
+    }
+  }
+  return -1;
+}
+
 
 int
 topology::compute_host_cost()

@@ -359,9 +359,17 @@ session::commit(session_ptr sess)
     link->set_component(req->getComponent());
     std::list<int> clist;
     topology.get_conns(req->getComponent().getID(), clist);
+
+    //set the real physical ports of the link
     int rp1 = topology.get_realport(req->getComponent().getID(), 1);
     int rp2 = topology.get_realport(req->getComponent().getID(), 2);  
     link->set_rports(rp1, rp2);
+
+    //set the capacity of the link
+    int cap1 = topology.get_capacity(req->getComponent().getID(), 1);
+    int cap2 = topology.get_capacity(req->getComponent().getID(), 2);
+    link->set_capacity(cap1, cap2);
+
     link->set_switch_ports(clist);
 
     link->set_session(sess);
@@ -385,6 +393,7 @@ session::commit(session_ptr sess)
     if((*i)->get_type() != "vgige") { continue; }
 
     switch_vlan new_vlan = the_session_manager->add_vlan();
+    write_log("session::commit(): component " + (*i)->getName() + " adding vlan " + int2str(new_vlan));
     if(new_vlan == 0)
     {
       write_log("session::commit(): warning: add_vlan failed");
@@ -400,13 +409,16 @@ session::commit(session_ptr sess)
   for (li = links.begin(); li != links.end(); ++li)
     {
       if ((*li)->marked()) { continue;}
-      switch_vlan new_vlan = the_session_manager->add_vlan();
-      if(new_vlan == 0)
+      //switch_vlan new_vlan = the_session_manager->add_vlan();
+      if(!(*li)->allocate_vlan())//new_vlan == 0)
 	{
 	  write_log("session::commit(): warning: add_vlan failed");
 	  continue;
 	}
-      (*li)->set_vlan(new_vlan);
+
+      //VLAN PROBLEM
+      //(*li)->set_vlan(new_vlan);
+      //set_vlans((*lit)->get_node1(), new_vlan);
     }
  
   std::string usage = "USAGE_LOG: COMMIT user " + user + " session " + id + " components"; 
@@ -516,6 +528,7 @@ session::clear()
 
     unsigned int id = lnk->get_component().getID();
     lnk->refresh();
+    //need to make sure vlans get deleted here VLAN PROBLEM
     topology.remove_link(id);
   }
 

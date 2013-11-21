@@ -150,6 +150,7 @@ namespace onlcrd
       component& get_component() { return comp; }
 
       void set_vlan(switch_vlan v) { link_vlan = v; alloc_vlan = false; }
+      bool allocate_vlan();
       void set_rports(unsigned short p1, unsigned short p2) { endpoint1_rport = p1; endpoint2_rport = p2;}
 
       crd_component_ptr get_node1() { return endpoint1; }
@@ -157,6 +158,7 @@ namespace onlcrd
 
       unsigned int get_node1_capacity() { return endpoint1_cap;}
       unsigned int get_node2_capacity() { return endpoint2_cap;}
+      void set_capacity(int c1, int c2) { endpoint1_cap = c1; endpoint2_cap = c2;}
 
       void set_switch_ports(std::list<int>& connlist);
 

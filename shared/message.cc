@@ -87,12 +87,12 @@ message::set_connection(nccp_connection *conn)
 }
 
 bool
-message::send()
+message::send(bool print_debug)
 {
   if((nccpconn != NULL) && (!nccpconn->isClosed()))
   {
     buf.reset();
-    return nccpconn->send_message(this);
+    return nccpconn->send_message(this, print_debug);
   }
   return false;
 }
@@ -208,7 +208,7 @@ request::request_rendezvous(periodic *per)
 }
 
 bool
-request::send_and_wait()
+request::send_and_wait(bool print_debug)
 {
   dispatcher* the_dispatcher = dispatcher::get_dispatcher();
 
@@ -216,7 +216,7 @@ request::send_and_wait()
 
   //write_log("request::send_and_wait sending"); //JP 8_22_12 to be removed
 
-  if(!message::send())
+  if(!message::send(print_debug))
   {
     write_log("request::send_and_wait send failed"); //JP 8_22_12 to be removed
     the_dispatcher->clear_rendezvous(this);

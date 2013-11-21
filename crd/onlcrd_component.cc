@@ -951,14 +951,19 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
   if(state != "new" ) { return true; }
   slock.unlock();
 
-  write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()));
-
   experiment_info info;
   if(sess)
   {
     info.setUserName(sess->getUser().c_str());
     info.setID(sess->getID().c_str());
   }
+  else 
+  {
+    write_log("crd_link::send_port_configuration() error no session: comp " + c->getName() + ", link " + int2str(comp.getID()));
+    return false;
+  }
+
+  write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()));
   experiment exp;
   exp.setExpInfo(info);
     
@@ -1007,7 +1012,7 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     return false;
   }
 
-  if(!cfgnode->send_and_wait())
+  if(!cfgnode->send_and_wait(true))//true should print the msg length JP
   {
     delete cfgnode;
     return false;
@@ -1128,9 +1133,10 @@ crd_link::do_initialize()
 
   if(!testing)
   {
-    if(alloc_vlan)
+    if(alloc_vlan && link_vlan == 0)
     {
       link_vlan = the_session_manager->add_vlan();
+      write_log("crd_link::do_initialize(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan));
       if(link_vlan == 0)
       {
         status = NCCP_Status_Failed;
@@ -1185,6 +1191,24 @@ crd_link::do_initialize()
   }
 }
 
+bool
+crd_link::allocate_vlan()
+{
+  NCCP_StatusType status = NCCP_Status_Fine;
+
+  if(!testing && alloc_vlan && link_vlan == 0)
+    {
+      link_vlan = the_session_manager->add_vlan();
+      write_log("crd_link::allocate_vlan(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan));
+      if(link_vlan == 0)
+	{
+	  status = NCCP_Status_Failed;
+	  return false;
+	}
+    }
+  return true;
+}
+
 void
 crd_link::refresh()
 {
@@ -1196,7 +1220,7 @@ crd_link::refresh()
     clear_session();
     return;
   }
-  if(state == "new")
+  if(state == "new" && link_vlan == 0)
   {
     state = "refreshing";
     slock.unlock();
@@ -1256,15 +1280,17 @@ crd_link::do_refresh()
     {
       std::list<switch_port>::iterator port;
       for(port = switch_ports.begin(); port != switch_ports.end(); ++port)
-      
-      if(!the_session_manager->remove_port_from_vlan(link_vlan, *port))
-      {
-        write_log("crd_link::do_refresh(): warning: delete from vlan failed for " + int2str(link_vlan));
-      }
+	{
+	  if(!the_session_manager->remove_port_from_vlan(link_vlan, *port))
+	    {
+	      write_log("crd_link::do_refresh(): warning: delete from vlan failed for " + int2str(link_vlan));
+	    }
+	}
     }
 
     if(alloc_vlan && link_vlan != 0)
     {
+      write_log("crd_link::do_refresh(): component " + comp.getLabel() + " delete vlan " + int2str(link_vlan));
       if(!the_session_manager->delete_vlan(link_vlan))
       {
         write_log("crd_link::do_refresh(): warning: delete vlan failed for " + int2str(link_vlan));

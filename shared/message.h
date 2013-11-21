@@ -55,7 +55,7 @@ namespace onld
       void set_return_rendezvous(rendezvous& r) { return_rend = r; }
       rendezvous& get_return_rendezvous() { return return_rend; }
 
-      virtual bool send();
+      virtual bool send(bool print_debug=false);
       void set_connection(nccp_connection *conn);
       nccp_connection* get_connection() { return nccpconn; }
 
@@ -103,7 +103,7 @@ namespace onld
       virtual bool wait_for_response();
       virtual bool request_rendezvous(periodic *per);
 
-      virtual bool send_and_wait();
+      virtual bool send_and_wait(bool print_debug=false);
 
       virtual void parse();
       virtual void write();

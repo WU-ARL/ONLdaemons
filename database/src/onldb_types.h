@@ -402,5 +402,9 @@ namespace onl
   sql_create_2(vswitchconns,2,0,
     mysqlpp::sql_smallint_unsigned, vlanid,
     mysqlpp::sql_smallint_unsigned, port)
+
+  sql_create_2(typevport,2,0,
+    mysqlpp::sql_varchar, tid,
+    mysqlpp::sql_tinyint_unsigned, hasvport)
 };
 #endif // _ONLDB_TYPES_H
