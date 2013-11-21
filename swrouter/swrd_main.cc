@@ -42,7 +42,7 @@
 
 #include "swrd_types.h"
 #include "swrd_configuration.h"
-#include "swrd_monitor.h"
+//#include "swrd_monitor.h"
 #include "swrd_globals.h"
 #include "swrd_requests.h"
 
@@ -59,7 +59,7 @@ namespace swr
 
   // major components
   Configuration* configuration;  // manages all actual configuration of system
-  Monitor* monitor;              // read stats
+  //Monitor* monitor;              // read stats
 
 
   bool init();
@@ -78,8 +78,9 @@ namespace swr
 
     configuration = new Configuration();
 
-    rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
-    monitor = new Monitor();
+    std::string tmp_addr("127.0.0.1");
+    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
+    //monitor = new Monitor();
 
     configuration->start_router();
     return true;
@@ -91,7 +92,7 @@ namespace swr
     
     if(rli_conn) { delete rli_conn; }
 
-    if(monitor) { delete monitor; }
+    //if(monitor) { delete monitor; }
 
     if(configuration) { delete configuration; }
   

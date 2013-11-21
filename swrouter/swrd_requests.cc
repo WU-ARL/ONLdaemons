@@ -40,7 +40,7 @@
 
 #include "swrd_types.h"
 #include "swrd_configuration.h"
-#include "swrd_monitor.h"
+//#include "swrd_monitor.h"
 #include "swrd_globals.h"
 #include "swrd_requests.h"
 
@@ -64,7 +64,7 @@ configure_node_req::handle()
   try
   {
     configuration->set_username(exp.getExpInfo().getUserName());
-    //configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVlan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getRate());
+    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getBandwidth());
   }
   catch(std::exception& e)
   { 

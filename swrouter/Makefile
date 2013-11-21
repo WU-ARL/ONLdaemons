@@ -6,13 +6,13 @@ CXXFLAGS = ${DEBUG} -DPTHREADS -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wal
 
 INCLUDES = -I. -I../shared 
 
-LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared 
+LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt
 
 EXEC = $(OBJDIR)/swrd
 OBJS = $(OBJDIR)/swrd_configuration.o \
        $(OBJDIR)/swrd_requests.o \
-       $(OBJDIR)/swrd_main.o \
-       $(OBJDIR)/swrd_monitor.o 
+       $(OBJDIR)/swrd_main.o # \
+ #      $(OBJDIR)/swrd_monitor.o 
 
 all: ${OBJDIR} ${OBJS} ${EXEC}
 

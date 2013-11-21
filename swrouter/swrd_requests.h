@@ -64,7 +64,7 @@ namespace swr
       uint32_t nexthop_ip;
   }; // class add_route_main_req
 
-  static const NCCP_OperationType SWR_AddRoutePort = 73;
+  static const NCCP_OperationType SWR_AddRoutePort = 74;
   class add_route_port_req : public rli_request
   {
     public:
@@ -99,7 +99,7 @@ namespace swr
       uint32_t nexthop_ip;
   }; // class del_route_main_req
 
-  static const NCCP_OperationType SWR_DeleteRoutePort = 75;
+  static const NCCP_OperationType SWR_DeleteRoutePort = 76;
   class del_route_port_req : public rli_request
   {
     public:
