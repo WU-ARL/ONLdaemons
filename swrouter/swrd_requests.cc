@@ -63,8 +63,9 @@ configure_node_req::handle()
 
   try
   {
+    uint32_t bw_kbits = node_conf.getBandwidth() * 1000;//rates are given in Mbits/s need to convert to kbits/s
     configuration->set_username(exp.getExpInfo().getUserName());
-    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getBandwidth());
+    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), bw_kbits);
   }
   catch(std::exception& e)
   { 
@@ -577,9 +578,10 @@ set_port_rate_req::handle()
   rli_response* rliresp;
   try
   {
-    configuration->set_port_rate(port, rate);
+    uint32_t bw_kbits = rate * 1000;//convert rate from Mbits/s to kbits/s
+    configuration->set_port_rate(port, bw_kbits);
     //cgw, how does this fit into the general hw model?
-    uint32_t actual_rate = configuration->get_port_rate(port);
+    uint32_t actual_rate = (uint32_t)(configuration->get_port_rate(port)/1000);
     rliresp = new rli_response(this, NCCP_Status_Fine, actual_rate);
   }
   catch(std::exception& e)

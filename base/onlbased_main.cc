@@ -29,6 +29,7 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <memory.h>
@@ -51,18 +52,45 @@ namespace onlbased
 
   bool using_spec_daemon;
   std::string user;
+  bool testing;
+  bool root_only;//set to true if specialty daemons are only run as root
 };
 
 using namespace onlbased;
 
-int main()
+int main(int argc, char** argv)
 {
   the_dispatcher = dispatcher::get_dispatcher();
   rli_conn = NULL;
   spec_conn = NULL;
   using_spec_daemon = false;
   user = "nobody";
+  testing = false;
 
+  static struct option longopts[] =
+  {{"help",       0, NULL, 'h'},
+   {"testing",    0, NULL, 't'},
+   {"root_only",    0, NULL, 'r'},
+   {NULL,         0, NULL,  0}
+  };
+
+  int c;
+  while ((c = getopt_long(argc, argv, "htr", longopts, NULL)) != -1) {
+    switch (c) {
+      case 't':
+        testing = true;
+        break;
+      case 'r':
+	root_only = true;
+	break;
+      case 'h':
+        std::cout << "usage: onlbased [-h] [-t] [-r]" << std::endl;
+        std::cout << "       -h:       print this message" << std::endl;
+        std::cout << "       -t:       run in testing mode, i.e., don't reboot on refresh" << std::endl;
+        std::cout << "       -r:       only launch subtype daemons as root" << std::endl;
+        exit(0);
+    }
+  }
   try
   {
     std::string tmp_addr("10.");

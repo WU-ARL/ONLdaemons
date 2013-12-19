@@ -3521,9 +3521,9 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 	{
 	  cout << "mapping link " << to_string((*lit)->label) << ": (" << to_string((*lit)->node1->label) << "p" << to_string((*lit)->node1_port) << ", " << to_string((*lit)->node2->label) << "p" << to_string((*lit)->node2_port) << ") capacity " << to_string((*lit)->capacity) << " load(" << (*lit)->rload << "," << (*lit)->lload << ") mapping to ";
 	  int l_rload = (*lit)->rload;
-	  if (l_rload > (*lit)->capacity) l_rload =  (*lit)->capacity;
+	  //if (l_rload > (*lit)->capacity) l_rload =  (*lit)->capacity;
 	  int l_lload = (*lit)->lload;
-	  if (l_lload > (*lit)->capacity) l_lload =  (*lit)->capacity;
+	  //if (l_lload > (*lit)->capacity) l_lload =  (*lit)->capacity;
 
 	  node_resource_ptr last_visited = source;
 	  node_resource_ptr other_node;
@@ -3534,14 +3534,25 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 	  for (fpit = found_path->mapped_path.begin(); fpit != found_path->mapped_path.end(); ++fpit)
 	    {
 	      (*lit)->mapped_path.push_back(*fpit);
-	      //update loads on links
 	      if (last_visited  == (*fpit)->node1)
 		{
 		  //update load on link
 		  (*fpit)->rload += l_rload;
 		  (*fpit)->lload += l_lload;
-		  (*fpit)->potential_rcap -= l_rload;
-		  (*fpit)->potential_lcap -= l_lload;
+		  if ((*fpit)->rload > (*fpit)->capacity)
+		  {
+		    (*fpit)->rload = (*fpit)->capacity;
+		    (*fpit)->potential_rcap = 0;
+		  }
+		  else
+		    (*fpit)->potential_rcap -= l_rload;
+		  if ((*fpit)->lload > (*fpit)->capacity)
+		  {
+		    (*fpit)->lload = (*fpit)->capacity;
+		    (*fpit)->potential_lcap = 0;
+		  }
+		  else
+		    (*fpit)->potential_lcap -= l_lload;
 		  //set source or sink real ports if necessary
 		  if (last_visited == source && !source_seen)
 		    {
@@ -3560,8 +3571,20 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		{
 		  (*fpit)->rload += l_lload;
 		  (*fpit)->lload += l_rload;
-		  (*fpit)->potential_rcap -= l_lload;
-		  (*fpit)->potential_lcap -= l_rload;
+		  if ((*fpit)->rload > (*fpit)->capacity)
+		  {
+		    (*fpit)->rload = (*fpit)->capacity;
+		    (*fpit)->potential_rcap = 0;
+		  }
+		  else
+		    (*fpit)->potential_rcap -= l_lload;
+		  if ((*fpit)->lload > (*fpit)->capacity)
+		  {
+		    (*fpit)->lload = (*fpit)->capacity;
+		    (*fpit)->potential_lcap = 0;
+		  }
+		  else
+		    (*fpit)->potential_lcap -= l_rload;
 		  //set source or sink real ports if necessary
 		  if (last_visited == source && !source_seen)
 		    {
@@ -3574,7 +3597,8 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		    }
 		  last_visited = (*fpit)->node1;
 		}
-	      cout << ((*fpit)->label) << ":" << "(" << ((*fpit)->node1->label) << "," << ((*fpit)->node2->label) << ",rl:" << ((*fpit)->rload) << ",ll:" << ((*fpit)->lload) << "),";
+	      //cout << ((*fpit)->label) << ":" << "(" << ((*fpit)->node1->label) << "," << ((*fpit)->node2->label) << ",rl:" << ((*fpit)->rload) << ",ll:" << ((*fpit)->lload) << "),";
+	      cout << ((*fpit)->label) << "(cid " << (*fpit)->conns.front() << "):" << "(" << ((*fpit)->node1->node) << "," << ((*fpit)->node2->node) << ",rl:" << ((*fpit)->rload) << ",ll:" << ((*fpit)->lload) << "),";
 	    }
 	  (*lit)->marked = true;
 	  cout << endl;
@@ -6534,8 +6558,8 @@ onldb_resp onldb::get_switch_ports(unsigned int cid, switch_port_info& info1, sw
 {
   if(cid == 0)
   {
-    info1 = switch_port_info("",0,false);
-    info2 = switch_port_info("",0,false);
+    info1 = switch_port_info("",0,false,false);
+    info2 = switch_port_info("",0,false,false);
     return onldb_resp(1,(std::string)"success");
   }
 
@@ -6566,6 +6590,8 @@ onldb_resp onldb::get_switch_ports(unsigned int cid, switch_port_info& info1, sw
     std::string n2 = "";
     unsigned int n2p = 0;
     bool inf_port = false;
+    bool pass_tag1 = false;
+    bool pass_tag2 = false;
 
     if(n1inf)
     {
@@ -6581,9 +6607,27 @@ onldb_resp onldb::get_switch_ports(unsigned int cid, switch_port_info& info1, sw
     {
       inf_port = true;
     }
+    else
+      {
+	mysqlpp::Query query2 = onl->query();
+	if (n1inf)
+	  query2 << "select hasvport from types join nodes using (tid) where nodes.node=" << mysqlpp::quote << conn.node2;	    
+	else
+	  query2 << "select hasvport from types join nodes using (tid) where nodes.node=" << mysqlpp::quote << conn.node1;
+	mysqlpp::StoreQueryResult res = query2.store();
+	if (!res.empty())
+	  {
+	    vporttype vpi = res[0];
+	    if ((int)vpi.hasvport != 0) 
+	      {
+		if (n1inf) pass_tag1 = true;
+		else pass_tag2 = true;
+	      }
+	  }
+      }
 
-    info1 = switch_port_info(n1,n1p,inf_port);
-    info2 = switch_port_info(n2,n2p,inf_port);
+    info1 = switch_port_info(n1,n1p,inf_port,pass_tag1);
+    info2 = switch_port_info(n2,n2p,inf_port,pass_tag2);
 
     return onldb_resp(1,(std::string)"success");
   }

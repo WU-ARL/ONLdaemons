@@ -27,6 +27,8 @@ namespace onlbased
 
   extern bool using_spec_daemon;
   extern std::string user;
+  extern bool testing;
+  extern bool root_only;
 }; // namespace onlbased
 
 #endif // _ONLBASED_GLOBALS_H

@@ -120,7 +120,8 @@ start_experiment_req::start_specialization_daemon(std::string specd)
   write_log("start_experiment_req::start_specialization_daemon passing user: " + user);
   if(fork() == 0)
   {    
-    struct passwd *pwent = getpwnam(user.c_str());
+    struct passwd *pwent = NULL;
+    if (!root_only) pwent = getpwnam(user.c_str());
     if (pwent == NULL)
       {
         write_log("start_experiment_req::start_specialization_daemon failed couldn't get passwd entry for " + user);
@@ -210,7 +211,28 @@ refresh_req::handle()
   // jdd: added 12/06/2010 to give the response time to get out before we reboot
   sleep(2);
 
-  system("reboot");
+  if (!testing)
+    system("reboot");
+  else //skip the reboot and send i_am_up
+    {  
+      nccp_connection* crd_conn = NULL;
+      i_am_up* upmsg = NULL;
+      try
+	{
+	  // cgw, read file to get crd host/port?
+	  //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
+	  crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
+	  i_am_up* upmsg = new i_am_up();
+	  upmsg->set_connection(crd_conn);
+	  upmsg->send();
+	}
+      catch(std::exception& e)
+	{
+	  write_log("refresh_req::handle: warning: could not connect CRD");
+	}
+      if(upmsg) delete upmsg;
+      if(crd_conn) delete crd_conn;
+    }
 
   return true;
 }

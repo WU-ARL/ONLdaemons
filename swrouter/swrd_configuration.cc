@@ -89,8 +89,9 @@ Configuration::Configuration() throw(Configuration_exception)
   numConfiguredNics = 0;
   for (unsigned int i=0; i < max_nic; i++)
   {
-    nicTable[i].configured = false;
-    nicTable[i].rate = 0;
+    nicTable[i].configured = true;//false;
+    nicTable[i].rate = 10000000;
+    nicTable[i].nic = "data" + int2str(i);
   }
 
   numConfiguredPorts = 0;
@@ -190,6 +191,12 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
   //   7         1        data1
 
   // update portTable with this ports info
+
+  //first check nicTable to see if there is enough bandwidth
+  if (rate > nicTable[realPort].rate) 
+    throw Configuration_exception("configure_port failed not enough bandwidth on nic " + int2str(realPort));
+  else nicTable[realPort].rate -= rate;
+
   struct in_addr addr;
 
   inet_pton(AF_INET, ip.c_str(), &addr);
@@ -197,25 +204,33 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
 
 
   portTable[port].next_hop = ""; // no predefined next hop for this port
-
+  portTable[port].vlan = vlan;
+  portTable[port].nicIndex = realPort;
+  portTable[port].rate = rate;
   if (portTable[port].configured == false) {
     char shcmd[256];
-    char device[] = "dataX"; // change device[4] to 0, 1, ... depending on which device
-    char ipStr[32];
-    char maskStr[32];
+    //char device[] = "dataX"; // change device[4] to 0, 1, ... depending on which device
+    //char ipStr[32];
+    //char maskStr[32];
 
     // convert prefix and mask to ip dot string
-    ip.copy(ipStr, 0, 32);
-    mask.copy(maskStr, 0, 32);
+    //ip.copy(ipStr, 32, 0);//0, 32);
+    //mask.copy(maskStr, 32,0);//0, 32);
 
     portTable[port].configured = true;
     numConfiguredPorts++;
     write_log("Reconfiguring port " + int2str(port));
     //echo "Usage: $0 <portnum> <iface> <vlanNum> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefaultMin> <iptMark>"
     //echo "Example: $0 1 data0 241 192.168.82.1 255.255.255.0 1000000 241"
-    device[4] = '0' + (unsigned char) realPort;
+    //device[4] = '0' + (unsigned char) realPort;
 #define IFACE_DEFAULT_MIN 1000
-    sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
+    // sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_configure_port.sh %d %s %d %s %s %d %d %d", port, nicTable[realPort].nic.c_str(), vlan, ip.c_str(), mask.c_str(), rate, IFACE_DEFAULT_MIN, vlan);
+    write_log("Configuration::configure_port system(" + std::string(shcmd) + ")");
+    /* if(system(shcmd) < 0)
+    {
+     throw Configuration_exception("system (/usr/local/bin/swrd_configure_port failed");
+     }*/
   }
   else {
     write_log("Initial configuration of port " + int2str(port));
@@ -255,25 +270,29 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
-    std::string tmp;
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr;// char maskStr[32];
+    //char nicStr[32];
+    //std::string tmp;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
     //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
     //maskStr = addr_int2str(mask);
 
 
     // get device and vlan from port_info struct
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    //sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan);
+    write_log("Configuration::add_route_main system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
@@ -309,26 +328,28 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr;//char maskStr[32];
+    //char nicStr[32];
     std::string tmp;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    //sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nexthop_ip);
+    write_log("Configuration::add_route_main system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
@@ -363,29 +384,29 @@ void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
-    std::string tmp;
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr;//char maskStr[32];
+    //char nicStr[32];
+    //std::string tmp;
     std::string nic;
 
     // convert prefix and mask to ip dot string
     
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port.sh %s %s %s %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
@@ -419,29 +440,29 @@ void Configuration::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
-    std::string tmp;
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr;//char maskStr[32];
+    //char nicStr[32];
+    //std::string tmp;
     std::string nic;
 
     // convert prefix and mask to ip dot string
     
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_port.sh %s %s %s %d %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_port failed");
@@ -476,26 +497,26 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
+    std::string prefixStr; //char prefixStr[32];
+    std::string maskStr;//char maskStr[32];
+    //char nicStr[32];
     std::string tmp;
     std::string nic;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %s %s %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
@@ -530,26 +551,26 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
-    std::string tmp;
+    std::string prefixStr; //char prefixStr[32];
+    std::string maskStr; //char maskStr[32];
+    //char nicStr[32];
+    //std::string tmp;
     std::string nic;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %s %s %d %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
@@ -584,27 +605,27 @@ void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr;//char maskStr[32];
+    //char nicStr[32];
     std::string nic;
-    std::string tmp;
+    //std::string tmp;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port.sh %s %s %s %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");
@@ -638,27 +659,27 @@ void Configuration::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask
   {
     // call cfgRouterAddRouter.sh prefix mask dev vlan <gw>
     char shcmd[256];
-    char prefixStr[32];
-    char maskStr[32];
-    char nicStr[32];
+    std::string prefixStr;//char prefixStr[32];
+    std::string maskStr; //char maskStr[32];
+    //char nicStr[32];
     std::string nic;
-    std::string tmp;
+    //std::string tmp;
 
     // convert prefix and mask to ip dot string
-    tmp = addr_int2str(prefix);
-    tmp.copy(prefixStr, 0, 32);
-    //prefixStr = addr_int2str(prefix);
-    tmp = addr_int2str(mask);
-    tmp.copy(maskStr, 0, 32);
-    //maskStr = addr_int2str(mask);
+    //tmp = addr_int2str(prefix);
+    //tmp.copy(prefixStr, 0, 32);
+    prefixStr = addr_int2str(prefix);
+    //tmp = addr_int2str(mask);
+    //tmp.copy(maskStr, 0, 32);
+    maskStr = addr_int2str(mask);
 
     // get device and vlan from port_info struct
     // <gw> is optional?
     nic = nicTable[portTable[output_port].nicIndex].nic;
-    nic.copy(nicStr, 0, 32);
+    //nic.copy(nicStr, 0, 32);
 
     // port is used to direct this to a route table dedicated to a particular port
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_port.sh %s %s %s %d %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan, nexthop_ip);
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_port failed");

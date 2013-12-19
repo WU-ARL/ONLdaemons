@@ -15,6 +15,7 @@
  *    limitations under the License.
  */
 
+//NOTE: all bandwidth rates are in kbits/s
 
 #ifndef _SWRD_CONFIGURATION_H
 #define _SWRD_CONFIGURATION_H

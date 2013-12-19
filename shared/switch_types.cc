@@ -46,6 +46,7 @@ switch_port::switch_port()
   switchid = "";
   port = 0;
   is_interswitch_port = false;
+  pass_tag = false;
 }
 
 switch_port::switch_port(const std::string switch_id, uint32_t portnum)
@@ -53,13 +54,15 @@ switch_port::switch_port(const std::string switch_id, uint32_t portnum)
   switchid = switch_id.c_str();
   port = portnum;
   is_interswitch_port = false;
+  pass_tag = false;
 }
 
-switch_port::switch_port(const std::string switch_id, uint32_t portnum, bool interswitch_port)
+switch_port::switch_port(const std::string switch_id, uint32_t portnum, bool interswitch_port, bool pt)
 {
   switchid = switch_id.c_str();
   port = portnum;
   is_interswitch_port = interswitch_port;
+  pass_tag = pt;
 }
 
 
@@ -68,6 +71,7 @@ switch_port::switch_port(const switch_port& sp)
   switchid = sp.switchid;
   port = sp.port;
   is_interswitch_port = sp.is_interswitch_port;
+  pass_tag = sp.pass_tag;
 }
 
 switch_port::~switch_port()
@@ -80,6 +84,7 @@ switch_port::operator=(const switch_port& sp)
   switchid = sp.switchid;
   port = sp.port;
   is_interswitch_port = sp.is_interswitch_port;
+  pass_tag = sp.pass_tag;
   return *this;
 }
 
@@ -113,6 +118,7 @@ onld::operator<<(byte_buffer& buf, switch_port& sp)
   buf << sp.switchid;
   buf << sp.port;
   buf << sp.is_interswitch_port;
+  buf << sp.pass_tag;
   return buf;
 }
 
@@ -122,6 +128,7 @@ onld::operator>>(byte_buffer& buf, switch_port& sp)
   buf >> sp.switchid;
   buf >> sp.port;
   buf >> sp.is_interswitch_port;
+  buf >> sp.pass_tag;
   return buf;
 }
 
@@ -129,11 +136,27 @@ ostream&
 onld::operator<<(ostream & os, switch_port& sp)
 {
   if (sp.is_interswitch_port) {
-    return os << "switch id:" << sp.switchid.getString() << " port:" 
-              << sp.port << " inter-switch port:True";
+    if (sp.pass_tag)
+      {
+	return os << "switch id:" << sp.switchid.getString() << " port:" 
+		  << sp.port << " inter-switch port:True pass_vlan_tag:True";
+      }
+    else
+      {
+	return os << "switch id:" << sp.switchid.getString() << " port:" 
+		  << sp.port << " inter-switch port:True";
+      }
   } else {
-    return os << "switch id:" << sp.switchid.getString() << " port:" 
-              << sp.port << " inter-switch port:False"; 
+    if (sp.pass_tag)
+      {
+	return os << "switch id:" << sp.switchid.getString() << " port:" 
+		  << sp.port << " inter-switch port:False pass_vlan_tag:True";
+      }
+    else
+      {
+	return os << "switch id:" << sp.switchid.getString() << " port:" 
+		  << sp.port << " inter-switch port:False";
+      } 
   }
 }
 

@@ -68,7 +68,8 @@ bool vlan::add_port(switch_port p)
  
   // set the PVID so that untagged packets will be tagged
   // with this VLAN ID
-  status &= set_switch_pvid(p, p.getSwitchId(), vlanId);
+  if (!p.getPassTag())
+    status &= set_switch_pvid(p, p.getSwitchId(), vlanId);
 
   return status;
 }

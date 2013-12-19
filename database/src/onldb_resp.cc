@@ -146,13 +146,15 @@ switch_port_info::switch_port_info() throw()
   switch_name = "";
   port = 0;
   interswitch_port = false;
+  pass_tag = false;
 }
 
-switch_port_info::switch_port_info(std::string sw, unsigned int portnum, bool is_interswitch_port) throw()
+switch_port_info::switch_port_info(std::string sw, unsigned int portnum, bool is_interswitch_port, bool pt) throw()
 {
   switch_name = sw;
   port = portnum;
   interswitch_port = is_interswitch_port;
+  pass_tag = pt;
 }
 
 switch_port_info::switch_port_info(const switch_port_info& spi) throw()
@@ -160,6 +162,7 @@ switch_port_info::switch_port_info(const switch_port_info& spi) throw()
   switch_name = spi.switch_name;
   port = spi.port;
   interswitch_port = spi.interswitch_port;
+  pass_tag = spi.pass_tag;
 }
 
 switch_port_info::~switch_port_info() throw()
@@ -172,6 +175,7 @@ switch_port_info::operator=(const switch_port_info& spi)
   switch_name = spi.switch_name;
   port = spi.port;
   interswitch_port = spi.interswitch_port;
+  pass_tag = spi.pass_tag;
   return *this;
 }
 

@@ -28,7 +28,7 @@ namespace onld
     public:
       switch_port();
       switch_port(const std::string switch_id, uint32_t portnum);
-      switch_port(const std::string switch_id, uint32_t portnum, bool interswitch_port);
+      switch_port(const std::string switch_id, uint32_t portnum, bool interswitch_port, bool pt=false);
       switch_port(const switch_port& sp);
       ~switch_port();
 
@@ -41,6 +41,7 @@ namespace onld
       std::string getSwitchId() { return switchid.getString(); }
       uint32_t getPortNum() { return port; }
       bool isInterSwitchPort() { return is_interswitch_port; }
+      bool getPassTag() { return pass_tag;}
 
       friend byte_buffer& operator<<(byte_buffer& buf, switch_port& sp);
       friend byte_buffer& operator>>(byte_buffer& buf, switch_port& sp);
@@ -51,6 +52,7 @@ namespace onld
       nccp_string switchid;
       uint32_t port;
       bool is_interswitch_port;
+      bool pass_tag;
   }; // class switch_port
 
 

@@ -76,10 +76,11 @@ namespace onl
       std::string switch_name;
       unsigned int port;
       bool interswitch_port;
+      bool pass_tag;
 
     public:
       switch_port_info() throw();
-      switch_port_info(std::string sw, unsigned int portnum, bool is_interswitch_port) throw();
+      switch_port_info(std::string sw, unsigned int portnum, bool is_interswitch_port, bool pt) throw();
       switch_port_info(const switch_port_info& spi) throw();
       ~switch_port_info() throw();
 
@@ -88,6 +89,7 @@ namespace onl
       std::string get_switch() { return switch_name; }
       unsigned int get_port() { return port; }
       bool is_interswitch_port() { return interswitch_port; }
+      bool get_pass_tag() { return pass_tag;}
   };
 
   class switch_info

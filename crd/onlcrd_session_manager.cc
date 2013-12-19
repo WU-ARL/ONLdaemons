@@ -286,8 +286,8 @@ session_manager::get_switch_ports(unsigned int cid, switch_port& p1, switch_port
 
   database->get_switch_ports(cid, spi1, spi2);
 
-  p1 = switch_port(spi1.get_switch(),spi1.get_port(),spi1.is_interswitch_port());
-  p2 = switch_port(spi2.get_switch(),spi2.get_port(),spi2.is_interswitch_port());
+  p1 = switch_port(spi1.get_switch(),spi1.get_port(),spi1.is_interswitch_port(),spi1.get_pass_tag());
+  p2 = switch_port(spi2.get_switch(),spi2.get_port(),spi2.is_interswitch_port(),spi2.get_pass_tag());
 }
 
 void

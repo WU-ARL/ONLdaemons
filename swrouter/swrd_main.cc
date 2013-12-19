@@ -70,7 +70,7 @@ namespace swr
 
   bool init()
   {
-    onld::log = new log_file("/log/swrd.log");
+    onld::log = new log_file("/tmp/swrd.log");
     the_dispatcher = dispatcher::get_dispatcher();
     rli_conn = NULL;
 
@@ -185,6 +185,8 @@ int main()
     // so we can just exit this thread. The RLI thread will continue.
   }
 */
+
+  while(true);
 
   pthread_exit(NULL);
 }
