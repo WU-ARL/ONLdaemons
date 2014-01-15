@@ -3090,20 +3090,21 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	       (subnet_mapped(subnet, othernode->in))))
 		continue;
 
-
+	  //create a new path object, tmp_path, and with this link as a part, sink points to the last node in the path
 	  link_path_ptr tmp_path(new link_path());
 	  ++list_ops;
 	  tmp_path->path.push_back(*lit);
 	  tmp_path->sink = othernode;
 	  tmp_path->sink_port = o_port;
-	  if ((*lit)->in > 0) tmp_path->cost = ulink->cost;
+	  if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") tmp_path->cost = ulink->cost;
 	  else tmp_path->cost = 0;	    
+	  //add tmp_path to paths to be examined
 	  current_paths.push_back(tmp_path);
 	  ++list_ops;
 	}
       ++loop_count;
     }
-  while(!current_paths.empty() && current_cost < 0)
+  while(!current_paths.empty() && current_cost < 0)//while there are still valid paths and we haven't found a path to the sink keep looking
     {
       ++list_ops;
       new_paths.clear();
@@ -3159,7 +3160,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 		      //   (!is_right && (((*lit)->potential_lcap < ulink->rload) || ((*lit)->potential_rcap < ulink->lload))) ||
 		      //   (subnet_mapped(subnet, othernode->in))))
 		      //continue;
-		      if ((*lit)->in > 0 && 
+		      if (((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") && 
 			  ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
 			   (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))) ||
 			   (subnet_mapped(subnet, othernode->in))))
@@ -3675,6 +3676,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
   timeval stime;
   gettimeofday(&stime, NULL);
   int ar_db_count = 0;
+  //PROBLEM: the way the connections are added the rload and lload may be wrong since we don't take into account which direction on the path the connection is
   try
   {
     //define lists for multiple db inserts

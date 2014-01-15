@@ -227,10 +227,10 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
     // sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
     sprintf(shcmd, "/usr/local/bin/swrd_configure_port.sh %d %s %d %s %s %d %d %d", port, nicTable[realPort].nic.c_str(), vlan, ip.c_str(), mask.c_str(), rate, IFACE_DEFAULT_MIN, vlan);
     write_log("Configuration::configure_port system(" + std::string(shcmd) + ")");
-    /* if(system(shcmd) < 0)
-    {
-     throw Configuration_exception("system (/usr/local/bin/swrd_configure_port failed");
-     }*/
+    if(system(shcmd) < 0)
+      {
+	throw Configuration_exception("system (/usr/local/bin/swrd_configure_port failed");
+      }
   }
   else {
     write_log("Initial configuration of port " + int2str(port));
