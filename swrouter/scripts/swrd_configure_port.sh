@@ -5,7 +5,8 @@ then
   echo "Example: $0 1 data0 241 192.168.82.1 255.255.255.0 1000000 241"
   exit 0
 else
-  portNum=$1
+  MAINDIR=/usr/local
+  portNum=$(($1+1))
   iface=$2   # data0 or data1
   vlanNum=$3 # 241 or similar
   ifaceIP=$4 # 192.168.81.1 or similar
@@ -17,25 +18,25 @@ else
   rate=${ifaceRate}kbit
   echo "rate = $rate"
   
-  echo "sudo ../bin/onl_cfgvlan.sh $iface $ifaceIP $ifaceMask $vlanNum" 
+  echo "$MAINDIR/bin/onl_cfgvlan.sh $iface $ifaceIP $ifaceMask $vlanNum" 
 
-  sudo ../bin/onl_cfgvlan.sh $iface $ifaceIP $ifaceMask $vlanNum
+  $MAINDIR/bin/onl_cfgvlan.sh $iface $ifaceIP $ifaceMask $vlanNum
 
   # Mark packets that are destined for this interface/port via iptables
-  sudo iptables -t filter -A FORWARD -o $iface.$vlanNum -j MARK --set-mark $iptMark
+  iptables -t filter -A FORWARD -o $iface.$vlanNum -j MARK --set-mark $iptMark
 
   # Associate queueing discipline (qdisc) htb (Hierarchical Token Bucket) with interface $iface.$vlanNum and give it handle $portNum:
-  sudo tc qdisc add dev $iface.$vlanNum root handle ${portNum}: htb default ${portNum}
+  tc qdisc add dev $iface.$vlanNum root handle ${portNum}: htb default ${portNum}
 
   # Create a root class $portNum:0 under qdiscs $portNum: and set it to the link rate. Any classes created with this as a parent
   #    can borrow from others under this parent.
-  sudo tc class add dev $iface.$vlanNum parent ${portNum}: classid ${portNum}:0  htb rate ${ifaceRate}kbit ceil ${ifaceRate}kbit prio 1 mtu 1500
+  tc class add dev $iface.$vlanNum parent ${portNum}: classid ${portNum}:0  htb rate ${ifaceRate}kbit ceil ${ifaceRate}kbit prio 1 mtu 1500
 
   # Create a default class. Anything that does not match a filter and get directed to a specific class.
-  sudo tc class add dev $iface.$vlanNum parent ${portNum}:0 classid ${portNum}:1  htb rate ${ifaceDefRate}kbit ceil ${ifaceRate}kbit prio 2 mtu 1500
+  tc class add dev $iface.$vlanNum parent ${portNum}:0 classid ${portNum}:1  htb rate ${ifaceDefRate}kbit ceil ${ifaceRate}kbit prio 2 mtu 1500
 
   #
-  sudo tc filter add dev $iface.$vlanNum parent ${portNum}:0 protocol ip prio 2 handle $iptMark fw flowid ${portNum}:1
+  tc filter add dev $iface.$vlanNum parent ${portNum}:0 protocol ip prio 2 handle $iptMark fw flowid ${portNum}:1
 
 
 fi
