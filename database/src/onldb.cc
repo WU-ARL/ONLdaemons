@@ -55,6 +55,7 @@ using namespace onl;
 #define UNUSED_CLUSTER_COST 50
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
+int fnd_path;
 
 bool req_sort_comp(assign_info_ptr i, assign_info_ptr j)
 {
@@ -170,6 +171,13 @@ bool has_vport(std::string tid, vector<typevport>& typevps)
 bool 
 onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin)
 {
+  node_resource_ptr nullptr;
+  return (subnet_mapped(subnet, cin, nullptr));
+}
+
+bool 
+onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, node_resource_ptr excluded)
+{
   std::list<node_resource_ptr>::iterator snnit;
   std::list<link_resource_ptr>::iterator snlit;
   std::list<link_resource_ptr>::iterator lit;
@@ -177,8 +185,11 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin)
     {
       if ((*snnit)->marked && (*snnit)->type == "vgige" && (*snnit)->in == cin)
 	{
-	  cout << "subnet_mapped cluster " << cin << " no mapping. vgige " << (*snnit)->label << " already mapped here" << endl;
-	  return true;
+	  if (!excluded || (excluded && ((*snnit) != excluded)))
+	    {
+	      cout << "subnet_mapped cluster " << cin << " no mapping. vgige " << (*snnit)->label << " already mapped here" << endl;
+	      return true;
+	    }
 	}
     }
   for (snlit = subnet->links.begin(); snlit != subnet->links.end(); ++snlit)
@@ -196,7 +207,7 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin)
 		++n;
 	      if (n > 1)
 		{
-		  cout << "compute_mapping_cost cluster " << cin << " no mapping. link " << (*snlit)->label << " already mapped here" << endl;
+		  cout << "subnet_mapped cluster " << cin << " no mapping. link " << (*snlit)->label << " already mapped here" << endl;
 		  return true;
 		}
 	    }
@@ -1596,6 +1607,7 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
 //onldb_resp onldb::try_reservation(topology *t, std::string user, std::string begin, std::string end) throw()
 onldb_resp onldb::try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state) throw()
 {
+  fnd_path = 0;
   //first create a list of the nodes separated by type
   struct timeval stime;
   gettimeofday(&stime, NULL);
@@ -1760,8 +1772,10 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
       onldb_resp r = add_reservation(t,user,begin,end,state);//JP changed 3/29/2012
       if(r.result() < 1) return onldb_resp(r.result(),r.msg());
       std::string s = "success! reservation made from " + begin + " to " + end;
+      cout << "onldb::try_reservation find_cheapest_path called " << fnd_path << " times." << endl;
       return onldb_resp(1,s);
     }
+  cout << "onldb::try_reservation find_cheapest_path called " << fnd_path << " times." << endl;
   //}
   //catch(GRBException& e)
   //{
@@ -1776,6 +1790,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
 
 bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_resource_ptr> cl) throw()
 {
+  
   struct timeval stime;
   gettimeofday(&stime, NULL);
   std::list<node_resource_ptr>::iterator reqnit;
@@ -1865,6 +1880,7 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
 	}
     }
   //map assignments onto original request so database is updated properly
+  //copy mapped_paths instead of conn ids
   std::list<link_resource_ptr>::iterator blit;
   for (reqnit = req.nodes.begin(); reqnit != req.nodes.end(); ++reqnit)
     {
@@ -1914,32 +1930,33 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
 	      //check if this was a newly created link between a split vgige that will not appear in req.links
 	      if ((*lit)->added) //this link will appear in two nodes but only add it to one
 		{
-		  //if (unode_to_add_to) unode_to_add_to->links.push_back(*lit);
-		  //else
-		  //{
-		  //  cerr << "onldb::find_embedding error adding link for split vgige" << endl;
-		  //  return false;
-		  //}
+		  //add to link_to_add_to->added_vgige_links and remove link from other node in link so we don't see it twice
 		  
 		  //add the extra connections for the new link to an existing user link for a real user node represented by the vgige
-		  for (blit = (*lit)->mapped_path.begin(); blit != (*lit)->mapped_path.end(); ++blit)
-		  {
-		  //PROBLEM WANT TO USE unode getting failure
 		  if (link_to_add_to) 
 		    {
-		      link_to_add_to->conns.push_back((*blit)->conns.front());
-		      cout << "   adding:" << (*blit)->conns.front() ;
+		      link_resource_ptr add_vlinkp(new link_resource());
+		      add_vlinkp->mapped_path.assign((*lit)->mapped_path.begin(), (*lit)->mapped_path.end());
+		      add_vlinkp->mp_linkdir.assign((*lit)->mp_linkdir.begin(), (*lit)->mp_linkdir.end());
+		      add_vlinkp->rload = (*lit)->rload;
+		      add_vlinkp->lload = (*lit)->lload;
+		      add_vlinkp->capacity = (*lit)->capacity;
+		      add_vlinkp->added = true;
+		      add_vlinkp->linkid = 0;
+		      link_to_add_to->added_vgige_links.push_back(add_vlinkp);
+		      //remove link from other side so we only add this link once
+		      if ((*lit)->node1 == (*reqnit)) (*lit)->node2->links.remove(*lit);
+		      else (*lit)->node1->links.remove(*lit);
 		    }
 		  else
 		    {
 		      cerr << "onldb::find_embedding error adding link for split vgige" << endl;
 		      return false;
 		    }
-		  }
-		  cout << " link (" << (*reqnit)->type << (*reqnit)->label;
+		  
+		  cout << " adding link (" << (*reqnit)->type << (*reqnit)->label;
 		  if ((*lit)->node1 == (*reqnit)) cout << (*lit)->node2->type << (*lit)->node2->label << ")" << endl;
 		  else  cout << (*lit)->node1->type << (*lit)->node1->label << ")" << endl;
-		  (*lit)->mapped_path.clear();//clear the path so the connections are only added once
 		}
 	    }
 	}
@@ -1958,6 +1975,8 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_r
       (*lit)->user_link->cost = (*lit)->cost;
       (*lit)->user_link->node1_rport = (*lit)->node1_rport;
       (*lit)->user_link->node2_rport = (*lit)->node2_rport;
+      (*lit)->user_link->mapped_path.assign((*lit)->mapped_path.begin(), (*lit)->mapped_path.end());
+      (*lit)->user_link->mp_linkdir.assign((*lit)->mp_linkdir.begin(), (*lit)->mp_linkdir.end());
     }
   orig_req->intercluster_cost = req.compute_intercluster_cost();
   orig_req->host_cost = req.compute_host_cost();
@@ -2589,6 +2608,7 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
 	    }
 	  
 	  split_cost = split_vgige(vgige_clusters, unmapped_nodes, node, cluster, base);
+	  split_cost += UNUSED_CLUSTER_COST;
 	}
       cout << " split cost " << split_cost << ",";
       cluster_cost += split_cost;
@@ -2690,7 +2710,7 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 
 
 //returns a split cost equal to the cost of the path to each potential new vgige + ((#nodes unmapped to a split switch) * penalty)
-bool
+int
 onldb::split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige, node_resource_ptr root_rnode, topology* base)
 {
   bool fail = false;
@@ -3018,9 +3038,12 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n, subnet_in
 //return (find_cheapest_Path(ulink, potential_path, subnet);
 //}
 
+
 int
 onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw()
 {
+  ++fnd_path;
+  int num_paths = 0;
   struct timeval stime;
   gettimeofday(&stime, NULL);
   int current_cost = -1;
@@ -3080,15 +3103,26 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	{
 	  //if this is an infrastructure node need to check if there's enough bandwidth 
 	  //and if the link passes through a switch which already has this subnet's vgige or link mapped.
-	  // if (((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") &&
-	  //  ((is_right && (((*lit)->potential_rcap < ulink->rload) || ((*lit)->potential_lcap < ulink->lload))) ||
-	  //   (!is_right && (((*lit)->potential_lcap < ulink->rload) || ((*lit)->potential_rcap < ulink->lload))) ||
-	  //   (subnet_mapped(subnet, othernode->in))))
-	  if (((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") &&
-	      ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
-	       (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))) ||
-	       (subnet_mapped(subnet, othernode->in))))
+	  //PROBLEM:subnet mapped returns true if the vgige that is one of the endpoints is there 
+	  //which is fine in this case
+	  if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure")
+	    {
+	      if ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
+		  (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))))// ||
+	    //(subnet_mapped(subnet, othernode->in, othernode))))
 		continue;
+	      else
+		{
+		  if (othernode == sink)
+		    {
+		      if (subnet_mapped(subnet, othernode->in, ulink->node2)) 
+			continue;
+		    }
+		  else
+		    if (subnet_mapped(subnet, othernode->in))
+		      continue;
+		}
+	    }
 
 	  //create a new path object, tmp_path, and with this link as a part, sink points to the last node in the path
 	  link_path_ptr tmp_path(new link_path());
@@ -3099,6 +3133,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	  if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") tmp_path->cost = ulink->cost;
 	  else tmp_path->cost = 0;	    
 	  //add tmp_path to paths to be examined
+	  ++num_paths;
 	  current_paths.push_back(tmp_path);
 	  ++list_ops;
 	}
@@ -3160,14 +3195,28 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 		      //   (!is_right && (((*lit)->potential_lcap < ulink->rload) || ((*lit)->potential_rcap < ulink->lload))) ||
 		      //   (subnet_mapped(subnet, othernode->in))))
 		      //continue;
-		      if (((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") && 
-			  ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
-			   (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))) ||
-			   (subnet_mapped(subnet, othernode->in))))
-			continue;
+		      if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure")
+			{
+			  if ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
+			      (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))))
+			    //(subnet_mapped(subnet, othernode->in, othernode))))
+			    continue;
+			  else
+			    {
+			      if (othernode == sink)
+				{
+				  if (subnet_mapped(subnet, othernode->in, ulink->node2)) 
+				    continue;
+				}
+			      else
+				if (subnet_mapped(subnet, othernode->in))
+				  continue;
+			    }
+			}
 		      link_path_ptr tmp_path(new link_path());
                       tmp_path->path.assign((*pathit)->path.begin(), (*pathit)->path.end());
 		      tmp_path->path.push_back(*lit);
+		      ++num_paths;
 		      list_ops += 2;
 		      tmp_path->sink = othernode;
 		      tmp_path->sink_port = o_port;
@@ -3200,12 +3249,12 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	}
       ++loop_count;
     }
-  //cout << "onldb::find_cheapest_path loop_count:" << loop_count << " list_ops:" << list_ops << endl;
+  cout << "onldb::find_cheapest_path path_addition_count:" << num_paths << " loop_count:" << loop_count << " list_ops:" << list_ops << endl;
   print_diff("onldb::find_cheapest_path", stime);
   return current_cost;
 }
 
-
+*/
 
 node_resource_ptr
 onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw()
@@ -3349,19 +3398,19 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
 	    {
 	      if (in_list((*lit)->node2, unmapped_nodes)) 
 		{
-		  vgige_lnk->rload += (*lit)->lload;
+		  vgige_lnk->lload += (*lit)->lload;
 		  if ((*lit)->node2->type != "vgige") vgige_nodes.push_back((*lit)->node2);
 		}
-	      else vgige_lnk->lload += (*lit)->rload;
+	      else vgige_lnk->rload += (*lit)->lload;
 	    }
 	  else
 	    {
 	      if (in_list((*lit)->node1, unmapped_nodes))
 		{
-		  vgige_lnk->rload += (*lit)->rload;
+		  vgige_lnk->lload += (*lit)->rload;
 		  if ((*lit)->node1->type != "vgige") vgige_nodes.push_back((*lit)->node1);
 		}
-	      else vgige_lnk->lload += (*lit)->lload;
+	      else vgige_lnk->rload += (*lit)->rload;
 	    }
 	}
       //if (vgige_lnk->rload > MAX_INTERCLUSTER_CAPACITY) vgige_lnk->rload = MAX_INTERCLUSTER_CAPACITY;
@@ -3377,6 +3426,7 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
       //return a new vgige to add to the ordered list
       int ncost = 0;//used to calculate the new node's cost and the new cost of the old node
       node_resource_ptr new_vgige = get_new_vswitch(req);
+      cout << "onldb::map_node splitting vgige " << node->type << node->label << " adding new vgige " << new_vgige->type << new_vgige->label;
       new_vgige->is_split = true;
       new_vgige->user_nodes.insert(new_vgige->user_nodes.begin(), node->user_nodes.begin(), node->user_nodes.end());
       vgige_lnk->node1 = node;
@@ -3412,6 +3462,9 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
 	}
       vgige_lnk->cost = calculate_edge_cost(vgige_lnk->rload, vgige_lnk->lload);
       vgige_lnk->added = true;
+      cout << " new link (" << vgige_lnk->node1->type << vgige_lnk->node1->label << "," 
+	   << vgige_lnk->node2->type << vgige_lnk->node2->label << ") (rload,lload,cost)=" << vgige_lnk->rload
+	   << "," << vgige_lnk->lload << "," << vgige_lnk->cost << ")";
       node->links.push_back(vgige_lnk);
       node->cost = node->cost - ncost + vgige_lnk->cost;
       new_vgige->links.push_back(vgige_lnk);
@@ -3485,6 +3538,7 @@ onldb::map_children(node_resource_ptr unode, node_resource_ptr rnode)
 void
 onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* base) throw()
 {
+  //make note of link directions of mapped_path in link_resource::mp_linkdir
   std::list<link_resource_ptr>::iterator lit;
   node_resource_ptr source;
   node_resource_ptr sink;
@@ -3537,6 +3591,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 	      (*lit)->mapped_path.push_back(*fpit);
 	      if (last_visited  == (*fpit)->node1)
 		{
+		  (*lit)->mp_linkdir.push_back(1);//record that this is a right link in this path
 		  //update load on link
 		  (*fpit)->rload += l_rload;
 		  (*fpit)->lload += l_lload;
@@ -3570,6 +3625,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		}
 	      else 
 		{
+		  (*lit)->mp_linkdir.push_back(0);//record that this a left link in this path
 		  (*fpit)->rload += l_lload;
 		  (*fpit)->lload += l_rload;
 		  if ((*fpit)->rload > (*fpit)->capacity)
@@ -3697,7 +3753,9 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 
     std::list<node_resource_ptr>::iterator nit;
     std::list<link_resource_ptr>::iterator lit;
+    std::list<link_resource_ptr>::iterator mplit;
     std::list<int>::iterator cit;
+    std::list<int>::iterator dirit;
 
     unsigned int vlanid = 1;
     unsigned int linkid = 1;
@@ -3737,56 +3795,93 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	std::list<link_resource_ptr> added_links;
         for(lit = (*nit)->links.begin(); lit != (*nit)->links.end(); ++lit)
         {
-	  if ((*lit)->added)
+	  if ((*lit)->added)//this shouldn't happen
 	  {
 	    //added_links.push_back(*lit);
 	    continue;
 	  }
           if((*lit)->linkid == 0)
           {
-            if((*lit)->conns.empty())
+            if((*lit)->mapped_path.empty())
             {
               // if a vswitch->vswitch connection, and both are mapped to same switch,
               // then there are no cids in the list. as a hack to make this work, there
               // is a cid=0 entry in the table that we use here so that the necessary
               // table entries are there for every link
-              (*lit)->conns.push_back(0);
+              connschedule null_cs(linkid, rid, 0, (*lit)->capacity, (*lit)->rload, (*lit)->lload);
+	      db_connections.push_back(null_cs);
             }
-            for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
+            //for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
+	    for(mplit = (*lit)->mapped_path.begin(), dirit = (*lit)->mp_linkdir.begin(); mplit != (*lit)->mapped_path.end(); ++mplit, ++dirit)
             {
 	      int rload = (*lit)->rload;
-	      if (rload > MAX_INTERCLUSTER_CAPACITY) rload = MAX_INTERCLUSTER_CAPACITY;//(*lit)->capacity) rload = (*lit)->capacity;
 	      int lload = (*lit)->lload;
-	      if (lload > MAX_INTERCLUSTER_CAPACITY) lload = MAX_INTERCLUSTER_CAPACITY;//(*lit)->capacity) lload = (*lit)->capacity;
-              connschedule cs(linkid, rid, *cit, (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload); //for vgige to vgige links won't this cause the link to be added twice
+	      if ((*dirit) != 0) //this link is right for this path
+		{
+		  if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+		  if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+		}
+	      else //this link is left for this path
+		{
+		  rload = (*lit)->lload;
+		  lload = (*lit)->rload;
+		  if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+		  if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+		}
+	      
+              connschedule cs(linkid, rid, (*mplit)->conns.front(), (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload); //for vgige to vgige links won't this cause the link to be added twice
              
 	      db_connections.push_back(cs);
 
-	      //mysqlpp::Query ins = onl->query();
-              //ins.insert(cs);
 	      ++ar_db_count;
-              //ins.execute();
-            }
-            (*lit)->linkid = linkid;
-            ++linkid;
-          }
+	    }
+	    //now process any links that were added
+	    if (!(*lit)->added_vgige_links.empty())
+	      {
+		std::list<link_resource_ptr>::iterator addlit;
+		for(addlit = (*lit)->added_vgige_links.begin(); addlit != (*lit)->added_vgige_links.end(); ++addlit)
+		  { 
+		    for(mplit = (*addlit)->mapped_path.begin(), dirit = (*addlit)->mp_linkdir.begin(); mplit != (*addlit)->mapped_path.end(); ++mplit, ++dirit)
+		      {
+			int rload = (*addlit)->rload;
+			int lload = (*addlit)->lload;
+			if ((*dirit) != 0) //this link is right for this path
+			  {
+			    if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+			    if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+			  }
+			else //this link is left for this path
+			  {
+			    rload = (*lit)->lload;
+			      lload = (*lit)->rload;
+			      if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+			      if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+			  }
+			connschedule cs(linkid, rid, (*mplit)->conns.front(), (*addlit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload); //for vgige to vgige links won't this cause the link to be added twice
+			
+			db_connections.push_back(cs);
+			
+			++ar_db_count;
+		      }
+		  }
+	      }
+	    //}
+	    (*lit)->linkid = linkid;
+	    ++linkid;
+	  }
 
-          int port = (*lit)->node1_port;
-          if((*lit)->node2->node == (*nit)->node) 
-          {
-            port = (*lit)->node2_port;
-          }
-
-          vswitchschedule vs((*nit)->cost, rid, port, (*lit)->linkid);
-
+	  int port = (*lit)->node1_port;
+	  if((*lit)->node2->node == (*nit)->node) 
+	    {
+	      port = (*lit)->node2_port;
+	    }
+	  
+	  vswitchschedule vs((*nit)->cost, rid, port, (*lit)->linkid);
+	  
 	  db_vswitches.push_back(vs);
-
-          //mysqlpp::Query vins = onl->query();
-          //vins.insert(vs);
+	  
 	  ++ar_db_count;
-          //vins.execute();
-        }
-	//now process links that were added
+	}
 	/*
         for(lit = added_links.begin(); lit != added_links.end(); ++lit)
         {  
@@ -3838,10 +3933,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	
 	db_nodes.push_back(ns);
 
-        //mysqlpp::Query ins = onl->query();
-        //ins.insert(ns);
 	++ar_db_count;
-        //ins.execute();
       }
     }
 
@@ -3887,18 +3979,25 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	  //}
 	if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
 	// add the link entries
-	for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit)
+	for(mplit = (*lit)->mapped_path.begin(), dirit = (*lit)->mp_linkdir.begin(); mplit != (*lit)->mapped_path.end(); ++mplit, ++dirit)
 	  {
 	    int rload = (*lit)->rload;
-	    if (rload > (*lit)->capacity) rload = (*lit)->capacity;
 	    int lload = (*lit)->lload;
-	    if (lload > (*lit)->capacity) lload = (*lit)->capacity;
-	    connschedule cs(linkid, rid, *cit, (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload);
+	    if ((*dirit) != 0) //this link is right for this path
+	      {
+		if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+		if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+	      }
+	    else //this link is left for this path
+	      {
+		rload = (*lit)->lload;
+		lload = (*lit)->rload;
+		if (rload > (*mplit)->capacity) rload = (*mplit)->capacity;
+		if (lload > (*mplit)->capacity) lload = (*mplit)->capacity;
+	      }
+	    connschedule cs(linkid, rid, (*mplit)->conns.front(), (*lit)->capacity, rload, lload);//(*lit)->rload, (*lit)->lload);
 	    db_connections.push_back(cs);
-	    //mysqlpp::Query ins = onl->query();
-	    //ins.insert(cs);
 	    ++ar_db_count;
-	    //ins.execute();
 	  }
 	++linkid;
     }

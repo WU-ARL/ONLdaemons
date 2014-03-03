@@ -194,7 +194,10 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
 
   //first check nicTable to see if there is enough bandwidth
   if (rate > nicTable[realPort].rate) 
-    throw Configuration_exception("configure_port failed not enough bandwidth on nic " + int2str(realPort));
+    {
+      write_log("Configuration::configure_port for port " + int2str(port) + " failed not enough bw on nic " + int2str(realPort) + " rate requested " + int2str(rate) + " nic rate " + int2str(nicTable[realPort].rate));
+      throw Configuration_exception("configure_port failed not enough bandwidth on nic " + int2str(realPort));
+    }
   else nicTable[realPort].rate -= rate;
 
   struct in_addr addr;
@@ -330,6 +333,7 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     char shcmd[256];
     std::string prefixStr;//char prefixStr[32];
     std::string maskStr;//char maskStr[32];
+    std::string nhipStr;
     //char nicStr[32];
     std::string tmp;
 
@@ -340,6 +344,7 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     //tmp = addr_int2str(mask);
     //tmp.copy(maskStr, 0, 32);
     maskStr = addr_int2str(mask);
+    nhipStr = addr_int2str(nexthop_ip);
 
 
     // get device and vlan from port_info struct
@@ -348,7 +353,7 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     //nic.copy(nicStr, 0, 32);
 
     //sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
-    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d %s", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nhipStr.c_str());
     write_log("Configuration::add_route_main system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
     {
@@ -516,7 +521,8 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %s %s %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %d %s %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan);
+    write_log("Configuration::del_route_main system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");
@@ -570,7 +576,8 @@ void Configuration::del_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     nic = nicTable[portTable[output_port].nicIndex].nic;
     //nic.copy(nicStr, 0, 32);
 
-    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %s %s %d %d", prefixStr.c_str(), maskStr.c_str(), nic.c_str(), portTable[output_port].vlan, nexthop_ip);
+    sprintf(shcmd, "/usr/local/bin/swrd_del_route_main.sh %s %d %s %d %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nexthop_ip);
+    write_log("Configuration::del_route_main system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_del_route_main failed");

@@ -19,20 +19,26 @@
 #include "nmd_includes.h"
 #include <math.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 
 #define user "admin"
 
+bool set_switch_vlan_membership_arista64(port_list switch_ports, string switch_id, switch_vlan vlan_id);
 bool set_switch_vlan_membership_arista(port_list switch_ports, string switch_id, switch_vlan vlan_id);
 bool set_switch_vlan_membership_snmp(port_list switch_ports, string switch_id, switch_vlan vlan_id);
+bool set_switch_pvids_arista64(port_list host_ports, string switch_id, switch_vlan vlan_id);
 bool set_switch_pvids_arista(port_list host_ports, string switch_id, switch_vlan vlan_id);
 bool set_switch_pvids_snmp(port_list host_ports, string switch_id, switch_vlan vlan_id);
+bool initialize_switch_arista64(string switch_id);
 bool initialize_switch_arista(string switch_id);
 bool initialize_switch_snmp(string switch_id);
+bool is_arista64_switch(string switch_id);
 bool is_arista_switch(string switch_id);
 bool exec_snmp(string cmd);
 bool exec_ssh(string cmd);
 void getHexString(unsigned char bval, char* str);
 string encodeEgressPorts(port_list ports, int numBytes, bool is_complement);
+string get_arista64_port(int port);
 
 
 bool set_switch_vlan_membership(port_list switch_ports, string switch_id, switch_vlan vlan_id)
@@ -42,7 +48,11 @@ bool set_switch_vlan_membership(port_list switch_ports, string switch_id, switch
   if (is_arista_switch(switch_id)) {
     return set_switch_vlan_membership_arista(switch_ports, switch_id, vlan_id);
   } else{
-    return set_switch_vlan_membership_snmp(switch_ports, switch_id, vlan_id);
+    if (is_arista64_switch(switch_id)){
+      return set_switch_vlan_membership_arista64(switch_ports, switch_id, vlan_id);
+    } else{
+      return set_switch_vlan_membership_snmp(switch_ports, switch_id, vlan_id);
+    }
   }
 }
 
@@ -63,7 +73,12 @@ bool set_switch_pvids(port_list switch_ports, string switch_id, switch_vlan vlan
   // Arista CLI. 
   if (is_arista_switch(switch_id)) {
     return set_switch_pvids_arista(host_ports, switch_id, vlan_id);
-  } else{
+  } 
+  else if (is_arista64_switch(switch_id))
+    {
+      return set_switch_pvids_arista64(host_ports, switch_id, vlan_id);
+    } 
+  else {
     return set_switch_pvids_snmp(host_ports, switch_id, vlan_id);
   }
 }
@@ -81,7 +96,12 @@ bool initialize_switch(string switch_id)
   // Arista CLI. 
   if (is_arista_switch(switch_id)) {
     return initialize_switch_arista(switch_id);
-  } else{
+  } 
+  else if (is_arista64_switch(switch_id)) 
+    {
+      return initialize_switch_arista64(switch_id);
+    }
+  else {
     return initialize_switch_snmp(switch_id);
   }
 }
@@ -117,6 +137,60 @@ bool set_switch_vlan_membership_arista(port_list switch_ports, string switch_id,
 }
 
 
+bool set_switch_vlan_membership_arista64(port_list switch_ports, string switch_id, switch_vlan vlan_id)
+{
+  ostringstream cmd, msg;
+  int num_ports = switch_ports.size();
+  int num_switch_ports = eth_switches->get_num_ports(switch_id);
+  std::string last_port = get_arista64_port(num_switch_ports);
+  if (num_switch_ports == 0) return false;
+
+  cmd << "ssh -n " << user << "@" << switch_id << " \"enable" << endl;
+  cmd << "configure" << endl;
+  // first remove all ports from this vlan
+  cmd << "interface ethernet 1-" << last_port << endl;
+  cmd << "switchport trunk allowed vlan remove " << vlan_id << endl;
+  cmd << "exit" << endl;
+  if (num_ports > 0)
+  {
+    // now add the specified ports to the vlan
+    cmd << "interface ethernet ";
+    for (port_iter iter = switch_ports.begin();
+       iter != switch_ports.end(); iter++) {
+      cmd << get_arista64_port(iter->getPortNum());
+       if (--num_ports > 0) cmd << ",";
+    }
+    cmd << endl << "switchport trunk allowed vlan add " << vlan_id << endl;
+  }
+  cmd << "\"" << endl;
+
+  return exec_ssh(cmd.str());
+}
+
+
+bool set_switch_pvids_arista64(port_list host_ports, string switch_id, switch_vlan vlan_id)
+{
+  ostringstream cmd, msg;
+ 
+  int num_ports = host_ports.size();
+  if (num_ports == 0) return true; // don't need to do anything
+
+  cmd << "ssh -n " << user << "@" << switch_id << " \"enable" << endl;
+  cmd << "configure" << endl;
+  // first remove all ports from this vlan
+  // now add the specified ports to the vlan
+  cmd << "interface ethernet ";
+  for (port_iter iter = host_ports.begin();
+       iter != host_ports.end(); iter++) {
+    cmd << get_arista64_port(iter->getPortNum());
+     if (--num_ports > 0) cmd << ",";
+  }
+  cmd << endl << "switchport trunk native vlan " << vlan_id << endl;
+  cmd << "\"" << endl;
+
+  return exec_ssh(cmd.str());
+}
+
 
 bool set_switch_pvids_arista(port_list host_ports, string switch_id, switch_vlan vlan_id)
 {
@@ -136,6 +210,20 @@ bool set_switch_pvids_arista(port_list host_ports, string switch_id, switch_vlan
      if (--num_ports > 0) cmd << ",";
   }
   cmd << endl << "switchport trunk native vlan " << vlan_id << endl;
+  cmd << "\"" << endl;
+
+  return exec_ssh(cmd.str());
+}
+
+bool initialize_switch_arista64(string switch_id)
+{
+  ostringstream cmd;
+  switch_info eth_switch = eth_switches->get_switch(switch_id);
+  cmd << "ssh -n " << user << "@" << switch_id << " \"enable" << endl;
+  cmd << "configure" << endl;
+  cmd << "interface ethernet 1-" << get_arista64_port(eth_switch.getNumPorts()) << endl;
+  cmd << "switchport trunk allowed vlan none" << endl;
+  cmd << "switchport trunk native vlan " << default_vlan << endl;
   cmd << "\"" << endl;
 
   return exec_ssh(cmd.str());
@@ -236,6 +324,16 @@ bool is_arista_switch(string switch_id)
   	  switch_id == "onlsw9" || switch_id == "onlsw10"); 
 }
 
+
+bool is_arista64_switch(string switch_id)
+{
+  // Here we assume swithces with switchid = onslw7 and onlsw8 
+  // are Arista switches
+  // 8/10/10 we switched from 2-48 port aristas to 4-24 port aristas
+  // so assume onlsw9 and onlsw10 are also arista switches
+  return (switch_id == "onlsw11" || switch_id == "onlsw12"); 
+}
+
 bool exec_snmp(string cmd)
 {
   int rtn = 0;
@@ -323,6 +421,35 @@ string encodeEgressPorts(port_list ports, int numBytes, bool is_complement)
     retVal.append(tmp_string);
   }
   return retVal;
+}
+
+
+string get_arista64_port(int port)
+{
+  std::string rtn_str;
+  char tmp_port[10];
+  if (port < 49) 
+    {
+      sprintf(tmp_port, "%d", port);
+      rtn_str.assign(tmp_port);
+    }
+  else
+    {
+      int base = 49;
+      int remainder = port - 49;
+      while (remainder > 3)
+	{
+	  remainder -= 4;
+	  ++base;
+	}
+      ++remainder;
+      sprintf(tmp_port, "%d", base);
+      rtn_str.assign(tmp_port);
+      rtn_str.append("/");
+      sprintf(tmp_port, "%d", remainder);
+      rtn_str.append(tmp_port);
+    }
+  return rtn_str; 
 }
 
 

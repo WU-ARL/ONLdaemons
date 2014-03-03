@@ -69,6 +69,7 @@ configure_node_req::handle()
   }
   catch(std::exception& e)
   { 
+    write_log("configure_node_req::failed exception(" + std::string(e.what()) + ")");
     status = NCCP_Status_Failed;
   }
 

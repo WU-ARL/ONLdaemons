@@ -71,10 +71,26 @@ namespace swr
   bool init()
   {
     onld::log = new log_file("/tmp/swrd.log");
+    write_log("init: Initializing");
+    char shcmd[256];
+    //run tuning script
+    sprintf(shcmd, "/usr/local/bin/ixgb_perf.sh data0 /usr/local/bin");
+    write_log("init tuning-system(" + std::string(shcmd) + ")");
+    if (system(shcmd) < 0)
+      {
+	write_log("tuning script for data0 failed");
+	return false;
+      }
+    sprintf(shcmd, "/usr/local/bin/ixgb_perf.sh data1 /usr/local/bin");
+    write_log("init tuning-system(" + std::string(shcmd) + ")");
+    if (system(shcmd) < 0)
+      {
+	write_log("tuning script for data1 failed");
+	return false;
+      }
     the_dispatcher = dispatcher::get_dispatcher();
     rli_conn = NULL;
 
-    write_log("init: Initializing");
 
     configuration = new Configuration();
 

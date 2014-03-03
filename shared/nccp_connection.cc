@@ -324,6 +324,7 @@ nccp_connection::get_message() throw()
   {
     std::string logstr = "nccp_connection::get_message: message larger than NCCP_MAX_MESSAGE_SIZE increasing buffer read " + int2str(n) + " bytes, len=" + int2str(msg_length);
     write_log(logstr);
+    delete[] buf;
     buf = new uint8_t[msg_length];
   }
 

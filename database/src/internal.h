@@ -96,6 +96,11 @@ namespace onl
     unsigned int potential_lcap;//used in computation of mapping cost of a potential path
     boost::shared_ptr<struct _link_resource> user_link; //only used for processing vgiges
     std::list<boost::shared_ptr<struct _link_resource> > mapped_path;//only used when computing schedule at reservation time
+    std::list<int> mp_linkdir; //gives the direction 1 is right 0 is left of the link in the mapped_path in the context of this link
+                                 //this allows us to write the rload and lload correctly to the database connschedule. 
+                                 //There is a one to one coorespondence to the mapped_path links. 
+    std::list<boost::shared_ptr<struct _link_resource> > added_vgige_links;//links that will tag along with this link in the database 
+                                                                             //since they weren't in the initial user topology  
 
   } link_resource;
 

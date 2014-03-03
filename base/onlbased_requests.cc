@@ -147,7 +147,35 @@ start_experiment_req::start_specialization_daemon(std::string specd)
           }
       }
 
-    execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
+    //figure out the number of arguments
+    int argc = 1;
+    int pos = 0;
+    while(pos != std::string::npos)
+      {
+	pos = specd.find(" ", pos);
+	++argc;
+	if (pos != std::string::npos)
+	  ++pos;
+      }
+    const char* argv[(argc+3)];
+    pos = 0;
+    int prev_pos = 0;
+    int i = 0;
+    int len = 0;
+    for (i = 0; i < argc; ++i)
+      {
+	pos = specd.find(" ", pos);
+	len = pos - prev_pos;
+	argv[i] = specd.substr(prev_pos, len).c_str();
+	if (pos != std::string::npos)
+	  prev_pos = pos + 1;
+      }
+    argv[argc] = "--onluser";
+    argv[argc+1] = user.c_str();
+    argv[argc+2] = (char*)NULL;
+    execv(argv[0], (char* const*)argv);
+    
+    //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
     exit(-1);
   }
   return true;

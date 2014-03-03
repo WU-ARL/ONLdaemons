@@ -97,12 +97,13 @@ namespace onl
       void get_lneighbors(node_resource_ptr node, std::list<node_load_ptr>& lneighbors);
       void map_children(node_resource_ptr unode, node_resource_ptr rnode);
       void report_metrics(topology* topo, std::string username, time_t res_start, time_t res_end, time_t comp_start, int success);
-      bool split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige, node_resource_ptr root_rnode, topology* base);
+      int split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_vgige, node_resource_ptr root_rnode, topology* base);
       int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node);
       int find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node, std::list<node_load_ptr>& neighbors);
       //added to support virtual ports
       onldb_resp get_link_vport(unsigned int linkid, unsigned int rid, int port);
       bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin);
+      bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin, node_resource_ptr excluded);
 
     public:
       onldb() throw();

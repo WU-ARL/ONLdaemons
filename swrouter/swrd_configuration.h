@@ -15,7 +15,6 @@
  *    limitations under the License.
  */
 
-//NOTE: all bandwidth rates are in kbits/s
 
 #ifndef _SWRD_CONFIGURATION_H
 #define _SWRD_CONFIGURATION_H
@@ -145,8 +144,8 @@ namespace swr
       port_info portTable[max_port];
       uint32_t numConfiguredPorts;
 
-      // For now, we will assume a limit of 4 nics
-      static const uint32_t max_nic = 4;
+      // For now, we will assume a limit of 10 nics
+      static const uint32_t max_nic = 10;
       nic_info nicTable[max_nic];
       uint32_t numConfiguredNics;
 
