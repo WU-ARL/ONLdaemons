@@ -3044,6 +3044,188 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 {
   ++fnd_path;
   int num_paths = 0;
+  std::list<node_resource_ptr> nodes_to_search;
+  std::list<node_resource_ptr> nodes_seen;
+  std::list<link_path_ptr> paths;
+  std::list<node_resource_ptr>::iterator nsearch_it;
+  std::list<link_path_ptr>::iterator pathit; 
+  std::list<link_resource_ptr>::iterator lit;
+  bool is_right = true;
+
+  node_resource_ptr source = potential_path->node1;
+  int src_port = potential_path->node1_port;
+  node_resource_ptr sink = potential_path->node2;
+  int sink_port = potential_path->node2_port;
+
+  int rload = ulink->rload;
+  int lload = ulink->lload;
+  if (rload > MAX_INTERCLUSTER_CAPACITY) rload =  MAX_INTERCLUSTER_CAPACITY;
+  if (lload > MAX_INTERCLUSTER_CAPACITY) lload =  MAX_INTERCLUSTER_CAPACITY;
+
+  link_path_ptr sink_path;
+  nodes_to_search.push_back(source);
+
+  link_path_ptr start_path_ptr(new link_path());
+  start_path_ptr->sink = source;
+  start_path_ptr->sink_port = src_port;
+  start_path_ptr->cost = 0;
+  
+  paths.push_back(start_path_ptr);
+
+  while (!sink_path && !paths.empty())
+    {
+      int max = paths.size();//what paths are at this level of this search because we're going to add new ones to the back
+      for (int i = 0; i < max; ++i)//cycle through the current set of paths at this level of the search
+	{
+	  link_path_ptr path_ptr = paths.front();
+	  paths.pop_front();
+	  node_resource_ptr node1_ptr = path_ptr->sink;
+	  int node1_port = path_ptr->sink_port;
+
+	  //look at all outgoing links from this node
+	  for (lit = node1_ptr->links.begin(); lit != node1_ptr->links.end(); ++lit)
+	    {
+	      node_resource_ptr node2_ptr;
+	      int node2_port = -1;
+
+	      //first find the other endpoint
+	      if ((*lit)->node1 == node1_ptr && 
+		  (node1_ptr != source || 
+		   (node1_port < 0 || node1_port == (*lit)->node1_port || node1_ptr->has_vport)))
+		{
+		  node2_ptr = (*lit)->node2;
+		  if (node2_ptr->type_type != "infrastructure")
+		    node2_port = (*lit)->node2_port;
+		  is_right = true;
+		}
+	      else if ((*lit)->node2 == node1_ptr && 
+		       (node1_ptr != source || 
+			(node1_port < 0 || node1_port == (*lit)->node2_port || node1_ptr->has_vport)))
+		{
+		  node2_ptr = (*lit)->node1;
+		  if (node2_ptr->type_type != "infrastructure")
+		    node2_port = (*lit)->node1_port;
+		  is_right = false;
+		}
+
+	      //only consider the node if it's an infrastructure node or the sink
+	      if (node2_ptr && 
+		  ((!in_list(node2_ptr, nodes_seen) && node2_ptr->type_type == "infrastructure") || //node is infrastructure we've never seen before
+		   (node2_ptr == sink && (node2_port == sink_port || sink->has_vport)))) //node is the sink
+		{
+		  //if this is an infrastructure node need to check if there's enough bandwidth 
+		  //and if the link passes through a switch which already has this subnet's vgige or link mapped.
+		  //we should also check capacity for virtual port links
+		  
+		  
+		  int pcost = path_ptr->cost;
+		  int lcap = 0;
+		  int rcap = 0;
+		  if (is_right) 
+		    {
+		      lcap = (*lit)->potential_lcap;
+			  rcap = (*lit)->potential_rcap;
+		    }
+		  else
+		    {
+		      lcap = (*lit)->potential_rcap;
+		      rcap = (*lit)->potential_lcap;
+		    }
+		  if (node1_ptr->type_type == "infrastructure" && node2_ptr->type_type == "infrastructure") //interswitch link
+		    {
+		      //check that there is enough capacity
+		      if ((rcap < rload) || (lcap < lload)) //not enough capacity
+			//(subnet_mapped(subnet, othernode->in, othernode))))
+			continue;
+		      else //check that no link or vgige is already mapped to this cluster
+			{
+			  if (node2_ptr == sink)
+			    {
+			      if (subnet_mapped(subnet, node2_ptr->in, ulink->node2)) 
+				continue;
+			    }
+			  else
+			    if (subnet_mapped(subnet, node2_ptr->in))
+			      continue;
+			}
+		      lcap -= lload;
+		      rcap -= rload;
+		      pcost += (ulink->cost) + ((rcap + lcap)/2); //want to favor links that have higher utilization
+		    }
+
+		  //check available capacity for virtual ports at sink or source
+		  if (node1_ptr == source && source->has_vport && rcap < ulink->node1_capacity) //virtual port at source
+		    continue;
+		  if (node2_ptr == sink && sink->has_vport && lcap < ulink->node2_capacity) //virtual port at sink
+		    continue;
+
+		  //is there already a path to this node? if so only consider this one if it's cheaper
+		  bool seen = false;
+		  for (pathit = paths.begin(); pathit != paths.end(); ++pathit)
+		    {
+		      if ((*pathit)->sink == node2_ptr)
+			{
+			  seen = true;
+			  if ((*pathit)->cost > pcost)
+			    {
+			      (*pathit)->path.clear();
+			      (*pathit)->path.assign(path_ptr->path.begin(), path_ptr->path.end());
+			      (*pathit)->path.push_back(*lit);
+			      (*pathit)->cost = pcost;
+			      (*pathit)->sink_port = node2_port;
+			      ++num_paths;
+			    }
+			  break;
+			}
+		    }
+		  if (!seen) //if there isn't an entry for a path to this node yet add one
+		    {
+		      link_path_ptr tmp_path(new link_path());
+		      tmp_path->path.assign(path_ptr->path.begin(), path_ptr->path.end());
+		      tmp_path->path.push_back(*lit);
+		      ++num_paths;
+		      tmp_path->sink = node2_ptr;
+		      tmp_path->sink_port = node2_port; 
+		      tmp_path->cost = pcost;   
+		      paths.push_back(tmp_path);
+		    }
+		}
+	    }
+	}
+      //now cycle through the paths left and note if the sink has been found or any new nodes have been seen
+      for (pathit = paths.begin(); pathit != paths.end(); ++pathit)
+	{
+	  if ((*pathit)->sink == sink) 
+	    sink_path = (*pathit);
+	  else
+	    {
+	      if (!in_list((*pathit)->sink, nodes_seen))
+		nodes_seen.push_back((*pathit)->sink);
+	    }
+	}
+    }
+
+  cout << "onldb::find_cheapest_path path_addition_count:" << num_paths <<  endl;
+  //if we found a sink path put it into the potential path and return the cost otw return -1
+  if (sink_path)
+    {
+      potential_path->cost = sink_path->cost;
+      while (!sink_path->path.empty())
+	{ 
+	  potential_path->mapped_path.push_back(sink_path->path.front());
+	  sink_path->path.pop_front();
+	}
+      return (potential_path->cost);
+    }
+  return -1;
+}
+
+/*
+int
+onldb::orig_find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw()
+{
+  ++fnd_path;
+  int num_paths = 0;
   struct timeval stime;
   gettimeofday(&stime, NULL);
   int current_cost = -1;
@@ -3253,8 +3435,8 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
   print_diff("onldb::find_cheapest_path", stime);
   return current_cost;
 }
-
 */
+
 
 node_resource_ptr
 onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw()
