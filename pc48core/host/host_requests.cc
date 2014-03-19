@@ -55,7 +55,7 @@ configure_node_req::~configure_node_req()
 bool
 configure_node_req::handle()
 {
-  write_log("configure_node_req::handle()");
+  write_log("configure_node_req::handle() + port:" + int2str(node_conf.getPort()) + " vlan:" + int2str(node_conf.getVLan()));
 
   conf->set_port_info(node_conf.getPort(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getNHIPAddr());
 
