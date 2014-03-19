@@ -296,11 +296,13 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     //sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan);
     sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan);
     write_log("Configuration::add_route_main system(" + std::string(shcmd) + ")");
-    if(system(shcmd) < 0)
+    int rtn = system(shcmd);
+    if(rtn != 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
     }
 
+    //write_log("Configuration::add_route_main system(" + std::string(shcmd) + ") rtn=" + int2str(rtn));
 
   }
 
@@ -355,11 +357,13 @@ void Configuration::add_route_main(uint32_t prefix, uint32_t mask, uint16_t outp
     //sprintf(shcmd, "/usr/local/bin/swrd_add_route_main %s %s %s %d %d", prefixStr, maskStr, nicStr, portTable[output_port].vlan, nexthop_ip);
     sprintf(shcmd, "/usr/local/bin/swrd_add_route_main.sh %s %d %s %d %s", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nhipStr.c_str());
     write_log("Configuration::add_route_main system(" + std::string(shcmd) + ")");
-    if(system(shcmd) < 0)
+    int rtn = system(shcmd);
+    if(rtn != 0)
     {
       throw Configuration_exception("system (/usr/local/bin/swrd_add_route_main failed");
     }
 
+    // write_log("Configuration::add_route_main system(" + std::string(shcmd) + ") rtn=" + int2str(rtn));
 
   }
 

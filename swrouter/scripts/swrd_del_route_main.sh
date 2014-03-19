@@ -6,6 +6,12 @@ then
   DEV=$3       # 
   VLAN=$4       # 
   ip route del table main ${PREFIX}/${MASK} dev $DEV.$VLAN
+  RTN=$?
+  if [ $RTN -ne 0 ]
+  then
+    echo "Error:ip route del failed $RTN"
+    exit $RTN
+  fi
   ip route flush cache
 elif [ $# -eq 5 ]
 then
@@ -15,6 +21,12 @@ then
   VLAN=$4       # 
   GW=$5
   ip route del table main ${PREFIX}/${MASK} dev $DEV.$VLAN via $GW
+  RTN=$?
+  if [ $RTN -ne 0 ]
+  then
+    echo "Error:ip route del failed $RTN"
+    exit $RTN
+  fi
   ip route flush cache
 else
   echo "Usage: $0 <prefix> <mask> <dev> <vlan> [<gw>]"
