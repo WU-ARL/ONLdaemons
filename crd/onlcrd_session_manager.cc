@@ -55,7 +55,7 @@
 using namespace onlcrd;
 switch_vlan test_vlan = 0; //used when testing and don't want to connect to NMD
 
-session_manager::session_manager()
+session_manager::session_manager() throw()
 {
   pthread_mutex_init(&vlan_lock, NULL);
 

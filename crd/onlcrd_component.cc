@@ -77,7 +77,15 @@ crd_component::crd_component(std::string n, std::string c, unsigned short p, boo
   pthread_mutex_init(&up_msg_mutex, NULL);
   pthread_cond_init(&up_msg_cond, NULL);
 
-  database = new onl::onldb();
+  try
+    {
+      database = new onl::onldb();
+    }
+  catch(std::exception& er)
+    {
+      write_log("crd_component::crd_component (" + int2str((unsigned long) this) + ", " + name + ") Error: getting database connection - " + er.what());
+      database = NULL;
+    }
 
   write_log("crd_component::crd_component (" + int2str((unsigned long) this) + ") : adding component " + name);
   //write_usage_log("USAGE_LOG: COMPONENT " + name);
@@ -89,7 +97,8 @@ crd_component::~crd_component()
 
   reset_params();
 
-  delete database;
+  if (database != NULL)
+    delete database;
 
   if(nccpconn) 
   {
@@ -107,6 +116,19 @@ std::string
 crd_component::get_state()
 {
   //autoLock dlock(db_lock);
+  if (database == NULL)
+    {
+      try
+	{
+	  database = new onl::onldb();
+	}
+      catch(std::exception& er)
+	{
+	  write_log("crd_component::get_state(): database call failed for " + name + ": " + er.what());
+	  database = NULL;
+	  return "";
+	}
+    }
   onl::onldb_resp rv = database->get_state(name,false);
   if(rv.result() < 0)
   {
@@ -132,6 +154,19 @@ crd_component::set_state(std::string s)
   internal_state = s;
 
   //autoLock dlock(db_lock);
+  if (database == NULL)
+    {
+      try
+	{
+	  database = new onl::onldb();
+	}
+      catch(std::exception& er)
+	{
+	  write_log("crd_component::set_state(): database call failed for " + name + ": " + er.what());
+	  database = NULL;
+	  return;
+	}
+    }
   onl::onldb_resp rv = database->set_state(name,s);
   if(rv.result() < 0)
   {
@@ -156,6 +191,19 @@ std::string
 crd_component::get_type()
 {
   //autoLock dlock(db_lock);
+  if (database == NULL)
+    {
+      try
+	{
+	  database = new onl::onldb();
+	}
+      catch(std::exception& er)
+	{
+	  write_log("crd_component::get_type(): database call failed for " + name + ": " + er.what());
+	  database = NULL;
+	  return "";
+	}
+    }
   autoLockDebug slock(state_lock, "crd_component::get_type(): state_lock");
   onl::onldb_resp rv = database->get_type(name,false);
   if(rv.result() < 0)

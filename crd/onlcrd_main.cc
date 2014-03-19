@@ -99,12 +99,12 @@ int main(int argc, char** argv)
   write_usage_log("ONL CRD Usage Log");
   log = new log_file("/etc/ONL/crd.log");
   the_dispatcher = dispatcher::get_dispatcher();
-  the_session_manager = new session_manager();
   the_gige_conn = NULL;
   listener = NULL;
 
   try
   {
+    the_session_manager = new session_manager();
     if (!testing)
       {
          the_gige_conn = new nccp_connection("127.0.0.1", Default_NMD_Port);

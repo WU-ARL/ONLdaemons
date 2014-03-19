@@ -26,7 +26,7 @@ namespace onlcrd
   class session_manager
   {
     public:
-      session_manager();
+      session_manager() throw();
       ~session_manager();
   
       void initialize();

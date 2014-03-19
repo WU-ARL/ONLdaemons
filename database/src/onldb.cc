@@ -6608,36 +6608,55 @@ onldb_resp onldb::assign_resources(std::string username, topology *t) throw()
   // and export their home area to their nodes
   // note that the script checks for "unused" arguments and ignores them
   std::list<node_resource_ptr>::iterator nit;
-#ifdef USE_EXPORTFS
+  bool use_exportfs = false;
+
+  #ifdef USE_EXPORTFS
+  use_exportfs = true;
+  #endif
+
+  if (username.compare("jdd") == 0)
+    {
+      for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
+	{
+	  if ((*nit)->node.compare("pc48core01") == 0)
+	    {
+	      use_exportfs = true;
+	      break;
+	    }
+	}
+    }
+  //#ifdef USE_EXPORTFS
   std::string exportList;
-#endif
+  //#endif
   for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
   {
-#ifdef USE_EXPORTFS
-    if (((*nit)->cp).compare("unused")) {
+    //#ifdef USE_EXPORTFS
+    if (use_exportfs && ((*nit)->cp).compare("unused")) {
       exportList.append((*nit)->cp);
       exportList.append(":/users/");
       exportList.append(username);
       exportList.append(" ");
     }
-#endif
+    //#endif
 
     std::string cmd = "/usr/testbed/scripts/system_session_update2.pl add " + username + " " + (*nit)->cp + " " + (*nit)->acl;
     int ret = system(cmd.c_str());
     if(ret < 0 || WEXITSTATUS(ret) != 1) cout << "Warning: " << username << "'s home area was not exported to " << (*nit)->cp << " and user was not added to group " << (*nit)->acl << endl;
   }
-#ifdef USE_EXPORTFS
-  cout << "exportList: > " << exportList << " < " << endl;
-#endif
+  //#ifdef USE_EXPORTFS
+  if (use_exportfs)
+    cout << "exportList: > " << exportList << " < " << endl;
+  //#endif
 
-#ifdef USE_EXPORTFS
-  {
-    std::string cmd = "/usr/sbin/exportfs -o rw,sync,no_root_squash " + exportList;
-    int ret = system(cmd.c_str());
-    if(ret < 0 || ((ret !=0) && WEXITSTATUS(ret) != 1)) cout << "Warning: " << " exportfs failed (ret = " << ret << ") for " << cmd << endl;
-    else cout << "exportfs succeeded for " << cmd << endl;
-  }
-#endif
+  //#ifdef USE_EXPORTFS
+  if (use_exportfs)
+    {
+      std::string cmd = "/usr/sbin/exportfs -o rw,sync,no_root_squash " + exportList;
+      int ret = system(cmd.c_str());
+      if(ret < 0 || ((ret !=0) && WEXITSTATUS(ret) != 1)) cout << "Warning: " << " exportfs failed (ret = " << ret << ") for " << cmd << endl;
+      else cout << "exportfs succeeded for " << cmd << endl;
+    }
+  //#endif
   {
     std::string cmd = "/usr/testbed/scripts/system_session_update2.pl update";
     int ret = system(cmd.c_str());
@@ -6687,40 +6706,59 @@ onldb_resp onldb::return_resources(std::string username, topology *t) throw()
 
   // now remove all the soft system state that was added in assign_resources
   std::list<node_resource_ptr>::iterator nit;
-#ifdef USE_EXPORTFS
+  bool use_exportfs = false;
+
+  #ifdef USE_EXPORTFS
+  use_exportfs = true;
+  #endif
+
+  if (username.compare("jdd") == 0)
+    {
+      for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
+	{
+	  if ((*nit)->node.compare("pc48core01") == 0)
+	    {
+	      use_exportfs = true;
+	      break;
+	    }
+	}
+    }
+  //#ifdef USE_EXPORTFS
   std::string exportList;
-#endif
+  //#endif
   for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
   {
     std::string cmd = "/usr/testbed/scripts/system_session_update2.pl remove " + username + " " + (*nit)->cp + " " + (*nit)->acl;
-#ifdef USE_EXPORTFS
-    if (((*nit)->cp).compare("unused")) {
+    //#ifdef USE_EXPORTFS
+    if (use_exportfs && ((*nit)->cp).compare("unused")) {
       exportList.append((*nit)->cp);
       exportList.append(":/users/");
       exportList.append(username);
       exportList.append(" ");
     }
-#endif
+    //#endif
     int ret = system(cmd.c_str());
     if(ret < 0 || WEXITSTATUS(ret) != 1) cout << "Warning: " << username << "'s home area was not unexported to " << (*nit)->cp << " and user was not removed from group " << (*nit)->acl << endl;
   }
-#ifdef USE_EXPORTFS
-  cout << "exportList: > " << exportList << " < " << endl;
-#endif
+  //#ifdef USE_EXPORTFS
+  if (use_exportfs)
+    cout << "exportList: > " << exportList << " < " << endl;
+  //#endif
   {
     std::string cmd = "/usr/testbed/scripts/system_session_update2.pl update";
     int ret = system(cmd.c_str());
     if(ret < 0 || WEXITSTATUS(ret) != 1) cout << "Warning: " << username << " was not removed from any groups" << endl;
   }
 
-#ifdef USE_EXPORTFS
-  {
-    std::string cmd = "/usr/sbin/exportfs -u " + exportList;
-    int ret = system(cmd.c_str());
-    if(ret < 0 || ((ret !=0) && WEXITSTATUS(ret) != 1)) cout << "Warning: " << " exportfs failed (ret = " << ret << ") for " << cmd << endl;
-    else cout << "exportfs succeeded for " << cmd << endl;
-  }
-#endif
+  //#ifdef USE_EXPORTFS
+  if (use_exportfs)
+    {
+      std::string cmd = "/usr/sbin/exportfs -u " + exportList;
+      int ret = system(cmd.c_str());
+      if(ret < 0 || ((ret !=0) && WEXITSTATUS(ret) != 1)) cout << "Warning: " << " exportfs failed (ret = " << ret << ") for " << cmd << endl;
+      else cout << "exportfs succeeded for " << cmd << endl;
+    }
+  //#endif
 
   return onldb_resp(1,(std::string)"success");
 }
