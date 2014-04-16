@@ -56,6 +56,34 @@ using namespace onl;
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
 int fnd_path;
+void fill_in_cluster(mapping_cluster_ptr cluster)
+{
+  std::list<link_resource_ptr>::iterator clusterlit;
+  for (clusterlit = cluster->links.begin(); clusterlit != cluster->links.end(); ++clusterlit)
+    {
+      node_resource_ptr n;
+      if ((*clusterlit)->node1 == cluster) n = (*clusterlit)->node2;
+      else n = (*clusterlit)->node1;
+      n->potential_corecap = n->core_capacity;
+      n->potential_memcap = n->mem_capacity;
+      cluster->nodes.push_back(n);
+      if (n->marked) cluster->mapped = true;
+    }
+  cluster->used = false;
+}
+
+void reset_cluster(mapping_cluster_ptr cluster)
+{
+  std::list<node_resource_ptr>::iterator nit;
+  cluster->used = false;
+  cluster->rnodes_used.clear();
+  cluster->user_nodes.clear();
+  for (nit = cluster->nodes.begin(); nit != cluster->nodes.end(); ++nit)
+    {
+      (*nit)->potential_corecap = (*nit)->core_capacity;
+      (*nit)->potential_memcap = (*nit)->mem_capacity;
+    }
+}
 
 bool req_sort_comp(assign_info_ptr i, assign_info_ptr j)
 {
@@ -154,10 +182,41 @@ void print_diff(const char* lbl,  struct timeval& stime)
   cout << lbl << " computation time: " << secs << " seconds " << usecs << " useconds " << endl;
 }
 
-bool has_vport(std::string tid, vector<typevport>& typevps)
+void fill_node_info(node_resource_ptr node, vector<typeinfo>& typenfo)
 {
-  vector<typevport>::iterator it;
-  for (it = typevps.begin(); it != typevps.end(); ++it)
+  vector<typeinfo>::iterator it;
+  for (it = typeinfo.begin(); it != typeinfo.end(); ++it)
+    {
+      if ((*it).tid == node->type)
+	{
+	  if ((int)(*it).hasvport == 0) 
+	    node->has_vport = false;
+	  else
+	    node->has_vport = true;
+	  if ((int)(*it).vmsupport == 0) 
+	    node->has_vmsupport = false;
+	  else
+	    {
+	      node->has_vmsupport = true;
+	      node->has_vport = true;
+	    }
+	  node->core_capacity = (int)(*it)->corecapacity;
+	  node->mem_capacity = (int)(*it)->memcapacity;
+	  int max = (int)(*it)->numinterfaces;
+	  int bw = (int)(*it)->interfacebw;
+	  for (int i = 0; i < max; ++i)
+	    {
+	      node->port_capacities[i] = bw;
+	    }
+	  break;
+	}
+    }
+}
+
+bool has_vport(std::string tid, vector<typeinfo>& typenfo)
+{
+  vector<typeinfo>::iterator it;
+  for (it = typeinfo.begin(); it != typeinfo.end(); ++it)
     {
       if ((*it).tid == tid)
 	{
@@ -693,7 +752,7 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
     }
 
     mysqlpp::Query query2 = onl->query();
-    query2 << "select nodes.node,nodes.tid,hwclustercomps.cluster,nodes.acl,nodes.daemonhost,nodeschedule.fixed from nodes join nodeschedule using (node) left join hwclustercomps using (node) where nodeschedule.rid=" << mysqlpp::quote << rid;
+    query2 << "select nodes.node,nodes.tid,hwclustercomps.cluster,nodes.acl,nodes.daemonhost,nodeschedule.fixed,nodeschedule.vmid,nodeschedule.cores,nodeschedule.memory from nodes join nodeschedule using (node) left join hwclustercomps using (node) where nodeschedule.rid=" << mysqlpp::quote << rid;
     vector<nodetypes> nt;
     query2.storein(nt);
     vector<nodetypes>::iterator it2;
@@ -710,7 +769,7 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       {
         return onldb_resp(-1, r.msg());
       }
-      r = t->add_node(it2->tid, hwid, parent_label, (r.result() != 0));
+      r = t->add_node(it2->tid, hwid, parent_label, (r.result() != 0), it2->cores, it2->memory);
       if(r.result() != 1)
       {
         return onldb_resp(-1, (std::string)"database consistency problem");
@@ -719,6 +778,11 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       t->nodes.back()->node = it2->node;
       t->nodes.back()->acl = it2->acl;
       t->nodes.back()->cp = it2->daemonhost;
+      t->nodes.back()->vmid = it2->vmid;
+      if (it2->vmid > 0) 
+	{
+	  t->nodes.back()->has_vmsupport = true;
+	}
       if(((int)it2->fixed) == 1)
       {
         t->nodes.back()->fixed = true;
@@ -765,10 +829,10 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	{
 	  if (vps_it->linkid == cur_link)
 	    {
-	      node1_label = t->get_label(vps_it->node1);
+	      node1_label = t->get_label(vps_it->node1, vps_it->node1vmid);
 	      node1_port = vps_it->port1;
 	      node1_cap = vps_it->port1capacity;
-	      node2_label = t->get_label(vps_it->node2);
+	      node2_label = t->get_label(vps_it->node2, vps_it->node2vmid);
 	      node2_port = vps_it->port2;
 	      node2_cap = vps_it->port2capacity;
 	      break;
@@ -811,10 +875,10 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	    {
 	      if (vps_it->linkid == cur_link)
 		{
-		  node1_label = t->get_label(vps_it->node1);
+		  node1_label = t->get_label(vps_it->node1, vps_it->node1vmid);
 		  node1_port = vps_it->port1;
 		  node1_cap = vps_it->port1capacity;
-		  node2_label = t->get_label(vps_it->node2);
+		  node2_label = t->get_label(vps_it->node2, vps_it->node2vmid);
 		  node2_port = vps_it->port2;
 		  node2_cap = vps_it->port2capacity;
 		  break;
@@ -936,7 +1000,7 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
     if((*nit)->is_parent) continue;
     if((*nit)->marked) continue;
     new_list = new std::list<assign_info_ptr>();
-    build_assign_list(*nit, new_list);
+    build_assign_list(*nit, new_list); //builds a list of connected nodes where an element is a type with a list of nodes of that type
     new_list->sort(req_sort_comp);
     assign_lists.push_back(new_list);
   }
@@ -963,7 +1027,7 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
     if((*nit)->is_parent) continue;
     for(ait = res_list.begin(); ait != res_list.end(); ++ait)
     {
-      if((*ait)->type == (*nit)->type)
+      if((*ait)->type == (*nit)->type || ((*ait)->type == "vm" && (*nit)->has_vmsupport && (*nit)->vmid > 0))
       {
         (*ait)->testbed_nodes.push_back(*nit);
         break;
@@ -972,7 +1036,10 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
     if(ait == res_list.end())
     {
       assign_info_ptr newnode(new assign_info());
-      newnode->type = (*nit)->type;
+      if ((*nit)->has_vmsupport && (*nit)->vmid > 0)
+	newnode->type = "vm";
+      else
+	newnode->type = (*nit)->type;
       newnode->testbed_nodes.push_back(*nit);
       res_list.push_back(newnode);
     }
@@ -1071,7 +1138,7 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
 bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<assign_info_ptr>* >::iterator ali, std::list< std::list<assign_info_ptr>* >::iterator end, unsigned int level) throw()
 {
   if(ali == end) return true;
-  std::list<assign_info_ptr> al = **ali;
+  std::list<assign_info_ptr> al = **ali;//look at a particular subtopology
   std::list<assign_info_ptr>::iterator ai, clean;
   std::list<assign_info_ptr>::iterator ri;
   std::list< std::list<assign_info_ptr>* >::iterator alinew;
@@ -1095,9 +1162,9 @@ bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<as
   {
     if((*res_nit)->marked) continue;
 
-    if(find_mapping(*((*ai)->user_nodes.begin()), *res_nit, level))
+    if(find_mapping(*((*ai)->user_nodes.begin()), *res_nit, level))//if we find a mapping for this subtopology using this reservation node
     {
-      if(subset_assign(rl, alinew, end, level+1)) return true;
+      if(subset_assign(rl, alinew, end, level+1)) return true; //try finding a mapping for the next subtopology
     }
 
     // have to go through and set the marked field to false for all components and links before next test
@@ -1133,6 +1200,7 @@ bool onldb::subset_assign(std::list<assign_info_ptr> rl, std::list< std::list<as
         (*nit)->node = "";
         (*nit)->acl = "unused";
         (*nit)->cp = "unused";
+	(*nit)->vmid = 0;
         if((*nit)->parent && (*nit)->parent->marked && (*nit)->parent->level == level)
         {
           (*nit)->parent->marked = false;
@@ -1158,8 +1226,9 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
   std::list<link_resource_ptr>::iterator abs_lit;
   std::list<link_resource_ptr>::iterator res_lit;
 
-  if(abs_node->marked) return true;
-  if(res_node->marked) return false;
+  if(abs_node->marked) return true;  //this user node is already mapped to a physical node so return success
+  if(res_node->marked) return false; //this reservation node is already mapped so we're not going to map 
+                                     //the user node to it return failure
 
   if(abs_node->parent && abs_node->parent->marked && (abs_node->parent->node != res_node->parent->node)) return false;
 
@@ -1169,6 +1238,7 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
   abs_node->node = res_node->node;
   abs_node->acl = res_node->acl;
   abs_node->cp = res_node->cp;
+  abs_node->vmid = res_node->vmid;
   if(abs_node->parent && !abs_node->parent->marked) 
   {
     abs_node->parent->node = res_node->parent->node;
@@ -1210,10 +1280,12 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
       unsigned int res_other_port = (*res_lit)->node1_port;
       unsigned int res_this_rport = (*res_lit)->node2_rport;
       unsigned int res_other_rport = (*res_lit)->node1_rport;
+      unsigned int res_this_vmid = (*res_lit)->node2->vmid;
+      unsigned int res_other_vmid = (*res_lit)->node1->vmid;
       unsigned int res_this_cap = (*res_lit)->node2_capacity;
       unsigned int res_other_cap = (*res_lit)->node1_capacity;
       bool res_this_is_loopback = false;
-      if((*res_lit)->node1->label == (*res_lit)->node2->label)
+      if((*res_lit)->node1->label == (*res_lit)->node2->label && (*res_lit)->node1->vmid == (*res_lit)->node2->vmid)
       {
         res_this_is_loopback = true;
       }
@@ -1221,13 +1293,15 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
       // dealing with loopback links, if the ports don't line up, switch them.
       // if they still don't line up, then this isn't the right link
       if( (res_this_is_loopback && (abs_this_port != res_this_port)) ||
-          (!res_this_is_loopback && ((*res_lit)->node1->label == res_node->label)) )
+          (!res_this_is_loopback && ((*res_lit)->node1->label == res_node->label && (*res_lit)->node1->vmid == res_node->vmid)) )
       {
         res_other_end = (*res_lit)->node2;
         res_this_port = (*res_lit)->node1_port;
         res_other_port = (*res_lit)->node2_port;
         res_this_rport = (*res_lit)->node1_rport;
         res_other_rport = (*res_lit)->node2_rport;
+	res_this_vmid = (*res_lit)->node1->vmid;
+	res_other_vmid = (*res_lit)->node2->vmid;
 	res_this_cap = (*res_lit)->node1_capacity;
 	res_other_cap = (*res_lit)->node2_capacity;
       }
@@ -1273,9 +1347,9 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
   try
   {
     mysqlpp::Query query_tp = onl->query();
-    query_tp << "select tid,hasvport from types";
-    vector<typevport> typevp;
-    query_tp.storein(typevp);
+    query_tp << "select tid,hasvport,vmsupport,corecapacity,memcapacity,numinterfaces,interfacebw from types";
+    vector<typeinfo> typenfo;
+    query_tp.storein(typenfo);
 
     mysqlpp::Query query = onl->query();
     query << "select cluster,priority,tid from hwclusters where cluster not in (select cluster from hwclusterschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )) order by cluster";//rand()";
@@ -1338,7 +1412,8 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       t->nodes.back()->node = it2->node;
       t->nodes.back()->priority = (int)it2->priority;
       t->nodes.back()->marked = false;
-      t->nodes.back()->has_vport = has_vport(it2->tid, typevp);
+      fill_node_info(t->nodes.back(), typenfo);
+      //t->nodes.back()->has_vport = has_vport(it2->tid, typenfo);
 
       onldb_resp ri = is_infrastructure(it2->node); 
       if(ri.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
@@ -1350,35 +1425,55 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 
     //now get nodes already in a reservation
     mysqlpp::Query query2a = onl->query();
-    query2a << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster from nodes left join hwclustercomps using (node) where node in (select node from nodeschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='testing' and user!='repair' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )) order by nodes.node";//rand()";
-    vector<basenodeinfo> bnia;
+    //query2a << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster from nodes left join hwclustercomps using (node) where node in (select node from nodeschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='testing' and user!='repair' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )) order by nodes.node";//rand()";
+    query2a << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster,nodeschedule.cores,nodeschedule.memory from nodeschedule join nodes using (node) left join hwclustercomps using (node) where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='testing' and user!='repair' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " ) order by nodes.node";//rand()";
+    vector<basenodevminfo>::iterator it2a;
+    vector<basenodevminfo> bnia;
     ++db_count;
     query2a.storein(bnia);
-    for(it2 = bnia.begin(); it2 != bnia.end(); ++it2)
+    for(it2a = bnia.begin(); it2a != bnia.end(); ++it2a)
     {
       unsigned int parent_label = 0;
-      if(!it2->cluster.is_null)
+      node_resource_ptr current_node = get_node(it2a->node);
+      if(!it2a->cluster.is_null)
       {
-        parent_label = t->get_label(it2->cluster.data);
+        parent_label = t->get_label(it2a->cluster.data);
         if(parent_label == 0) continue;
       }
-      onldb_resp r = t->add_node(it2->tid, hwid, parent_label);
-      if(r.result() != 1)
-      {
-        return onldb_resp(-1, (std::string)"database consistency problem");
-      }
-      ++hwid;
-      t->nodes.back()->node = it2->node;
-      t->nodes.back()->priority = (int)it2->priority;
-      t->nodes.back()->marked = true;
-      t->nodes.back()->has_vport = has_vport(it2->tid, typevp);
+      if (!current_node)
+	{
+	  onldb_resp r = t->add_node(it2a->tid, hwid, parent_label);
+	  if(r.result() != 1)
+	    {
+	      return onldb_resp(-1, (std::string)"database consistency problem");
+	    }
+	  ++hwid;
+	  current_node = t->nodes.back();
+	  current_node->node = it2->node;
+	  current_node->priority = (int)it2a->priority;
+	  fill_node_info(current_node, typenfo);
+	  if (!current_node->has_vmsupport)
+	    current_node->marked = true;
+	  //t->nodes.back()->has_vport = has_vport(it2->tid, typenfo);
 
-      onldb_resp ri = is_infrastructure(it2->node); 
-      if(ri.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
-      if(ri.result() == 1)
-      {
-        t->nodes.back()->in = t->nodes.back()->label;
-      }
+	  onldb_resp ri = is_infrastructure(it2a->node); 
+	  if(ri.result() < 0) return onldb_resp(-1, (std::string)"database consistency problem");
+	  if(ri.result() == 1)
+	    {
+	      current_node->in = current_node->label;
+	    }
+	}
+      if (current_node->has_vmsupport)
+	{
+	  current_node->core_capacity -= (it2a->cores);
+	  current_node->mem_capacity -= (it2a->memory);
+	}
+      else 
+	{
+	  current_node->core_capacity = 0;
+	  current_node->mem_capacity = 0;
+	}
+      current_node->marked = true;
     }
 
     mysqlpp::Query query3 = onl->query();
@@ -1417,12 +1512,6 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       
       if(cap <= rl || cap <= ll) { continue; }
 
-      //this doesn't make sense these links aren't added to the available topology
-      //because of the way loads are recorded in the database loads can be larger than the capacity of the link
-      //before calculating a reservation we want to make sure the loads aren't bigger than tha capacity of the link
-      //if (rl > cap) rl = cap;
-      //if (ll > cap) ll = cap;
-
       unsigned int node1_label = 0;
       unsigned int node2_label = 0;
 
@@ -1434,6 +1523,10 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       onldb_resp r = t->add_link(linkid, cap, node1_label, it3->node1port, node2_label, it3->node2port, rl, ll);
       if(r.result() != 1) return onldb_resp(-1, (std::string)"database consistency problem");
       t->links.back()->conns.push_back(it3->cid);
+      if (t->links.back()->node1->has_vport)//if the non-infrastructure node has virtual ports set capacity to the effective capacity for that port
+	{
+	  t->link.back()->capacity = t->links.back()->node1->port_capacities[t->links.back()->node1port];
+	}
  
       bool node1_is_in = false;
       onldb_resp ri = is_infrastructure(it3->node1); 
@@ -1444,7 +1537,9 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       if(!node1_is_in)
       {
         t->links.back()->node1->in = node2_label;
+	t->links.back()->node1->port_capacities[it3->node1port] -= rl; //subtract the load 
         if(t->links.back()->node1->parent) { t->links.back()->node1->parent->in = node2_label; }
+	//set port
       }
 
       ++linkid;
@@ -1617,7 +1712,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   std::list<node_resource_ptr>::iterator nit;
   std::list<node_resource_ptr>::iterator fixed_comp;
   std::list<link_resource_ptr>::iterator lit;
-  std::list<node_resource_ptr> cluster_list; //list of infrastructure nodes cooresponding to the clusters
+  std::list<mapping_cluster_ptr> cluster_list; //list of infrastructure nodes cooresponding to the clusters
 
   std::list<node_resource_ptr> fixed_comps;
 
@@ -1639,6 +1734,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
         break;
       }
     }
+
     if(ait == assign_list.end())
     {
       assign_info_ptr newnode(new assign_info());
@@ -1699,7 +1795,17 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   cout << "try_reservation base topology" << endl << "BASE NODES:" << endl;
   for(nit = base_top.nodes.begin(); nit != base_top.nodes.end(); ++nit)
   {
-    cout << "(" << (*nit)->type << (*nit)->label << ", " << (*nit)->node << ", " << (*nit)->has_vport << ", " <<  (*nit)->marked << ")" << endl;
+    cout << "(" << (*nit)->type << (*nit)->label << ", " << (*nit)->node << ", " << (*nit)->has_vport << ", " <<  (*nit)->marked << ", " 
+	 << (*nit)->has_vmsupport << ", " << (*nit)->corecapacity << ", " << (*nit)->memcapacity << ", ports[";
+    int max = (*nit)->port_capacities.size();
+    
+    for (int i = 0; i < max; ++i)
+      {
+	if (i > 0)
+	  cout << ", ";
+	cout << (*nit)->port_capacities[i];
+      }
+    cout << "])" << endl;
     //(*nit)->marked = false;
     if((*nit)->is_parent || (*nit)->marked) { continue; }
 
@@ -1723,7 +1829,13 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
       newnode->testbed_nodes.push_back(*nit);
       assign_list.push_back(newnode);
     }
-    if((*nit)->type_type == "infrastructure") cluster_list.push_back(*nit); //JP added for new scheduling
+    if((*nit)->type_type == "infrastructure") 
+      {
+	mapping_cluster_ptr mcluster(new mapping_cluster_resource());
+	mcluster->cluster = (*nit);
+	fill_in_cluster(mcluster);
+	cluster_list.push_back(mcluster); //JP added for new scheduling
+      }
   }
 
   cout << "end BASE NODES" << endl;
@@ -1731,7 +1843,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   // check that the the number of each requested type is <= to the number available
   for(ait = assign_list.begin(); ait != assign_list.end(); ++ait)
   {
-    if((*ait)->type == "vgige") { continue; }
+    if((*ait)->type == "vgige" || (*ait)->type =="vm") { continue; }
     if((*ait)->user_nodes.size() > (*ait)->testbed_nodes.size())
     {
       std::string s = "too many " + (*ait)->type + "s already reserved";
@@ -1788,7 +1900,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   return onldb_resp(0,(std::string)"topology doesn't fit during that time");
 }
 
-bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<node_resource_ptr> cl) throw()
+bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mapping_cluster_ptr> cl) throw()
 {
   
   struct timeval stime;
@@ -2155,26 +2267,22 @@ onldb::add_edge_load(node_resource_ptr node, int port, int load, std::list<link_
 
 
 
-node_resource_ptr
-onldb::find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr> cl, topology* req, topology* base) throw()
+mapping_cluster_ptr
+onldb::find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_ptr>& cl, topology* req, topology* base) throw()
 {
   struct timeval stime;
   gettimeofday(&stime, NULL);
-  std::list<link_resource_ptr> mapped_edges;
-  std::list<node_resource_ptr>::iterator clnit; //clusters
-  std::list<link_resource_ptr>::iterator lit;
+  std::list<mapping_cluster_ptr>::iterator clnit; //clusters
 
   if (node->marked) //if the node is already mapped just return the cluster index of the mapped node
     {
       for(clnit = cl.begin(); clnit != cl.end(); ++clnit)
 	{
-	  if (node->in == (*clnit)->in)
+	  if (node->in == (*clnit)->cluster->in)
 	    return (*clnit);
 	}
     }
 
-
-  get_mapped_edges(node, mapped_edges);
   node_resource_ptr rtn_cluster;
   int cluster_cost = -1;
   int current_cost = -1;
@@ -2186,8 +2294,8 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr
     {
       if (!node->fixed || (node->in == (*clnit)->in)) //if the node is fixed only look at the fixed node's cluster
 	{
-	  cluster_cost = compute_mapping_cost(*clnit, node, req, base);
-	  cout << "(c" << (*clnit)->label << ", " << cluster_cost << ")";
+	  cluster_cost = compute_mapping_cost(*clnit, node, req, cl, base);
+	  cout << "(c" << (*clnit)->cluster->label << ", " << cluster_cost << ")";
 	  if (cluster_cost >= 0 && (cluster_cost < current_cost || !rtn_cluster))
 	    {
 	      rtn_cluster = *clnit;
@@ -2207,95 +2315,103 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr
   //else return NULL;
 }
 
+//node_resource_ptr
+//onldb::find_fixed_node(node_resource_ptr cluster, std::string node) throw()
+//{
+//  std::list<node_resource_ptr> nodes_used;
+//  return (find_fixed_node(cluster, node, nodes_used));
+//}
+
+
 node_resource_ptr
-onldb::find_fixed_node(node_resource_ptr cluster, std::string ntype) throw()
+onldb::find_fixed_node(mapping_cluster_ptr cluster, node_resource_ptr node) throw()
 {
-  std::list<node_resource_ptr> nodes_used;
-  return (find_fixed_node(cluster, ntype, nodes_used));
+  return (find_available_node(cluster, node, true));
+  //node_resource_ptr rtn;
+  //std::list<node_resource_ptr>::iterator clnit;
+  //std::list<node_resource_ptr>::iterator nit;
+  //for (clnit = cluster->nodes.begin(); clnit != cluster->nodes.end(); ++clnit)
+  //{
+  //  node_resource_ptr n;
+  //  if ((*clnit)->node == node->node ) n = (*clnit);
+  //  else if ((*clnit)->parent && (*clnit)->parent->node == node->node) n = (*clnit)->parent;
+  //
+  //  if (n)
+  //	{
+  //	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
+  //	    {
+  //	      return n;
+  //	    }
+  //	  else break;
+  //	}
+  //}
+  //return rtn;
 }
 
 
 node_resource_ptr
-onldb::find_fixed_node(node_resource_ptr cluster, std::string node, std::list<node_resource_ptr> nodes_used) throw()
+onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node) throw()
+{
+  return (find_available_node(cluster, node, false));
+}
+
+
+node_resource_ptr
+onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, bool fixed) throw()
 {
   node_resource_ptr rtn;
-  std::list<link_resource_ptr>::iterator clusterlit;
+  std::list<node_resource_ptr>::iterator clnit;
   std::list<node_resource_ptr>::iterator nit;
   std::list<node_resource_ptr> nodes_available;
-  for (clusterlit = cluster->links.begin(); clusterlit != cluster->links.end(); ++clusterlit)
+  if (node->type == "vgige" && !in_list(cluster->cluster, cluster->rnodes_used)) return cluster->cluster;
+  for (clnit = cluster->nodes.begin(); clnit != cluster->nodes.end(); ++clnit)
     {
       node_resource_ptr n;
-      node_resource_ptr other;
-      if ((*clusterlit)->node1 == cluster) other = (*clusterlit)->node2;
-      else other = (*clusterlit)->node1;
-      if (other->node == node && !other->marked) n = other;
-      else if (other->parent && other->parent->node == node && !other->parent->marked) n = other->parent;
-      if (n)//check if node found was already used in this computation for a different mapping
+      if (fixed)
 	{
-	  bool node_in_use = false;
-	  for (nit = nodes_used.begin(); nit != nodes_used.end(); ++nit)
+	  if ((*clnit)->node == node->node ) n = (*clnit);
+	  else if ((*clnit)->parent && (*clnit)->parent->node == node->node) n = (*clnit)->parent;
+	}
+      else
+	{
+	  if ((*clnit)->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport)) n = (*clnit);
+	  else if ((*clnit)->parent && ((*clnit)->parent->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport))) n = (*clnit)->parent;
+	}
+
+      if (n) //check core, mem, and interface bw capacities to see if there is enough for this node
+	{
+	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
 	    {
-	      if ((*nit) == n)
+	      if (node->type == "vm" || (n->has_vports))
 		{
-		  node_in_use = true;
-		  break;
+		  std::map<int,int>::iterator uportit;
+		  std::map<int,int>::iterator rportit = n->port_capacities.begin();
+		  int cap_total = 0;
+		  //TODO may want to add a check for interface bandwidth for vmsupport nodes
+		  for (uportit = node->port_capacities.begin(); uportit != node->port_capacities.end())
+		    {
+		      cap_total += (*uportit)->second;
+		      while (rportit->second < cap_total && rportit != n->port_capacities.end())
+			{
+			  cap_total = (*uportit)->second;
+			  ++rportit;
+			}
+		      if (rportit == n->port_capacities.end())//this node doesn't have enough interface bw 
+			break;
+		    }
+		  if (rportit != n->port_capacities.end()) //node has enough interface bw
+		    return n;
+		  else if (fixed) //the node we want doesn't have enough bw
+		    break;
+		  //keep looking
 		}
+	      else
+		return n;
 	    }
-	  if (!node_in_use)
-	    {
-	      nodes_available.push_back(n);
-	    }
+	  else if (fixed) 
+	    break;
 	}
     }
-  //nodes_available.sort(base_sort_comp);
-  if (!nodes_available.empty()) rtn = nodes_available.front();
-  return rtn;
-}
-
-
-node_resource_ptr
-onldb::find_available_node(node_resource_ptr cluster, std::string ntype) throw()
-{
-  std::list<node_resource_ptr> nodes_used;
-  return (find_available_node(cluster, ntype, nodes_used));
-}
-
-
-node_resource_ptr
-onldb::find_available_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw()
-{
-  node_resource_ptr rtn;
-  std::list<link_resource_ptr>::iterator clusterlit;
-  std::list<node_resource_ptr>::iterator nit;
-  std::list<node_resource_ptr> nodes_available;
-  if (ntype == "vgige" && !in_list(cluster, nodes_used)) return cluster;
-  for (clusterlit = cluster->links.begin(); clusterlit != cluster->links.end(); ++clusterlit)
-    {
-      node_resource_ptr n;
-      node_resource_ptr other;
-      if ((*clusterlit)->node1 == cluster) other = (*clusterlit)->node2;
-      else other = (*clusterlit)->node1;
-      if (other->type == ntype && !other->marked) n = other;
-      else if (other->parent && other->parent->type == ntype && !other->parent->marked) n = other->parent;
-      if (n)//check if node found was already used in this computation for a different mapping
-	{
-	  bool node_in_use = false;
-	  for (nit = nodes_used.begin(); nit != nodes_used.end(); ++nit)
-	    {
-	      if ((*nit) == n)
-		{
-		  node_in_use = true;
-		  break;
-		}
-	    }
-	  if (!node_in_use)
-	    {
-	      nodes_available.push_back(n);
-	    }
-	}
-    }
-  //nodes_available.sort(base_sort_comp);
-  if (!nodes_available.empty()) rtn = nodes_available.front();
   return rtn;
 }
 
@@ -2340,7 +2456,7 @@ onldb::get_subnet(node_resource_ptr vgige, subnet_info_ptr subnet) throw()
 
 
 bool
-onldb::is_cluster_mapped(node_resource_ptr cluster) throw()
+onldb::is_cluster_mapped(mapping_cluster_ptr cluster) throw()
 {
   std::list<link_resource_ptr>::iterator lit;
   if (cluster->marked) return true;
@@ -2364,13 +2480,13 @@ onldb::initialize_base_potential_loads(topology* base)
     {
       //if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") //we only care about intercluster links
       //{
-	  if ((*lit)->lload < (*lit)->capacity)
-	    (*lit)->potential_lcap = ((*lit)->capacity) - ((*lit)->lload);
-	  else (*lit)->potential_lcap = 0;
-	  if ((*lit)->rload < (*lit)->capacity)
-	    (*lit)->potential_rcap = ((*lit)->capacity) - ((*lit)->rload);
-	  else (*lit)->potential_rcap = 0;
-	  //}
+      if ((*lit)->lload < (*lit)->capacity)
+	(*lit)->potential_lcap = ((*lit)->capacity) - ((*lit)->lload);
+      else (*lit)->potential_lcap = 0;
+      if ((*lit)->rload < (*lit)->capacity)
+	(*lit)->potential_rcap = ((*lit)->capacity) - ((*lit)->rload);
+      else (*lit)->potential_rcap = 0;
+      //}
     }
 }
 
@@ -2404,12 +2520,12 @@ onldb::get_mapped_edges(node_resource_ptr node, std::list<link_resource_ptr>& ma
 }
 
 int
-onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, topology* req, topology* base) throw()
+onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node, topology* req, std::list<mapping_cluster_ptr>& clusters, topology* base) throw()
 {
   struct timeval stime;
   gettimeofday(&stime, NULL);
   int cluster_cost = 0;
-  unsigned int cin = cluster->in;
+  unsigned int cin = mcluster->cluster->in;
   std::list<link_resource_ptr>::iterator clusterlit;
   std::list<node_resource_ptr>::iterator reqnit;
   std::list<node_resource_ptr>::iterator clusterit;
@@ -2417,20 +2533,21 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
   std::list<node_resource_ptr>::iterator nit;
   std::list<link_resource_ptr>::iterator lit;
   std::list<node_resource_ptr> nodes_used;
+  reset_cluster(cluster);
   
 
-  cout << "compute_mapping_cost for cluster " << cluster->node << ":";
+  cout << "compute_mapping_cost for cluster " << mcluster->cluster->node << ":";
   node_resource_ptr n;
   //first find an available node in the cluster to map to //probably need to deal with hwclusters here
   if (node->type == "vgige")
-    n = cluster;
+    n = mcluster->cluster;
   else if (node->fixed)
-    n = find_fixed_node(cluster, node->node, nodes_used);
+    n = find_fixed_node(mcluster, node->node, nodes_used);
   else
-    n = find_available_node(cluster, node->type, nodes_used);
+    n = find_available_node(mcluster, node->type, nodes_used);
   if (!n) return -1; //we couldn't find an available node of the right type in this cluster
   
-  if (!is_cluster_mapped(cluster)) 
+  if (!mcluster->mapped)//!is_cluster_mapped(cluster)) 
     {
       cluster_cost += UNUSED_CLUSTER_COST; //penalize for not being mapped to any user_graph
       cout << " not mapped," ;
@@ -2519,9 +2636,10 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
   nlnode->node = node;
   nlnode->load = 0;
 
-  mapping_cluster_ptr mcluster(new mapping_cluster_resource());
-  mcluster->cluster = cluster;
-  mcluster->used = false;
+  //mapping_cluster_ptr mcluster(new mapping_cluster_resource());
+  //mcluster->cluster = cluster;
+  //mcluster->used = false;
+  reset_cluster(mcluster);
   mcluster->rnodes_used.push_back(n);
   mcluster->nodes_used.push_back(nlnode);
 
@@ -2531,9 +2649,10 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
   std::list<node_load_ptr> unmapped_nodes;
   std::list<node_load_ptr> mapped_nodes;
   node_resource_ptr available_node;
-  nodes_used.clear();
-  nodes_used.push_back(n);
+  //nodes_used.clear();
+  //nodes_used.push_back(n);
   //ncit = neighbor_cost.begin();
+
   int total_load = find_neighbor_mapping(mcluster, unmapped_nodes, node, lneighbors);
   int unmapped_cost = 0;
 
@@ -2593,21 +2712,21 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
 	  std::list<mapping_cluster_ptr> vgige_clusters;
 	  
 	  //make a list of clusters available for mapping splits to
-	  for (clusterit = base->nodes.begin(); clusterit != base->nodes.end(); ++clusterit)
+	  for (clusterit = clusters.begin(); clusterit != clusters.end(); ++clusterit)
 	    {
-	      if ((*clusterit)->type_type == "infrastructure" && 
-		  (*clusterit) != cluster && 
-		  !subnet_mapped(subnet, (*clusterit)->in))
+	      if ((*clusterit) != mcluster && 
+		  !subnet_mapped(subnet, (*clusterit)->cluster->in))
 		{
-		  mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
-		  new_vcluster->cluster = (*clusterit);
-		  new_vcluster->load = 0;
-		  new_vcluster->used = false;
-		  vgige_clusters.push_back(new_vcluster);
+		  //mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
+		  //new_vcluster->cluster = (*clusterit);
+		  //new_vcluster->load = 0;
+		  //new_vcluster->used = false;
+		  reset_cluster(*clusterit);
+		  vgige_clusters.push_back(*clusterit);
 		}
 	    }
 	  
-	  split_cost = split_vgige(vgige_clusters, unmapped_nodes, node, cluster, base);
+	  split_cost = split_vgige(vgige_clusters, unmapped_nodes, node, cluster, clusters, base);
 	  split_cost += UNUSED_CLUSTER_COST;
 	}
       cout << " split cost " << split_cost << ",";
@@ -2619,7 +2738,7 @@ onldb::compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, t
   //clock_t etime = clock();
   print_diff("onldb::compute_mapping_costs", stime);
   return cluster_cost;
-    }
+}
 
 int 
 onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_ptr>& unmapped_nodes, node_resource_ptr root_node)
@@ -2662,14 +2781,20 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 	      if ((*nit)->node->fixed)
 		{
 		  if (cluster->cluster->in == (*nit)->node->in)
-		    available_node = find_fixed_node(cluster->cluster, (*nit)->node->node, cluster->rnodes_used);
+		    available_node = find_fixed_node(cluster, (*nit)->node);
 		  else
 		    available_node = null_ptr;
 		}
 	      else
-		available_node = find_available_node(cluster->cluster, (*nit)->node->type, cluster->rnodes_used);
+		available_node = find_available_node(cluster, (*nit)->node);
 	      if (available_node)
 		{
+		  if ((*nit)->node->type == "vm")
+		    {
+		      available_node->potential_corecap -= (*nit)->node->core_capacity;
+		      available_node->potential_memcap -= (*nit)->node->mem_capacity;
+		    }
+		  else available_node->potential_corecap = 0;
 		  cluster->rnodes_used.push_back(available_node);
 		  cluster->nodes_used.push_back(*nit);
 		  total_load += (*nit)->load;
@@ -2701,6 +2826,8 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 	  if (!added) unmapped_nodes.push_back((*rev_nit));
 	  
 	  cluster->nodes_used.remove(*rev_nit);
+	  cluster->rnodes_used.back()->potential_corecap += (*rev_nit)->node->core_capacity();
+	  cluster->rnodes_used.back()->potential_memcap += (*rev_nit)->node->mem_capacity(); 
 	  cluster->rnodes_used.pop_back();
 	  if (total_load <= MAX_INTERCLUSTER_CAPACITY) break;
 	}
@@ -2753,19 +2880,19 @@ onldb::split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load
 	{
 	  if (!(*clusterit)->used)
 	    {
-	      rnodes_used.clear();
+	      //rnodes_used.clear();
 	      for (nlit = unodes.begin(); nlit != unodes.end(); ++nlit)
 		{
 		  if (((*clusterit)->load + (*nlit)->load) > MAX_INTERCLUSTER_CAPACITY)
 		    break;
 		  if ((*nlit)->node->fixed)
-		    avail_node = find_fixed_node((*clusterit)->cluster, (*nlit)->node->node, rnodes_used);
+		    avail_node = find_fixed_node((*clusterit), (*nlit)->node);
 		  else
-		    avail_node = find_available_node((*clusterit)->cluster, (*nlit)->node->type, rnodes_used);
+		    avail_node = find_available_node((*clusterit), (*nlit)->node);
 		  if (avail_node)
 		    {
 		      (*clusterit)->nodes_used.push_back((*nlit));
-		      rnodes_used.push_back(avail_node);
+		      (*clusterit)->rnodes_used.push_back(avail_node);
 		      (*clusterit)->load += (*nlit)->load;
 		      fail = false;
 		    }
@@ -2961,7 +3088,7 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n, subnet_in
   node_resource_ptr sink;
 
   int rtn_cost = 0;
-  for(lit = node->links.begin(); lit != node->links.end(); ++lit)
+  for(lit = node->links.begin(); lit != node->links.end(); ++lit) //for each req link involving the node find the cheapest path to any already mapped node
     {
       if (((*lit)->node1 == node && !(*lit)->node2->marked) ||
 	  ((*lit)->node2 == node && !(*lit)->node1->marked) ||
@@ -3124,7 +3251,7 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 		  if (is_right) 
 		    {
 		      lcap = (*lit)->potential_lcap;
-			  rcap = (*lit)->potential_rcap;
+		      rcap = (*lit)->potential_rcap;
 		    }
 		  else
 		    {
@@ -3439,7 +3566,7 @@ onldb::orig_find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potent
 
 
 node_resource_ptr
-onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw()
+onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr cluster, topology* base) throw()
 {
   std::list<node_resource_ptr>::iterator nit;
   std::list<link_resource_ptr>::iterator lit;
@@ -3455,15 +3582,18 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
     }
   else 
     {
-      std::list<node_resource_ptr> nodes_used;
-      if (node->fixed)
-	rnode = find_fixed_node(cluster, node->node, nodes_used);
-      else
-	rnode = find_available_node(cluster, node->type, nodes_used);
+      rnode = cluster->rnodes_used.front();
+      // std::list<node_resource_ptr> nodes_used;
+      //if (node->fixed)
+      //rnode = find_fixed_node(cluster, node->node, nodes_used);
+      //else
+      //rnode = find_available_node(cluster, node->type, nodes_used);
       node->marked = true;
       node->mapped_node = rnode;
       node->in = cluster->in;
       rnode->marked = true;
+      rnode->core_capacity -= node->core_capacity;
+      rnode->mem_capacity -= node->mem_capacity;
       if (node->is_parent) map_children(node, rnode);
     }
 
@@ -3484,17 +3614,19 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
     map_edges(node, rnode, base);
 
 
-  mapping_cluster_ptr mcluster(new mapping_cluster_resource());
+  // mapping_cluster_ptr mcluster(new mapping_cluster_resource());
   std::list<node_load_ptr> unmapped_nodes;
-  mcluster->cluster = cluster;
-  mcluster->rnodes_used.push_back(rnode);
-  node_load_ptr nlnode(new node_load_resource());
-  nlnode->node = node;
-  mcluster->nodes_used.push_back(nlnode);
-  int total_load = find_neighbor_mapping(mcluster, unmapped_nodes, node);
+  get_lneighbors(node, unmapped_nodes);
+  //mcluster->cluster = cluster;
+  //mcluster->rnodes_used.push_back(rnode);
+  //node_load_ptr nlnode(new node_load_resource());
+  //nlnode->node = node;
+  //mcluster->nodes_used.push_back(nlnode);
+  //int total_load = find_neighbor_mapping(mcluster, unmapped_nodes, node);
  
  //now mark the mappable neighbors
   std::list<node_load_ptr>::iterator nbrit;
+  std::list<node_load_ptr>::iterator unmapit;
   std::list<node_resource_ptr>::iterator nrnode_it = mcluster->rnodes_used.begin();
   for (nbrit = mcluster->nodes_used.begin(); nbrit != mcluster->nodes_used.end(); ++nbrit)
     {
@@ -3502,8 +3634,18 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
       (*nbrit)->node->mapped_node = (*nrnode_it);
       (*nbrit)->node->in = cluster->in;
       (*nrnode_it)->marked = true;
+      (*nrnode_it)->core_capacity -= (*nbrit)->core_capacity;
+      (*nrnode_it)->mem_capacity -= (*nbrit)->mem_capacity;
       cout << "     side effect: request node (" << (*nbrit)->node->type << (*nbrit)->node->label << "," << (*nbrit)->node->user_nodes.front()->label << ") real node (" << (*nrnode_it)->type << (*nrnode_it)->label << ", " << (*nrnode_it)->node << ")" << endl;
       if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
+      for (unmapit = unmapped_nodes.begin(); unmapit != unmapped_nodes.end(); ++unmapit)
+	{
+	  if ((*unmapit)->node == (*nbrit)->node)
+	    {
+	      unmapped_nodes.remove(*unmapit);
+	      break;
+	    }
+	}
       ++nrnode_it;
     }
 
@@ -3531,19 +3673,19 @@ onldb::map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster
       subnet_info_ptr subnet(new subnet_info());
       get_subnet(node, subnet);
       std::list<mapping_cluster_ptr> vgige_clusters;
-      std::list<node_resource_ptr>::iterator clusterit;
+      std::list<mapping_cluster_ptr>::iterator clusterit;
   
       //make a list of clusters available for mapping splits to
-      for (clusterit = base->nodes.begin(); clusterit != base->nodes.end(); ++clusterit)
+      for (clusterit = clusters.begin(); clusterit != clusters.end(); ++clusterit)
 	{
-	  if ((*clusterit)->type_type == "infrastructure" && 
-	      (*clusterit) != cluster && 
-	      !subnet_mapped(subnet, (*clusterit)->in))
+	  if ((*clusterit) != cluster && 
+	      !subnet_mapped(subnet, (*clusterit)->cluater->in))
 	    {
-	      mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
-	      new_vcluster->cluster = (*clusterit);
-	      new_vcluster->load = 0;
-	      new_vcluster->used = false;
+	      //mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
+	      //new_vcluster->cluster = (*clusterit);
+	      //new_vcluster->load = 0;
+	      //new_vcluster->used = false;
+	      reset_cluster(new_vcluster);
 	      vgige_clusters.push_back(new_vcluster);
 	    }
 	}
@@ -3708,6 +3850,8 @@ onldb::map_children(node_resource_ptr unode, node_resource_ptr rnode)
 	      (*ucit)->mapped_node = (*rcit);
 	      (*ucit)->in = (*rcit)->in;
 	      (*rcit)->marked = true;
+	      (*rcit)->core_capacity -= (*ucit)->core_capacity;
+	      (*rcit)->mem_capacity -= (*ucit)->mem_capacity;
 	      break;
 	    }
 	}
@@ -3770,6 +3914,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 	  //update link's mapped path to the found_path. update loads on links.
 	  for (fpit = found_path->mapped_path.begin(); fpit != found_path->mapped_path.end(); ++fpit)
 	    {
+	      //TODO update node's interface bandwidth capacities.
 	      (*lit)->mapped_path.push_back(*fpit);
 	      if (last_visited  == (*fpit)->node1)
 		{
@@ -3796,10 +3941,12 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		    {
 		      source_seen = true;
 		      (*lit)->node1_rport = (*fpit)->node1_port;
+		      source->port_capacities[(*fpit)->node1_port] -= (*fpit)->rload;//update port capacities for vms and vports
 		    }
-		  else if (last_visited == sink && source_seen)
+		  else if ((*fpit)->node2 == sink && source_seen)
 		    {
 		      (*lit)->node2_rport = (*fpit)->node2_port;
+		      sink->port_capacities[(*fpit)->node2_port] -= (*fpit)->lload;//update port capacities for vms and vports
 		    }
 		  //set last_visited
 		  last_visited = (*fpit)->node2;
@@ -3807,7 +3954,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		}
 	      else 
 		{
-		  (*lit)->mp_linkdir.push_back(0);//record that this a left link in this path
+		  (*lit)->mp_linkdir.push_back(0);//record that this as a left link in this path
 		  (*fpit)->rload += l_lload;
 		  (*fpit)->lload += l_rload;
 		  if ((*fpit)->rload > (*fpit)->capacity)
@@ -3829,10 +3976,12 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
 		    {
 		      source_seen = true;
 		      (*lit)->node1_rport = (*fpit)->node2_port;
+		      source->port_capacities[(*fpit)->node2_port] -= (*fpit)->lload;//update port capacities for vms and vports
 		    }
-		  else if (last_visited == sink && source_seen)
+		  else if ((*fpit)->node1 == sink && source_seen)
 		    {
 		      (*lit)->node2_rport = (*fpit)->node1_port;
+		      sink->port_capacities[(*fpit)->node1_port] -= (*fpit)->rload;//update port capacities for vms and vports
 		    }
 		  last_visited = (*fpit)->node1;
 		}
@@ -3941,6 +4090,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 
     unsigned int vlanid = 1;
     unsigned int linkid = 1;
+    // unsigned int vmid = 0;
     
     cout << "add_reservation(" << rid << ") nodes mapped:";
 
@@ -3956,7 +4106,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
       if((*nit)->type == "vgige")
       {
         (*nit)->node = "vgige" + to_string(vlanid);
-        (*nit)->cost = vlanid;
+        (*nit)->vmid = vlanid;
         ++vlanid;
       }
       cout << "(" << (*nit)->type << (*nit)->label << ", " << (*nit)->node << ")";
@@ -4052,18 +4202,23 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	    ++linkid;
 	  }
 
-	  int port = (*lit)->node1_port;
-	  if((*lit)->node2->node == (*nit)->node) 
-	    {
-	      port = (*lit)->node2_port;
-	    }
+	  // int port = (*lit)->node1_port;
+	  //if((*lit)->node2->node == (*nit)->node) 
+	  //{
+	  //  port = (*lit)->node2_port;
+	  //}
+	  //vswitchschedule vs((*nit)->cost, rid, port,linkid);//reused cost field for vlanid
 	  
-	  vswitchschedule vs((*nit)->cost, rid, port, (*lit)->linkid);
+	  //db_vswitches.push_back(vs);
+	  
+	  //++ar_db_count;
+	  
+	}
+	vswitchschedule vs((*nit)->vmid, rid, 0,0);//reused cost field for vlanid, only need one entry for each vgige. linkschedule lists the rest
 	  
 	  db_vswitches.push_back(vs);
 	  
 	  ++ar_db_count;
-	}
 	/*
         for(lit = added_links.begin(); lit != added_links.end(); ++lit)
         {  
@@ -4111,7 +4266,12 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
       else
       {
         // add the node entries
-        nodeschedule ns((*nit)->node, rid, fixed);
+	if ((*nit)->type == "vm") 
+	  {
+	    (*nit)->vmid = vlanid++;
+	  }
+	else (*nit)->vmid = 0;
+        nodeschedule ns((*nit)->node, rid, fixed, (*nit)->vmid, (*nit)->core_capacity, (*nit)->mem_capacity);
 	
 	db_nodes.push_back(ns);
 
@@ -4155,7 +4315,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
       //{
         unsigned int tmp_linkid = linkid;
         if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") tmp_linkid = (*lit)->linkid;
-	linkschedule lnks(tmp_linkid, rid, (*lit)->node1->node, (*lit)->node1_port, (*lit)->node1_capacity, (*lit)->node2->node, (*lit)->node2_port, (*lit)->node2_capacity);
+	linkschedule lnks(tmp_linkid, rid, (*lit)->node1->node, (*lit)->node1_port, (*lit)->node1_capacity, (*lit)->node2->node, (*lit)->node2_port, (*lit)->node2_capacity, (*lit)->node1->vmid, (*lit)->node2->vmid);//cost is overloaded with vmid or vswitchid
 	db_links.push_back(lnks);
 	++ar_db_count;
 	  //}
@@ -5546,7 +5706,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
   std::list<link_resource_ptr>::iterator lit;
   for (lit = t->links.begin(); lit != t->links.end(); ++lit)
     {
-      if ((*lit)->node1->type != "vgige")
+      if ((*lit)->node1->type != "vgige" && (*lit)->node1->type != "vm")
 	{
 	  onldb_resp r = get_capacity((*lit)->node1->type);
 	  if ((int)(*lit)->node1_capacity > r.result())
@@ -5557,7 +5717,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
 	      return onldb_resp(-1,errmsg);
 	    }
 	} 
-      if ((*lit)->node2->type != "vgige")
+      if ((*lit)->node2->type != "vgige" && (*lit)->node2->type != "vm")
 	{
 	  onldb_resp r = get_capacity((*lit)->node2->type);
 	  if ((int)(*lit)->node2_capacity > r.result())

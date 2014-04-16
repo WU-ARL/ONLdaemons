@@ -154,7 +154,7 @@ reservation::commit()
   
     component c = req->getComponent();
     NCCP_StatusType stat = NCCP_Status_Fine;
-    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent());
+    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), false, req->getCores(), req->getMemory(), req->getNumInterfaces(), req->getInterfaceBW());
     if(r.result() < 1)
     {
       stat = NCCP_Status_AllocFailed;

@@ -181,7 +181,7 @@ session::commit(session_ptr sess)
   {
     session_add_component_req* req = (session_add_component_req*) *hw_it;
     component c = req->getComponent();
-    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), the_session_manager->has_virtual_port(c.getType()));
+    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), the_session_manager->has_virtual_port(c.getType()), req->getCores(), req->getMemory(), req->getNumInterfaces(), req->getInterfaceBW());
     if(r.result() < 1)
     {
       hw_it = component_reqs.erase(hw_it);
@@ -305,12 +305,16 @@ session::commit(session_ptr sess)
 
     unsigned int compid = req->getComponent().getID();
     std::string compname = topology.get_component(compid);
-    crd_component_ptr comp = the_session_manager->get_component(compname);
+    unsigned int vmid = topology.get_component(compid);
+    crd_component_ptr comp = the_session_manager->get_component(compname, vmid);
     comp->set_component(req->getComponent());
 
     comp->add_reboot_params(req->getRebootParams());
     comp->add_init_params(req->getInitParams());
     comp->set_ip_addr(req->getIPAddr());
+
+    comp->setCores(req->getCores());
+    comp->setMemory(req->getMemory());
     
     components.push_back(comp);
     if(comp->is_admin_mode() && !is_admin)

@@ -372,6 +372,7 @@ session_manager::check_for_expired_sessions()
 void
 session_manager::received_up_msg(std::string hostname)
 {
+  //TODO make sure all of the relevant components are updated particularly for vms
   write_log("session_manager::received_up_msg(): host " + hostname);
 
   autoLockDebug clock(comp_lock, "session_manager::received_up_msg(): comp_lock");
@@ -730,7 +731,7 @@ session_manager::remove_port_from_outstanding_list(switch_port port)
 }
 
 crd_component_ptr
-session_manager::get_component(std::string name)
+session_manager::get_component(std::string name, unsigned int vmid)
 {
   crd_component_ptr comp;
 
@@ -765,15 +766,23 @@ session_manager::get_component(std::string name)
     clock.unlock();
   }
 
-  crd_component_ptr new_comp(new crd_component(info.node(), cp, cp_port, info.do_keeboot(), info.is_dependent()));
-  return new_comp;
+  if (vmid == 0)
+    {
+      crd_component_ptr new_comp(new crd_component(info.node(), cp, cp_port, info.do_keeboot(), info.is_dependent()));
+      return new_comp;
+    }
+  else
+    {
+      crd_component_ptr new_comp(new crd_virtual_machine(vmid, info.node(), cp, cp_port, info.do_keeboot(), info.is_dependent()));
+      return new_comp;
+    }
 }
 
 void
 session_manager::add_component(crd_component_ptr comp, session_ptr sess)
 {
   comp->set_session(sess);
-  if(comp->get_type() == "vgige")
+  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
   {
     return;
   }
@@ -782,7 +791,10 @@ session_manager::add_component(crd_component_ptr comp, session_ptr sess)
   std::list<crd_component_ptr>::iterator i;
   for(i=active_components.begin(); i!=active_components.end(); ++i)
   {
-    if((*i)->getName() == comp->getName())
+    //TODO VM there may be more than one active session with a valid active VM using
+    //the same node
+    //remove if user is same and session is different
+    if((*i)->getName() == comp->getName()) 
     {
       clock.unlock();
       session_ptr old_sess = (*i)->get_session();
@@ -799,7 +811,7 @@ session_manager::add_component(crd_component_ptr comp, session_ptr sess)
 void
 session_manager::remove_component(crd_component_ptr comp)
 {
-  if(comp->get_type() == "vgige")
+  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
   {
     return;
   }
@@ -823,7 +835,7 @@ session_manager::remove_component(crd_component_ptr comp)
 void
 session_manager::clear_component(crd_component* comp)
 {
-  if(comp->get_type() == "vgige")
+  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
   {
     comp->clear_session();
     return;

@@ -50,6 +50,8 @@ namespace onlcrd
       component& get_component() { return comp; }
       void set_ip_addr(std::string addr) { ip_addr = addr; }
 
+      unsigned int getVMID() { return vmid;}
+
       bool is_admin_mode();
       virtual std::string get_type();
 
@@ -74,6 +76,11 @@ namespace onlcrd
 
       bool marked() { return mark; }
       void set_marked(bool m) { mark = m; }
+      void setCores(unsigned int c) { cores = c;}
+      unsigned int getCores() { return cores;}
+      void setMemory(unsigned int m) { memory = m;}
+      unsigned int getMemory() { return memory;}
+
 
     protected:
       std::string name;
@@ -81,6 +88,10 @@ namespace onlcrd
       unsigned short cp_port;
       bool keeboot;
       bool is_dependent;
+
+      unsigned int vmid;
+      unsigned int cores;
+      unsigned int memory;
 
       //pthread_mutex_t db_lock;
       onl::onldb* database;
@@ -139,6 +150,24 @@ namespace onlcrd
   
       switch_vlan vlan;
   }; //class crd_virtual_switch
+
+  class crd_virtual_machine : public crd_component
+  {
+    public:
+      crd_virtual_machine(std::string n, std::string c, unsigned short p, bool do_k, bool is_d=false);
+      virtual ~crd_virtual_machine();
+  
+
+      virtual std::string get_type();
+
+      //virtual void do_initialize();
+      //virtual void refresh();
+      //virtual void do_refresh();
+
+    protected:
+      virtual std::string get_state();
+  
+  }; //class crd_virtual_machine
 
   class crd_link
   {

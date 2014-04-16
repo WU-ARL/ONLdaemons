@@ -69,9 +69,13 @@ namespace onld
       virtual void write();
 
       void set_init_params(std::list<param>& params);
+      void set_cores(uint32_t c) { cores = c;}
+      void set_memory(uint32_t m) { memory = m;}
 
     protected:
       nccp_string ipaddr;
+      uint32_t cores;
+      uint32_t memory;
       std::list<param> init_params;
   }; //class start_experiment
 

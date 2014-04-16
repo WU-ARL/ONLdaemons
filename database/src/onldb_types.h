@@ -21,7 +21,7 @@
 
 namespace onl
 {
-  // the firs set of these define the classes for each database table fully
+  // the first set of these define the classes for each database table fully
   sql_create_16(users,1,16,
     mysqlpp::sql_varchar, user,
     mysqlpp::sql_smallint_unsigned, uid,
@@ -56,13 +56,18 @@ namespace onl
     mysqlpp::sql_datetime, begin,
     mysqlpp::sql_datetime, end)
 
-  sql_create_6(types,1,6,
+  sql_create_11(types,1,11,
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_varchar, type,
     mysqlpp::sql_tinyint_unsigned, daemon,
     mysqlpp::sql_tinyint_unsigned, keeboot,
     mysqlpp::sql_varchar, shortdesc,
-    mysqlpp::sql_tinyint_unsigned, hasvport)
+    mysqlpp::sql_tinyint_unsigned, hasvport,
+    mysqlpp::sql_tinyint_unsigned, vmsupport,
+    mysqlpp::sql_smallint_unsigned, corecapacity,
+    mysqlpp::sql_smallint_unsigned, memcapacity,
+    mysqlpp::sql_smallint_unsigned, numinterfaces,
+    mysqlpp::sql_smallint_unsigned, interfacebw)
 
   sql_create_4(interfacetypes,1,4,
     mysqlpp::sql_varchar, interface,
@@ -128,10 +133,13 @@ namespace onl
     mysqlpp::sql_datetime, end,
     mysqlpp::sql_mediumint_unsigned, rid)
 
-  sql_create_3(nodeschedule,2,3,
+  sql_create_6(nodeschedule,3,6,
     mysqlpp::sql_varchar, node,
     mysqlpp::sql_mediumint_unsigned, rid,
-    mysqlpp::sql_tinyint_unsigned, fixed)
+    mysqlpp::sql_smallint_unsigned, vmid,
+    mysqlpp::sql_tinyint_unsigned, fixed,
+    mysqlpp::sql_smallint_unsigned, cores,
+    mysqlpp::sql_smallint_unsigned, memory)
 
   sql_create_6(connschedule,3,6,
     mysqlpp::sql_smallint_unsigned, linkid,
@@ -152,7 +160,7 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, port,
     mysqlpp::sql_smallint_unsigned, linkid)
 
-  sql_create_8(linkschedule,2,8,
+  sql_create_10(linkschedule,2,10,
     mysqlpp::sql_smallint_unsigned, linkid,
     mysqlpp::sql_mediumint_unsigned, rid,
     mysqlpp::sql_varchar, node1,
@@ -160,7 +168,9 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, port1capacity,
     mysqlpp::sql_varchar, node2,
     mysqlpp::sql_smallint_unsigned, port2,
-    mysqlpp::sql_smallint_unsigned, port2capacity)
+    mysqlpp::sql_smallint_unsigned, port2capacity,
+    mysqlpp::sql_smallint_unsigned, node1vmid,
+    mysqlpp::sql_smallint_unsigned, node2vmid)
 
   sql_create_3(policy,1,3,
     mysqlpp::sql_varchar, parameter,
@@ -295,13 +305,16 @@ namespace onl
     mysqlpp::sql_varchar, acl,
     mysqlpp::sql_tinyint_unsigned, fixed)
 
-  sql_create_6(nodetypes,6,0,
+  sql_create_9(nodetypes,9,0,
     mysqlpp::sql_varchar, node,
     mysqlpp::sql_varchar, tid,
     mysqlpp::Null<mysqlpp::sql_varchar>, cluster,
     mysqlpp::sql_varchar, acl,
     mysqlpp::sql_varchar, daemonhost,
-    mysqlpp::sql_tinyint_unsigned, fixed)
+    mysqlpp::sql_tinyint_unsigned, fixed,
+    mysqlpp::sql_smallint_unsigned, vmid,
+    mysqlpp::sql_smallint_unsigned, cores,
+    mysqlpp::sql_smallint_unsigned, memory)
   
   sql_create_3(oldnodes,3,0,
     mysqlpp::sql_varchar, node,
@@ -346,6 +359,14 @@ namespace onl
     mysqlpp::sql_tinyint_unsigned, priority,
     mysqlpp::sql_varchar, tid,
     mysqlpp::Null<mysqlpp::sql_varchar>, cluster)
+
+  sql_create_6(basenodevminfo,6,0,
+    mysqlpp::sql_varchar, node,
+    mysqlpp::sql_tinyint_unsigned, priority,
+    mysqlpp::sql_varchar, tid,
+    mysqlpp::Null<mysqlpp::sql_varchar>, cluster,
+    mysqlpp::sql_smallint_unsigned, cores,
+    mysqlpp::sql_smallint_unsigned, memory)
 
   sql_create_3(specialnodeinfo,3,0,
     mysqlpp::sql_varchar, node,
@@ -403,8 +424,13 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, vlanid,
     mysqlpp::sql_smallint_unsigned, port)
 
-  sql_create_2(typevport,2,0,
+  sql_create_7(typeinfo,7,0,
     mysqlpp::sql_varchar, tid,
-    mysqlpp::sql_tinyint_unsigned, hasvport)
+    mysqlpp::sql_tinyint_unsigned, hasvport,
+    mysqlpp::sql_tinyint_unsigned, vmsupport,
+    mysqlpp::sql_smallint_unsigned, corecapacity,
+    mysqlpp::sql_smallint_unsigned, memcapacity,
+    mysqlpp::sql_smallint_unsigned, numinterfaces,
+    mysqlpp::sql_smallint_unsigned, interfacebw)
 };
 #endif // _ONLDB_TYPES_H

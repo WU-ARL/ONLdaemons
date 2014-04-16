@@ -32,6 +32,7 @@ namespace onl
       std::string lowercase(std::string) throw();
       int intercluster_cost;
       int host_cost;
+      node_resource_ptr get_node(std::string node);
 
     public:
       topology() throw();
@@ -41,7 +42,7 @@ namespace onl
 
       // you have to add the hw resource before you add any links for it
       // you also have to add parents (clusters) before adding children (cluster components)
-      onldb_resp add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport = false) throw();
+      onldb_resp add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport = false, int cores = 1, int mem = 1, int num_interface = 0, int interfacebw = 0) throw();
       onldb_resp add_copy_node(node_resource_ptr node) throw();
       //onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port) throw();
       onldb_resp add_link(unsigned int label, unsigned int capacity, unsigned int node1_label, unsigned int node1_port, unsigned int node2_label, unsigned int node2_port, unsigned int rload = 0, unsigned int lload = 0) throw(); 
@@ -55,7 +56,9 @@ namespace onl
       std::string get_component(unsigned int label) throw();
       std::string get_type(unsigned int label) throw();
       bool has_virtual_port(unsigned int label) throw();
-      unsigned int get_label(std::string node) throw();
+      unsigned int get_vmid(unsigned int label) throw();
+      // unsigned int get_label(std::string node) throw();
+      unsigned int get_label(std::string node, unsigned int vmid = 0) throw();
 
       void get_conns(unsigned int label, std::list<int>& conn_list) throw();
       int get_realport(unsigned int label, int node_ndx) throw();

@@ -143,6 +143,8 @@ start_experiment::parse()
 
   buf >> ipaddr;
   buf >> init_params;
+  buf >> cores;
+  buf >> memory;
 }
 
 void
@@ -152,6 +154,9 @@ start_experiment::write()
 
   buf << ipaddr;
   buf << init_params;
+  buf << cores;
+  buf << memory;
+
 }
 
 void

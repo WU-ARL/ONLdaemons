@@ -70,6 +70,10 @@ crd_component::crd_component(std::string n, std::string c, unsigned short p, boo
   keebooting_now = false;
   received_up_msg = false;
 
+  vmid = 0;
+  cores = 1;
+  memory = 1;
+
   mark = false;
 
   //pthread_mutex_init(&db_lock, NULL);
@@ -152,6 +156,8 @@ crd_component::set_state(std::string s)
   }
 
   internal_state = s;
+
+  if (get_type() == "vm") return;
 
   //autoLock dlock(db_lock);
   if (database == NULL)
@@ -449,6 +455,8 @@ crd_component::do_initialize()
     start_experiment* startexp = new start_experiment(exp, comp, ip_addr);
     startexp->set_init_params(init_params);
     startexp->set_connection(nccpconn);
+    startexp->set_cores(cores);
+    startexp->set_memory(memory);
 
     if(!startexp->send_and_wait())
     {
@@ -679,7 +687,7 @@ crd_component::do_refresh()
     }
   }
   
-  if(hasCP() && !testing)
+  if(hasCP() && !testing && get_type() != "vm")
   {
     if(nccpconn != NULL) { nccpconn->setFinished(); nccpconn=NULL; }
     if(!wait_for_up_msg(900))
@@ -959,6 +967,29 @@ crd_virtual_switch::do_refresh()
 
   internal_state = "free";
 }
+
+crd_virtual_machine::crd_virtual_machine(unsigned int vm, std::string n, std::string c, unsigned short p, bool do_k, bool is_d): crd_component(n, c, p, do_k, is_d)
+{
+  internal_state = "free";
+  vmid = vm;
+}
+
+crd_virtual_machine::~crd_virtual_machine()
+{
+}
+
+std::string
+crd_virtual_machine::get_type()
+{
+  return "vm";
+}
+
+std::string
+crd_virtual_machine::get_state()
+{
+  return internal_state;
+}
+
 
 crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e2, unsigned short e2p)
 {

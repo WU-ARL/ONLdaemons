@@ -88,7 +88,23 @@ void topology::print_resources() throw()
   }
 }
 
-onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport) throw()
+
+node_resource_ptr
+topology::get_node(std::string node)
+{
+  list<node_resource_ptr>::iterator nit;
+  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
+  {
+    if((*nit)->node == node)
+    {
+      return (*nit);
+    }
+  }
+  node_resource_ptr null_ptr;
+  return null_ptr;
+}
+
+onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport, int cores, int mem, int num_interface, int interfacebw) throw()
 {
   node_resource_ptr hrp(new node_resource());
   hrp->type = lowercase(type);
@@ -108,6 +124,19 @@ onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int
   hrp->in = 0;
   hrp->cost = 0;
   hrp->is_split = false;
+
+  hrp->has_vmsupport = false;
+  hrp->core_capacity = cores;
+  hrp->mem_capacity = mem;
+  hrp->potential_corecap = cores;
+  hrp->potential_memcap = mem;
+  
+  hrp->vmid = 0;
+
+  for (int i = 0; i < num_interface; ++i)
+    {
+      hrp->port_capacities[i] = interfacebw;
+    }
 
   bool parent_found;
   if(parent_label == 0)
@@ -166,6 +195,21 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   hrp->cost = cpnode->cost;
   hrp->user_nodes.push_back(cpnode);
   hrp->is_split = cpnode->is_split;
+
+  hrp->has_vmsupport = cp->has_vmsupport;
+  hrp->core_capacity = cp->core_capacity;
+  hrp->mem_capacity = cp->mem_capacity;
+  hrp->potential_corecap = cp->potential_corecap;
+  hrp->potential_memcap = cp->potential_memcap;
+
+  hrp->vmid = cp->vmid;
+
+  //copy interface bandwidth map
+  int max = cp->port_capacities.size();
+  for (int i = 0; i < max; ++i)
+    {
+      hrp->port_capacities[i] = cp->port_capacities[i];
+    }
 
   unsigned int parent_label = 0;
   if (cpnode->parent) parent_label = cpnode->parent->label;
@@ -430,12 +474,25 @@ bool topology::has_virtual_port(unsigned int label) throw()
   return false;
 }
 
-unsigned int topology::get_label(std::string node) throw()
+unsigned int topology::get_vmid(unsigned int label) throw()
 {
   list<node_resource_ptr>::iterator nit;
   for(nit = nodes.begin(); nit != nodes.end(); ++nit)
   {
-    if((*nit)->node == node)
+    if((*nit)->label == label)
+    {
+      return (*nit)->vmid;
+    }
+  }
+  return "";
+}
+
+unsigned int topology::get_label(std::string node, unsigned int vmid) throw()
+{
+  list<node_resource_ptr>::iterator nit;
+  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
+  {
+    if((*nit)->node == node && ((*nit)->vmid == vmid || vmid == 0 || (*nit)->type == "vgige"))
     {
       return (*nit)->label;
     }

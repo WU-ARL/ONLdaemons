@@ -40,7 +40,7 @@ namespace onl
     std::list< boost::shared_ptr<struct _node_resource> > node_children;
     std::list< boost::shared_ptr<struct _link_resource> > links;
 
-    //JP added for new scheduling fo vgige nodes: list of the original experiment vgiges this vgige represents, 
+    //JP added for new scheduling for vgige nodes: list of the original experiment vgiges this vgige represents, 
     //for a merged node this will be more than one
     std::list< boost::shared_ptr<struct _node_resource> > user_nodes;
 
@@ -60,6 +60,20 @@ namespace onl
     unsigned int cost; // initialized to 0. JP changed for new scheduling
     boost::shared_ptr<struct _node_resource> mapped_node;
     bool is_split; //initialize to false
+
+    //vm support
+    bool has_vmsupport;//initialize to false
+    unsigned int core_capacity;//For user nodes, this is the requested capacity. For base nodes, this is the current available cap
+    unsigned int mem_capacity;//same as core_capacity
+    std::map<int,int> port_capacities;//port id, capacity
+
+    //used for auxillary purposes to keep track during intermediate steps as to how a mapping would affect core and memory
+    //allocation
+    unsigned int potential_corecap;//initialized to 0 
+    unsigned int potential_memcap;//initialized to 0
+
+    //used for reconstructing user topology on commit and assigning ids at reservation time
+    unsigne int vmid;
   } node_resource;
 
   typedef boost::shared_ptr<node_resource> node_resource_ptr;
@@ -152,8 +166,10 @@ namespace onl
     boost::shared_ptr<struct _node_resource> cluster;
     std::list< boost::shared_ptr<struct _node_load_resource> > nodes_used;
     std::list< boost::shared_ptr<struct _node_resource> > rnodes_used;
+    std::list< boost::shared_ptr<struct _node_resource> > nodes;
     int load; // initialized to 0
     bool used; //initialized to false
+    bool mapped; //initialized to false
   } mapping_cluster_resource;
 
   typedef boost::shared_ptr<mapping_cluster_resource> mapping_cluster_ptr;
