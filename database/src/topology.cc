@@ -20,6 +20,7 @@
 #include <iostream>
 #include <sstream>
 #include <list>
+#include <map>
 
 #include <boost/shared_ptr.hpp>
 
@@ -196,19 +197,19 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   hrp->user_nodes.push_back(cpnode);
   hrp->is_split = cpnode->is_split;
 
-  hrp->has_vmsupport = cp->has_vmsupport;
-  hrp->core_capacity = cp->core_capacity;
-  hrp->mem_capacity = cp->mem_capacity;
-  hrp->potential_corecap = cp->potential_corecap;
-  hrp->potential_memcap = cp->potential_memcap;
+  hrp->has_vmsupport = cpnode->has_vmsupport;
+  hrp->core_capacity = cpnode->core_capacity;
+  hrp->mem_capacity = cpnode->mem_capacity;
+  hrp->potential_corecap = cpnode->potential_corecap;
+  hrp->potential_memcap = cpnode->potential_memcap;
 
-  hrp->vmid = cp->vmid;
+  hrp->vmid = cpnode->vmid;
 
   //copy interface bandwidth map
-  int max = cp->port_capacities.size();
+  int max = cpnode->port_capacities.size();
   for (int i = 0; i < max; ++i)
     {
-      hrp->port_capacities[i] = cp->port_capacities[i];
+      hrp->port_capacities[i] = cpnode->port_capacities[i];
     }
 
   unsigned int parent_label = 0;
@@ -484,7 +485,7 @@ unsigned int topology::get_vmid(unsigned int label) throw()
       return (*nit)->vmid;
     }
   }
-  return "";
+  return 0;
 }
 
 unsigned int topology::get_label(std::string node, unsigned int vmid) throw()

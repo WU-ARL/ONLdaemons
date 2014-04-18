@@ -66,7 +66,7 @@ namespace onl
       onldb_resp add_special_node(topology *t, std::string begin, std::string end, node_resource_ptr node) throw();
       //onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
       onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
-      bool find_embedding(topology* req, topology* base, std::list<node_resource_ptr> al) throw();
+      bool find_embedding(topology* req, topology* base, std::list<mapping_cluster_ptr> cl) throw();
       bool embed(node_resource_ptr user, node_resource_ptr testbed) throw();
       //onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
       onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
@@ -78,18 +78,18 @@ namespace onl
       void calculate_node_costs(topology* req) throw();
       void calculate_edge_loads(topology* req) throw();
       void add_edge_load(node_resource_ptr node, int port, int load, std::list<link_resource_ptr>& links_seen) throw();
-      node_resource_ptr find_feasible_cluster(node_resource_ptr node, std::list<node_resource_ptr> cl, topology* req, topology* base) throw();
-      node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype) throw();
-      node_resource_ptr find_available_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
-      node_resource_ptr find_fixed_node(node_resource_ptr cluster, std::string ntype) throw();
-      node_resource_ptr find_fixed_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
+      mapping_cluster_ptr find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_ptr>& cl, topology* req, topology* base) throw();
+      node_resource_ptr find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node) throw();
+      node_resource_ptr find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, bool fixed) throw();
+      node_resource_ptr find_fixed_node(mapping_cluster_ptr cluster, node_resource_ptr node) throw();
+      //node_resource_ptr find_fixed_node(node_resource_ptr cluster, std::string ntype, std::list<node_resource_ptr> nodes_used) throw();
       void get_subnet(node_resource_ptr vgige, subnet_info_ptr subnet) throw();
-      bool is_cluster_mapped(node_resource_ptr cluster) throw();
+      bool is_cluster_mapped(mapping_cluster_ptr cluster) throw();
       void initialize_base_potential_loads(topology* base);
-      int compute_mapping_cost(node_resource_ptr cluster, node_resource_ptr node, topology* req, topology* base) throw();
+      int compute_mapping_cost(mapping_cluster_ptr cluster, node_resource_ptr node, topology* req, std::list<mapping_cluster_ptr>& clusters, topology* base) throw();
       int compute_path_costs(node_resource_ptr node, node_resource_ptr n, subnet_info_ptr subnet) throw();
       int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw();
-      node_resource_ptr map_node(node_resource_ptr node, topology* req, node_resource_ptr cluster, topology* base) throw();
+      node_resource_ptr map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr cluster, std::list<mapping_cluster_ptr>& clusters, topology* base) throw();
       node_resource_ptr get_new_vswitch(topology* req) throw();
       void map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* base) throw();
       void get_mapped_edges(node_resource_ptr node, std::list<link_resource_ptr>& mapped_edges);

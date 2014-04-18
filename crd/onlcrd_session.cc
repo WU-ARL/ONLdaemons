@@ -305,7 +305,7 @@ session::commit(session_ptr sess)
 
     unsigned int compid = req->getComponent().getID();
     std::string compname = topology.get_component(compid);
-    unsigned int vmid = topology.get_component(compid);
+    unsigned int vmid = topology.get_vmid(compid);
     crd_component_ptr comp = the_session_manager->get_component(compname, vmid);
     comp->set_component(req->getComponent());
 

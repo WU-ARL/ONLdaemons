@@ -65,7 +65,7 @@ namespace onl
     bool has_vmsupport;//initialize to false
     unsigned int core_capacity;//For user nodes, this is the requested capacity. For base nodes, this is the current available cap
     unsigned int mem_capacity;//same as core_capacity
-    std::map<int,int> port_capacities;//port id, capacity
+    std::map< int,int > port_capacities;//port id, capacity
 
     //used for auxillary purposes to keep track during intermediate steps as to how a mapping would affect core and memory
     //allocation
@@ -73,7 +73,7 @@ namespace onl
     unsigned int potential_memcap;//initialized to 0
 
     //used for reconstructing user topology on commit and assigning ids at reservation time
-    unsigne int vmid;
+    unsigned int vmid;
   } node_resource;
 
   typedef boost::shared_ptr<node_resource> node_resource_ptr;

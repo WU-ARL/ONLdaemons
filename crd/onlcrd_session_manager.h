@@ -59,7 +59,7 @@ namespace onlcrd
       bool add_port_to_outstanding_list(switch_port port);
       void remove_port_from_outstanding_list(switch_port port);
 
-      crd_component_ptr get_component(std::string name);
+      crd_component_ptr get_component(std::string name, unsigned int vmid);
       void add_component(crd_component_ptr comp, session_ptr sess);
       void remove_component(crd_component_ptr comp);
       void clear_component(crd_component* comp);

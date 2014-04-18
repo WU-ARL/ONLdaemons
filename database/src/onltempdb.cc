@@ -19,6 +19,7 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <map>
 
 #include <mysql++/mysql++.h>
 #include <mysql++/ssqls.h>

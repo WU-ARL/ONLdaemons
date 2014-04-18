@@ -154,7 +154,7 @@ namespace onlcrd
   class crd_virtual_machine : public crd_component
   {
     public:
-      crd_virtual_machine(std::string n, std::string c, unsigned short p, bool do_k, bool is_d=false);
+      crd_virtual_machine(unsigned int vm, std::string n, std::string c, unsigned short p, bool do_k, bool is_d=false);
       virtual ~crd_virtual_machine();
   
 
