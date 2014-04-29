@@ -136,8 +136,8 @@ namespace onl
   sql_create_6(nodeschedule,3,6,
     mysqlpp::sql_varchar, node,
     mysqlpp::sql_mediumint_unsigned, rid,
-    mysqlpp::sql_smallint_unsigned, vmid,
     mysqlpp::sql_tinyint_unsigned, fixed,
+    mysqlpp::sql_smallint_unsigned, vmid,
     mysqlpp::sql_smallint_unsigned, cores,
     mysqlpp::sql_smallint_unsigned, memory)
 

@@ -119,7 +119,7 @@ namespace onlcrd
       bool mark; 
 
       virtual std::string get_state();
-      void set_state(std::string s);
+      virtual void set_state(std::string s);
 
       bool wait_for_up_msg(int timeout);
       void cleanup_reqs(bool failed);
@@ -166,6 +166,7 @@ namespace onlcrd
 
     protected:
       virtual std::string get_state();
+      virtual void set_state(std::string s);
   
   }; //class crd_virtual_machine
 

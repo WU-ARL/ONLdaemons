@@ -229,6 +229,10 @@ namespace onlcrd
     public:
       reservation_add_component_req(uint8_t* mbuf, uint32_t size);
       virtual ~reservation_add_component_req();
+      uint32_t getCores() { return cores;}
+      uint32_t getMemory() { return mem;}
+      uint32_t getNumInterfaces() { return num_interfaces;}
+      uint32_t getInterfaceBW() { return interfacebw;}
 
       virtual bool handle();
 
@@ -236,6 +240,10 @@ namespace onlcrd
 
     protected:
       nccp_string ipaddr;
+      uint32_t cores;
+      uint32_t mem;
+      uint32_t num_interfaces;
+      uint32_t interfacebw;
       std::list<param> reboot_params;
       std::list<param> init_params;
   }; // class reservation_add_component_req

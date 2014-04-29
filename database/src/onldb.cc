@@ -57,6 +57,17 @@ using namespace onl;
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
 int fnd_path;
+
+bool in_list(node_resource_ptr node, std::list<node_resource_ptr> nodes)
+{
+  std::list<node_resource_ptr>::iterator nit;
+  for (nit = nodes.begin(); nit != nodes.end(); ++nit)
+    {
+      if ((*nit) == node) return true;
+    }
+  return false;
+}
+
 void fill_in_cluster(mapping_cluster_ptr cluster)
 {
   std::list<link_resource_ptr>::iterator clusterlit;
@@ -65,10 +76,13 @@ void fill_in_cluster(mapping_cluster_ptr cluster)
       node_resource_ptr n;
       if ((*clusterlit)->node1 == cluster->cluster) n = (*clusterlit)->node2;
       else n = (*clusterlit)->node1;
-      n->potential_corecap = n->core_capacity;
-      n->potential_memcap = n->mem_capacity;
-      cluster->nodes.push_back(n);
-      if (n->marked) cluster->mapped = true;
+      if (!in_list(n, cluster->nodes))
+	{
+	  n->potential_corecap = n->core_capacity;
+	  n->potential_memcap = n->mem_capacity;
+	  cluster->nodes.push_back(n);
+	  if (n->marked) cluster->mapped = true;
+	}
     }
   cluster->used = false;
 }
@@ -137,16 +151,6 @@ node_load_ptr get_element(node_resource_ptr node, std::list<node_load_ptr> nodes
       if ((*nit)->node == node) return (*nit);
     }
   return nullnode;
-}
-
-bool in_list(node_resource_ptr node, std::list<node_resource_ptr> nodes)
-{
-  std::list<node_resource_ptr>::iterator nit;
-  for (nit = nodes.begin(); nit != nodes.end(); ++nit)
-    {
-      if ((*nit) == node) return true;
-    }
-  return false;
 }
 
 bool in_list(link_resource_ptr link, std::list<link_resource_ptr> links)
@@ -3171,6 +3175,7 @@ int
 onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw()
 {
   ++fnd_path;
+
   int num_paths = 0;
   std::list<node_resource_ptr> nodes_to_search;
   std::list<node_resource_ptr> nodes_seen;
@@ -3184,6 +3189,14 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
   int src_port = potential_path->node1_port;
   node_resource_ptr sink = potential_path->node2;
   int sink_port = potential_path->node2_port;
+
+  //if these are 2 vms allocated to the same node then their links will be handled internally within the 
+  //node and there is no need to allocate a path out of the node
+  if (ulink->node1->type == "vm" && ulink->node2->type == "vm" && source == sink)
+    {
+      potential_path->cost = ulink->cost;
+      return (ulink->cost);
+    }
 
   int rload = ulink->rload;
   int lload = ulink->lload;
@@ -3631,14 +3644,17 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
   std::list<node_resource_ptr>::iterator nrnode_it = cluster->rnodes_used.begin();
   for (nbrit = cluster->nodes_used.begin(); nbrit != cluster->nodes_used.end(); ++nbrit)
     {
-      (*nbrit)->node->marked = true;
-      (*nbrit)->node->mapped_node = (*nrnode_it);
-      (*nbrit)->node->in = cluster->cluster->in;
-      (*nrnode_it)->marked = true;
-      (*nrnode_it)->core_capacity -= (*nbrit)->node->core_capacity;
-      (*nrnode_it)->mem_capacity -= (*nbrit)->node->mem_capacity;
+      if ((*nbrit)->node != node)
+	{
+	  (*nbrit)->node->marked = true;
+	  (*nbrit)->node->mapped_node = (*nrnode_it);
+	  (*nbrit)->node->in = cluster->cluster->in;
+	  (*nrnode_it)->marked = true;
+	  (*nrnode_it)->core_capacity -= (*nbrit)->node->core_capacity;
+	  (*nrnode_it)->mem_capacity -= (*nbrit)->node->mem_capacity;
+	  if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
+	}
       cout << "     side effect: request node (" << (*nbrit)->node->type << (*nbrit)->node->label << "," << (*nbrit)->node->user_nodes.front()->label << ") real node (" << (*nrnode_it)->type << (*nrnode_it)->label << ", " << (*nrnode_it)->node << ")" << endl;
-      if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
       for (unmapit = unmapped_nodes.begin(); unmapit != unmapped_nodes.end(); ++unmapit)
 	{
 	  if ((*unmapit)->node == (*nbrit)->node)
@@ -3899,7 +3915,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
       else found_path->node2_port = (*lit)->node2_port;
       std::list<link_resource_ptr>::iterator fpit;
       int pcost = find_cheapest_path(*lit, found_path, subnet);
-      if (pcost >= 0)
+      if (pcost > 0)
 	{
 	  cout << "mapping link " << to_string((*lit)->label) << ": (" << to_string((*lit)->node1->label) << "p" << to_string((*lit)->node1_port) << ", " << to_string((*lit)->node2->label) << "p" << to_string((*lit)->node2_port) << ") capacity " << to_string((*lit)->capacity) << " load(" << (*lit)->rload << "," << (*lit)->lload << ") mapping to ";
 	  int l_rload = (*lit)->rload;
@@ -4322,6 +4338,15 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	  //}
 	if((*lit)->node1->type == "vgige" || (*lit)->node2->type == "vgige") continue;
 	// add the link entries
+	if((*lit)->mapped_path.empty())
+	  {
+	    // if a vm->vm connection, and both are mapped to same node,
+	    // then there are no cids in the list. as a hack to make this work, there
+	    // is a cid=0 entry in the table that we use here so that the necessary
+	    // table entries are there for every link
+	    connschedule null_cs(linkid, rid, 0, (*lit)->capacity, (*lit)->rload, (*lit)->lload);
+	    db_connections.push_back(null_cs);
+	  }
 	for(mplit = (*lit)->mapped_path.begin(), dirit = (*lit)->mp_linkdir.begin(); mplit != (*lit)->mapped_path.end(); ++mplit, ++dirit)
 	  {
 	    int rload = (*lit)->rload;

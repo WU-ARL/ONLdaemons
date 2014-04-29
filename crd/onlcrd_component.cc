@@ -157,8 +157,6 @@ crd_component::set_state(std::string s)
 
   internal_state = s;
 
-  if (get_type() == "vm") return;
-
   //autoLock dlock(db_lock);
   if (database == NULL)
     {
@@ -990,6 +988,17 @@ crd_virtual_machine::get_state()
   return internal_state;
 }
 
+
+void
+crd_virtual_machine::set_state(std::string s)
+{
+  if(s == "repair")
+  {
+    needs_refresh = false;
+  }
+
+  internal_state = s;
+}
 
 crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e2, unsigned short e2p)
 {

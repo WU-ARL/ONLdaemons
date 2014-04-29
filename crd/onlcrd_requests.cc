@@ -519,6 +519,13 @@ reservation_add_component_req::parse()
   buf >> ipaddr;
   buf >> reboot_params;
   buf >> init_params;
+  if (version > 0x80)
+    {
+      buf >> cores;
+      buf >> mem;
+      buf >> num_interfaces;
+      buf >> interfacebw;
+    }
 }
 
 reservation_add_cluster_req::reservation_add_cluster_req(uint8_t *mbuf, uint32_t size): rlicrd_request(mbuf, size)
