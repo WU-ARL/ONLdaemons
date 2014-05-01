@@ -2381,9 +2381,10 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	{
 	  if ((*clnit)->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport)) n = (*clnit);
 	  else if ((*clnit)->parent && ((*clnit)->parent->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport))) n = (*clnit)->parent;
+	  if (n && n->marked) break;
 	}
 
-      if (n) //check core, mem, and interface bw capacities to see if there is enough for this node
+      if (n && !in_list(n, cluster->rnodes_used)) //check core, mem, and interface bw capacities to see if there is enough for this node
 	{
 	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
 	    {
@@ -3655,6 +3656,7 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
 	  if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
 	}
       cout << "     side effect: request node (" << (*nbrit)->node->type << (*nbrit)->node->label << "," << (*nbrit)->node->user_nodes.front()->label << ") real node (" << (*nrnode_it)->type << (*nrnode_it)->label << ", " << (*nrnode_it)->node << ")" << endl;
+      ++nrnode_it;
       for (unmapit = unmapped_nodes.begin(); unmapit != unmapped_nodes.end(); ++unmapit)
 	{
 	  if ((*unmapit)->node == (*nbrit)->node)
@@ -3663,7 +3665,6 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
 	      break;
 	    }
 	}
-      ++nrnode_it;
     }
 
   if (node->is_parent)

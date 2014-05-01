@@ -163,7 +163,7 @@ rlicrd_response::write()
   buf << comp;
 }
 
-component_response::component_response(rlicrd_request *req, std::string node, uint32_t port): rlicrd_response(req, NCCP_Status_Fine)
+component_response::component_response(rlicrd_request *req, std::string node, uint32_t port, NCCP_StatusType stat): rlicrd_response(req, stat)
 {
   cp = node.c_str();
   cp_port = port;

@@ -292,7 +292,9 @@ session::commit(session_ptr sess)
 
     unsigned int compid = req->getComponent().getID();
 
-    cluster_response* resp = new cluster_response(req, NCCP_Status_Fine, compid);
+    NCCP_StatusType stat = NCCP_Status_Fine;
+    if (testing) stat = NCCP_Status_Testing;
+    cluster_response* resp = new cluster_response(req, stat, compid);
     resp->send();
     delete resp;
     delete req;

@@ -407,7 +407,7 @@ crd_component::do_initialize()
   // the node booted the chosen fs already, and the param was removed. etiher way,
   // that means that node is done booting into the correct fs
   // otoh, if the param is still set, then we have to reboot to pick up the fs
-  if(keeboot && the_session_manager->check_keeboot_param(name))
+  if(!testing & keeboot && the_session_manager->check_keeboot_param(name))
   {
     keebooting_now = true;
     do_refresh();
@@ -498,7 +498,10 @@ crd_component::do_initialize()
   }
   else
   {
-    resp = new component_response(compreq, cp, cp_port);
+    if (!testing)
+      resp = new component_response(compreq, cp, cp_port);
+    else
+      resp = new component_response(compreq, cp, cp_port, NCCP_Status_Testing);
   }
   resp->send();
   delete resp;

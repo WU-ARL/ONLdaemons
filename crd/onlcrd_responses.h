@@ -86,7 +86,7 @@ namespace onlcrd
   {
     public: 
       component_response(rlicrd_request *req, NCCP_StatusType stat);
-      component_response(rlicrd_request *req, std::string node, uint32_t port);
+      component_response(rlicrd_request *req, std::string node, uint32_t port, NCCP_StatusType stat=NCCP_Status_Fine);
       virtual ~component_response();
 
       virtual void write();

@@ -29,6 +29,7 @@ namespace onld
   static const NCCP_StatusType NCCP_Status_StillRemaining      = 4;
   static const NCCP_StatusType NCCP_Status_Failed              = 5;
   static const NCCP_StatusType NCCP_Status_AllocFailed         = 6;
+  static const NCCP_StatusType NCCP_Status_Testing             = 7;
 
   class crd_response: public response
   {
