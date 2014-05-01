@@ -2920,7 +2920,7 @@ onldb::split_vgige(std::list<mapping_cluster_ptr>& clusters, std::list<node_load
 		  potential_path->node2_port = -1;
 		  initialize_base_potential_loads(base);//potential problem if potential loads are used by caller
 		  int pcost = find_cheapest_path(vgige_lnk, potential_path, subnet); 
-		  if (pcost > 0) 
+		  if (pcost >= 0) 
 		    {
 		      if (best_cluster) 
 			{
@@ -3194,8 +3194,8 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
   //node and there is no need to allocate a path out of the node
   if (ulink->node1->type == "vm" && ulink->node2->type == "vm" && source == sink)
     {
-      potential_path->cost = ulink->cost;
-      return (ulink->cost);
+      potential_path->cost = 0;
+      return (0);
     }
 
   int rload = ulink->rload;
@@ -3915,7 +3915,7 @@ onldb::map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* bas
       else found_path->node2_port = (*lit)->node2_port;
       std::list<link_resource_ptr>::iterator fpit;
       int pcost = find_cheapest_path(*lit, found_path, subnet);
-      if (pcost > 0)
+      if (pcost >= 0)
 	{
 	  cout << "mapping link " << to_string((*lit)->label) << ": (" << to_string((*lit)->node1->label) << "p" << to_string((*lit)->node1_port) << ", " << to_string((*lit)->node2->label) << "p" << to_string((*lit)->node2_port) << ") capacity " << to_string((*lit)->capacity) << " load(" << (*lit)->rload << "," << (*lit)->lload << ") mapping to ";
 	  int l_rload = (*lit)->rload;
@@ -4231,7 +4231,7 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
 	  //++ar_db_count;
 	  
 	}
-	vswitchschedule vs((*nit)->vmid, rid, 0,0);//reused cost field for vlanid, only need one entry for each vgige. linkschedule lists the rest
+	vswitchschedule vs((*nit)->vmid, rid, 0, (linkid-1));//reused cost field for vlanid, only need one entry for each vgige. linkschedule lists the rest
 	  
 	  db_vswitches.push_back(vs);
 	  
