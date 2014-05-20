@@ -2786,6 +2786,8 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
   
   std::list<node_load_ptr>::iterator nit;
   std::list<node_load_ptr>::reverse_iterator rev_nit;
+  std::list<node_load_ptr>::iterator clnit;
+  
   
   
   //go through ordered list starting with highest cost, unmapped, leaf neighbor
@@ -2797,15 +2799,31 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
   int total_load = 0;
   for (nit = neighbors.begin(); nit != neighbors.end(); ++nit)
     {
+      bool there = false;
+      //check if node was marked in a previous mapping
       if ((*nit)->node->marked)
 	{
-	  if ((*nit)->node->mapped_node->in == cluster->cluster->in)
+	  if ((*nit)->node->mapped_node->in == cluster->cluster->in) 
+	    total_load += (*nit)->load;
+	  
+	  there = true;
+	}
+      else 
+	{ 
+	  //check if in the nodes_used
+	  for (clnit = cluster->nodes_used.begin(); clnit != cluster->nodes_used.end(); ++clnit)
 	    {
-	      total_load += (*nit)->load;
+	      if ((*clnit)->node == (*nit)->node)
+		{
+		  there = true;
+		  total_load += (*nit)->load;
+		  break;
+		}
 	    }
 	}
-      else
-	{ 
+      
+      if (!there)
+	{
 	  //if this is a whole gige or the total_load is less than the max try and map the node
 	  if (!root_node->is_split || ((total_load+(*nit)->load) <= MAX_INTERCLUSTER_CAPACITY))
 	    {
@@ -3659,13 +3677,13 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
 
   // mapping_cluster_ptr mcluster(new mapping_cluster_resource());
   std::list<node_load_ptr> unmapped_nodes;
-  get_lneighbors(node, unmapped_nodes);
+  //get_lneighbors(node, unmapped_nodes);
   //mcluster->cluster = cluster;
   //mcluster->rnodes_used.push_back(rnode);
   //node_load_ptr nlnode(new node_load_resource());
   //nlnode->node = node;
   //mcluster->nodes_used.push_back(nlnode);
-  //int total_load = find_neighbor_mapping(mcluster, unmapped_nodes, node);
+  int total_load = find_neighbor_mapping(cluster, unmapped_nodes, node);
  
  //now mark the mappable neighbors
   std::list<node_load_ptr>::iterator nbrit;

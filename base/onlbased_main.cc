@@ -60,7 +60,7 @@ using namespace onlbased;
 
 int main(int argc, char** argv)
 {
-  the_dispatcher = dispatcher::get_dispatcher();
+  the_dispatcher = dispatcher::get_dispatcher();//instantiation of dispatcher to handle matching incoming nccp requests and responses to the matching objects for processing
   rli_conn = NULL;
   spec_conn = NULL;
   using_spec_daemon = false;
@@ -94,7 +94,7 @@ int main(int argc, char** argv)
   try
   {
     std::string tmp_addr("10.");
-    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
+    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port); //open listener for RLI messages, although this is mostly RLI messages, CRD messages also come here
   }
   catch(std::exception& e)
   {
@@ -102,6 +102,8 @@ int main(int argc, char** argv)
     exit(1);
   }
 
+  //register classes to handle incoming messages associated with the given op code
+  //these are messages handled by the based
   register_req<start_experiment_req>(NCCP_Operation_StartExperiment);
   register_req<refresh_req>(NCCP_Operation_Refresh);
 
@@ -111,12 +113,16 @@ int main(int argc, char** argv)
   register_req<crd_relay_req>(NCCP_Operation_CfgNode);
   register_resp<crd_response>(NCCP_Operation_CfgNode);
 
+  //these are messages relayed between the RLI forwarded and the specialization daemon
   for(uint8_t op=64; op<=254; ++op)
   {
+    //requests from RLI forwarded to specialization daemon
     register_req<rli_relay_req>(op);
+    //responses returning from specialization daemon forwarded to RLI
     register_resp<rli_response>(op);
   }
 
+  //spawns a thread to sit around waiting on messages from the rli
   rli_conn->receive_messages(true);
 
   nccp_connection* crd_conn = NULL;
@@ -124,8 +130,9 @@ int main(int argc, char** argv)
   try
   {
     // cgw, read file to get crd host/port?
-    //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
+    //connection back to resource manager
     crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
+    //when we come up send an upmsg to the central resource daemon
     i_am_up* upmsg = new i_am_up();
     upmsg->set_connection(crd_conn);
     upmsg->send();
