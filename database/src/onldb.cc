@@ -76,6 +76,7 @@ void fill_in_cluster(mapping_cluster_ptr cluster)
       node_resource_ptr n;
       if ((*clusterlit)->node1 == cluster->cluster) n = (*clusterlit)->node2;
       else n = (*clusterlit)->node1;
+      if (n->type_type == "infrastructure") continue;//don't add infrastructure nodes
       if (!in_list(n, cluster->nodes))
 	{
 	  n->potential_corecap = n->core_capacity;
@@ -106,6 +107,13 @@ void reset_cluster(mapping_cluster_ptr cluster)
     }
 }
 
+void copy_cluster(mapping_cluster_ptr mcluster, mapping_cluster_ptr copy_to)
+{
+  copy_to->cluster = mcluster->cluster;
+  copy_to->nodes.assign(mcluster->nodes.begin(), mcluster->nodes.end());
+  reset_cluster(copy_to);
+}
+
 bool req_sort_comp(assign_info_ptr i, assign_info_ptr j)
 {
   return(i->user_nodes.size() < j->user_nodes.size());
@@ -114,6 +122,42 @@ bool req_sort_comp(assign_info_ptr i, assign_info_ptr j)
 bool base_sort_comp(node_resource_ptr i, node_resource_ptr j)
 {
   return(i->priority < j->priority);
+}
+
+
+node_resource_ptr one_node_subnet(subnet_info_ptr subnet, mapping_cluster_ptr mcluster)
+{
+  node_resource_ptr rtn_node;
+  node_resource_ptr null_node;
+  std::list<node_resource_ptr>::iterator snit;
+  std::list<node_load_ptr>::iterator user_nit;
+  std::list<node_resource_ptr>::iterator real_nit;
+  for (snit = subnet->nodes.begin(); snit != subnet->nodes.end(); ++snit)
+    {
+      if ((*snit)->type != "vgige")
+	{
+	  node_resource_ptr mapped_node = (*snit)->mapped_node;
+	  if (!(*snit)->marked)
+	    {
+	      //lookup to see if it was allocated in the cluster structure
+	      real_nit = mcluster->rnodes_used.begin();
+	      for (user_nit = mcluster->nodes_used.begin(); user_nit != mcluster->nodes_used.end(); ++user_nit)
+		{
+		  if ((*user_nit)->node == (*snit)) 
+		    {
+		      mapped_node = (*real_nit);
+		      break;
+		    }
+		  ++real_nit;
+		}
+	    }
+	  if (mapped_node && !rtn_node) rtn_node = mapped_node;
+	  if (!mapped_node || mapped_node != rtn_node) //if we the node hasn't been mapped yet or the one of the subnet nodes is mapped to a different node
+	    //return a null ptr
+	    return null_node;
+	}
+    }
+  return rtn_node;
 }
 
 
@@ -1587,6 +1631,11 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
 
   try
   {
+    mysqlpp::Query query_tp = onl->query();
+    query_tp << "select tid,hasvport,vmsupport,corecapacity,memcapacity,numinterfaces,interfacebw from types";
+    vector<typeinfo> typenfo;
+    query_tp.storein(typenfo);
+
     mysqlpp::Query query = onl->query();
     query << "select nodes.node,nodes.tid,hwclustercomps.cluster from nodes left join hwclustercomps using (node) where node in (select node from nodeschedule where node=" << mysqlpp::quote << node->node << " and rid in (select rid from reservations where (user='testing' or user='repair' or user='system') and state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " ))";
     vector<specialnodeinfo> sni;
@@ -1618,9 +1667,10 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
       t->nodes.back()->node = node->node;
       t->nodes.back()->fixed = true;
       t->nodes.back()->in = in;
-      anr = has_virtual_port(sni[0].tid);
-      if (anr.result() < 0) { onldb_resp(0,(std::string)"database consistency problem"); }
-      else t->nodes.back()->has_vport = anr.result();
+      fill_node_info(t->nodes.back(), typenfo);
+      // anr = has_virtual_port(sni[0].tid);
+      //if (anr.result() < 0) { onldb_resp(0,(std::string)"database consistency problem"); }
+      //else t->nodes.back()->has_vport = anr.result();
       node->in = in;
 
       mysqlpp::Query cquery = onl->query();
@@ -1655,6 +1705,7 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
     t->nodes.back()->node = sni[0].cluster.data;
     t->nodes.back()->fixed = true;
     t->nodes.back()->in = in;
+    fill_node_info(t->nodes.back(), typenfo);
     ++hwid;
 
     mysqlpp::Query query3 = onl->query();
@@ -1669,9 +1720,10 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
       if(anr.result() != 1) { return onldb_resp(0, (std::string)"database consistency problem"); }
       t->nodes.back()->node = niit->node;
       t->nodes.back()->in = in;
-      anr = has_virtual_port(niit->tid);
-      if (anr.result() < 0) { onldb_resp(0,(std::string)"database consistency problem"); }
-      else t->nodes.back()->has_vport = anr.result();
+      fill_node_info(t->nodes.back(), typenfo);
+      // anr = has_virtual_port(niit->tid);
+      //if (anr.result() < 0) { onldb_resp(0,(std::string)"database consistency problem"); }
+      //else t->nodes.back()->has_vport = anr.result();
       if(niit->node == node->node)
       {
         t->nodes.back()->fixed = true;
@@ -2387,10 +2439,10 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	{
 	  if ((*clnit)->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport)) n = (*clnit);
 	  else if ((*clnit)->parent && ((*clnit)->parent->type == node->type || (node->type == "vm" && (*clnit)->has_vmsupport))) n = (*clnit)->parent;
-	  if (n && n->marked) continue;
+	  if (node->type != "vm" && n && n->marked) continue;
 	}
 
-      if (n && !in_list(n, cluster->rnodes_used)) //check core, mem, and interface bw capacities to see if there is enough for this node
+      if (n && (!in_list(n, cluster->rnodes_used) || node->type == "vm")) //check core, mem, and interface bw capacities to see if there is enough for this node
 	{
 	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
 	    {
@@ -2708,6 +2760,18 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
   if (node->type != "vgige" || (unmapped_nodes.empty() && total_load > 0)) 
     {
       //clock_t etime = clock();
+      //if it's a vgige check if all subnet leaves have been mapped to the same node (this could happen with vms)
+      //if so move the vgige to the node the leaves are on
+      if (node->type == "vgige")
+	{
+	  node_resource_ptr subnet_node = one_node_subnet(subnet, mcluster);
+	  if (subnet_node)
+	    {
+	      //change the assigned node to the subnet host rather than the infrastructure node
+	      mcluster->rnodes_used.pop_front();
+	      mcluster->rnodes_used.push_front(subnet_node);
+	    }
+	}
       print_diff("onldb::compute_mapping_costs", stime);
       return cluster_cost;
     }
@@ -2748,12 +2812,13 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
 	      if ((*clusterit) != mcluster && 
 		  !subnet_mapped(subnet, (*clusterit)->cluster->in))
 		{
-		  //mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
+		  mapping_cluster_ptr new_vcluster(new mapping_cluster_resource());
+		  copy_cluster(*clusterit, new_vcluster);
 		  //new_vcluster->cluster = (*clusterit);
 		  //new_vcluster->load = 0;
 		  //new_vcluster->used = false;
-		  reset_cluster(*clusterit);
-		  vgige_clusters.push_back(*clusterit);
+		  //reset_cluster(new_vcluster);
+		  vgige_clusters.push_back(new_vcluster);
 		}
 	    }
 	  
@@ -3237,9 +3302,12 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
   node_resource_ptr sink = potential_path->node2;
   int sink_port = potential_path->node2_port;
 
-  //if these are 2 vms allocated to the same node then their links will be handled internally within the 
-  //node and there is no need to allocate a path out of the node
-  if (ulink->node1->type == "vm" && ulink->node2->type == "vm" && source == sink)
+  //if these are 2 vms or a vm and vgige allocated to the same node then their links will be handled internally 
+  //within the node and there is no need to allocate a path out of the node
+  if (source == sink && 
+      ((ulink->node1->type == "vm" && ulink->node2->type == "vm") ||
+       (ulink->node1->type == "vm" && ulink->node2->type == "vgige") ||
+       (ulink->node1->type == "vgige" && ulink->node2->type == "vm")))
     {
       potential_path->cost = 0;
       return (0);
