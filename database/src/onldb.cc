@@ -1504,7 +1504,7 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	    }
 	  ++hwid;
 	  current_node = t->nodes.back();
-	  current_node->node = it2->node;
+	  current_node->node = it2a->node;
 	  current_node->priority = (int)it2a->priority;
 	  fill_node_info(current_node, typenfo);
 	  if (!current_node->has_vmsupport)
