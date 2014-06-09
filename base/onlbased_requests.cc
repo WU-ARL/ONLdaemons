@@ -46,7 +46,7 @@
 #include "onlbased_responses.h"
 
 using namespace onlbased;
-//request sent from CRD when and experiment is committed
+
 start_experiment_req::start_experiment_req(uint8_t *mbuf, uint32_t size): start_experiment(mbuf, size)
 {
 }
@@ -87,7 +87,6 @@ start_experiment_req::handle()
       write_log("start_experiment_req::handle(): got specialization daemon: " + p.getString());
       init_params.pop_front();
       using_spec_daemon = true;
-      //this is when the specialization daemon gets forked
       if(!start_specialization_daemon(p.getString()))
       {
         status = NCCP_Status_Failed;
@@ -219,8 +218,6 @@ start_experiment_req::system_cmd(std::string cmd)
   return WEXITSTATUS(rtn);
 }
 
-
-//this is sent from the CRD to tell the node to reboot
 refresh_req::refresh_req(uint8_t *mbuf, uint32_t size): refresh(mbuf, size)
 {
   write_log("refresh_req::refresh_req: got refresh message");
@@ -268,8 +265,6 @@ refresh_req::handle()
   return true;
 }
 
-
-//request sent from RLI to read data from a file
 user_data_req::user_data_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 { 
   user_data = NULL;
@@ -379,7 +374,6 @@ user_data_ts_req::parse()
   field = params[1].getInt();
 }
 
-//requests from the RLI for the specialization daemon
 rli_relay_req::rli_relay_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
   timeout = 300;
@@ -477,7 +471,6 @@ rli_relay_req::write()
   }
 }
 
-//a request from CRD to the specialization daemon
 crd_relay_req::crd_relay_req(uint8_t *mbuf, uint32_t size): crd_request(mbuf, size)
 {
   write_log("crd_relay_req::crd_relay_req: got message to relay");

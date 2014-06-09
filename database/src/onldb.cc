@@ -2446,7 +2446,8 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	{
 	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
 	    {
-	      if (node->type == "vm" || (n->has_vport))
+	      //if it's a vm or a node with virtual ports requested by new RLI (node's port_capacities will be empty for older requests || whole node request)
+	      if (node->type == "vm" || ((n->has_vport) && !node->port_capacities.empty()))
 		{
 		  std::map<int,int>::iterator uportit;
 		  std::map<int,int>::iterator rportit = n->port_capacities.begin();

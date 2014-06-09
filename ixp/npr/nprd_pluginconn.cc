@@ -152,6 +152,6 @@ void PluginConn::writemsg(npr::PluginMessage *msg) throw(pluginconn_exception,pl
     char logstr[256];
     sprintf(logstr, "PluginConn:writemsg: word(%u) = 0x%.8x", i, val);
     write_log(logstr);
-    SRAM_RING_PUT(SRAM_BANK_3,ring,&val); 
+    SRAM_RING_PUT(SRAM_BANK_3,ring,val); 
   }
 }

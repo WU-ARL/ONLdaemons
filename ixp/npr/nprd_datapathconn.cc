@@ -199,7 +199,8 @@ void DataPathConn::writemsg(npr::DataPathMessage *msg) throw(datapathconn_except
       sprintf(logstr, "writemsg: msg to MUX, word %u: 0x%.8x", i, val);
       write_log(logstr);
 
-      SRAM_RING_PUT(SRAM_BANK_1,MUX_RING,&val);
+      //SRAM_RING_PUT(SRAM_BANK_1,MUX_RING,&val);
+      SRAM_RING_PUT(SRAM_BANK_1,MUX_RING,val);
 
       sprintf(logstr, "writemsg: msg to MUX, got result 0x%.8x", val);
       write_log(logstr);
@@ -223,7 +224,8 @@ void DataPathConn::writemsg(npr::DataPathMessage *msg) throw(datapathconn_except
     for(unsigned int i=0; i<num_words; ++i)
     {
       val = msg->getword(i);
-      SRAM_RING_PUT(SRAM_BANK_1,MUX_PLUGIN_RING,&val);
+      //SRAM_RING_PUT(SRAM_BANK_1,MUX_PLUGIN_RING,&val);
+      SRAM_RING_PUT(SRAM_BANK_1,MUX_PLUGIN_RING,val);
     }
     if(halMe_AtomicAdd(HALME_MEM_SCRATCH, XSCALE_TO_MUXPL_OCCUPANCY_CNTR, 1) != HALME_SUCCESS)
     {

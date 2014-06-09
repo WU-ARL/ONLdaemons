@@ -233,6 +233,13 @@ session_add_component_req::parse()
       buf >> num_interfaces;
       buf >> interfacebw;
     }
+  else
+    {
+      cores = 1;
+      mem = 1;
+      num_interfaces = 0;//PROB: do I have to look this up?
+      interfacebw = 0;
+    }
 }
 
 session_add_cluster_req::session_add_cluster_req(uint8_t *mbuf, uint32_t size): rlicrd_request(mbuf, size)
@@ -525,6 +532,13 @@ reservation_add_component_req::parse()
       buf >> mem;
       buf >> num_interfaces;
       buf >> interfacebw;
+    }
+  else
+    {
+      cores = 1;
+      mem = 1;
+      num_interfaces = 0;//PROB: do I have to look this up?
+      interfacebw = 0;
     }
 }
 
