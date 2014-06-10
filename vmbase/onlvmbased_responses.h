@@ -16,10 +16,10 @@
  *
  */
 
-#ifndef _ONLBASED_RESPONSES_H
-#define _ONLBASED_RESPONSES_H
+#ifndef _ONLVMBASED_RESPONSES_H
+#define _ONLVMBASED_RESPONSES_H
 
-namespace onlbased
+namespace onlvmbased
 {
   class rli_relay_resp : public onld::rli_response
   {
@@ -47,4 +47,4 @@ namespace onlbased
 
 };
 
-#endif // _ONLBASED_RESPONSES_H
+#endif // _ONLVMBASED_RESPONSES_H

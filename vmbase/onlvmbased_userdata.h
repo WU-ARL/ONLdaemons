@@ -16,10 +16,10 @@
  *
  */
 
-#ifndef _ONLBASED_USERDATA_H
-#define _ONLBASED_USERDATA_H
+#ifndef _ONLVMBASED_USERDATA_H
+#define _ONLVMBASED_USERDATA_H
 
-namespace onlbased
+namespace onlvmbased
 {
   typedef struct _ts_data
   { 
@@ -50,4 +50,4 @@ namespace onlbased
   };
 };
 
-#endif // _ONLBASED_USERDATA_H
+#endif // _ONLVMBASED_USERDATA_H

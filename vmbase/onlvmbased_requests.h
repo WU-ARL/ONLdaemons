@@ -16,10 +16,10 @@
  *
  */
 
-#ifndef _ONLBASED_REQUESTS_H
-#define _ONLBASED_REQUESTS_H
+#ifndef _ONLVMBASED_REQUESTS_H
+#define _ONLVMBASED_REQUESTS_H
 
-namespace onlbased
+namespace onlvmbased
 {
   class start_experiment_req : public onld::start_experiment
   {
@@ -111,4 +111,4 @@ namespace onlbased
   }; // class crd_relay_req
 };
 
-#endif // _ONLBASED_REQUESTS_H
+#endif // _ONLVMBASED_REQUESTS_H

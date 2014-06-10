@@ -16,10 +16,10 @@
  *
  */
 
-#ifndef _ONLBASED_GLOBALS_H
-#define _ONLBASED_GLOBALS_H
+#ifndef _ONLVMBASED_GLOBALS_H
+#define _ONLVMBASED_GLOBALS_H
 
-namespace onlbased
+namespace onlvmbased
 {
   extern dispatcher *the_dispatcher;
   extern nccp_listener *rli_conn;
@@ -29,6 +29,6 @@ namespace onlbased
   extern std::string user;
   extern bool testing;
   extern bool root_only;
-}; // namespace onlbased
+}; // namespace onlvmbased
 
-#endif // _ONLBASED_GLOBALS_H
+#endif // _ONLVMBASED_GLOBALS_H

@@ -43,10 +43,10 @@
 
 #include "shared.h"
 
-#include "onlbased_userdata.h"
-#include "onlbased_globals.h"
+#include "onlvmbased_userdata.h"
+#include "onlvmbased_globals.h"
 
-using namespace onlbased;
+using namespace onlvmbased;
 
 userdata::userdata(std::string file_name, uint32_t field) throw(std::runtime_error)
 {

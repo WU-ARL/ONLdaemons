@@ -39,12 +39,12 @@
 
 #include "shared.h"
 
-#include "onlbased_userdata.h"
-#include "onlbased_globals.h"
-#include "onlbased_requests.h"
-#include "onlbased_responses.h"
+#include "onlvmbased_userdata.h"
+#include "onlvmbased_globals.h"
+#include "onlvmbased_requests.h"
+#include "onlvmbased_responses.h"
 
-namespace onlbased
+namespace onlvmbased
 {
   dispatcher *the_dispatcher;
   nccp_listener *rli_conn;
@@ -56,7 +56,7 @@ namespace onlbased
   bool root_only;//set to true if specialty daemons are only run as root
 };
 
-using namespace onlbased;
+using namespace onlvmbased;
 
 int main(int argc, char** argv)
 {
@@ -84,7 +84,7 @@ int main(int argc, char** argv)
 	root_only = true;
 	break;
       case 'h':
-        std::cout << "usage: onlbased [-h] [-t] [-r]" << std::endl;
+        std::cout << "usage: onlvmbased [-h] [-t] [-r]" << std::endl;
         std::cout << "       -h:       print this message" << std::endl;
         std::cout << "       -t:       run in testing mode, i.e., don't reboot on refresh" << std::endl;
         std::cout << "       -r:       only launch subtype daemons as root" << std::endl;

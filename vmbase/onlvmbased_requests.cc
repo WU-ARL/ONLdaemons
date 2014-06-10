@@ -40,12 +40,12 @@
 
 #include "shared.h"
 
-#include "onlbased_userdata.h"
-#include "onlbased_globals.h"
-#include "onlbased_requests.h"
-#include "onlbased_responses.h"
+#include "onlvmbased_userdata.h"
+#include "onlvmbased_globals.h"
+#include "onlvmbased_requests.h"
+#include "onlvmbased_responses.h"
 
-using namespace onlbased;
+using namespace onlvmbased;
 
 start_experiment_req::start_experiment_req(uint8_t *mbuf, uint32_t size): start_experiment(mbuf, size)
 {
