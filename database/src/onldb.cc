@@ -2045,6 +2045,7 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mappin
 		}
 	      if (!inserted_new) ordered_nodes.push_back(new_node);
 	    } 
+	  reset_cluster(fcluster);
 	}
       else
 	{
@@ -2342,7 +2343,10 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_p
       for(clnit = cl.begin(); clnit != cl.end(); ++clnit)
 	{
 	  if (node->in == (*clnit)->cluster->in)
-	    return (*clnit);
+	    {
+	      // reset_cluster(*clnit);
+	      return (*clnit);
+	    }
 	}
     }
 
@@ -2361,9 +2365,11 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_p
 	  cout << "(c" << (*clnit)->cluster->label << ", " << cluster_cost << ")";
 	  if (cluster_cost >= 0 && (cluster_cost < current_cost || !rtn_cluster))
 	    {
+	      if (rtn_cluster) reset_cluster(rtn_cluster);
 	      rtn_cluster = *clnit;
 	      current_cost = cluster_cost;
 	    }
+	  else reset_cluster(*clnit);
 	  if (node->fixed)
 	    {
 	      cout << endl;
