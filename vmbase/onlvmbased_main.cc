@@ -37,9 +37,14 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
+
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
 #include "onlvmbased_userdata.h"
+#include "onlvmbased_session.h"
+#include "onlvmbased_session_manager.h"
 #include "onlvmbased_globals.h"
 #include "onlvmbased_requests.h"
 #include "onlvmbased_responses.h"
@@ -49,6 +54,7 @@ namespace onlvmbased
   dispatcher *the_dispatcher;
   nccp_listener *rli_conn;
   nccp_connection *spec_conn;
+  session_manager *the_session_manager;
 
   bool using_spec_daemon;
   std::string user;
@@ -61,6 +67,7 @@ using namespace onlvmbased;
 int main(int argc, char** argv)
 {
   the_dispatcher = dispatcher::get_dispatcher();
+  the_session_manager = new session_manager();
   rli_conn = NULL;
   spec_conn = NULL;
   using_spec_daemon = false;
@@ -108,8 +115,9 @@ int main(int argc, char** argv)
   register_req<user_data_req>(NCCP_Operation_UserData);
   register_req<user_data_ts_req>(NCCP_Operation_UserDataTS);
 
-  register_req<crd_relay_req>(NCCP_Operation_CfgNode);
-  register_resp<crd_response>(NCCP_Operation_CfgNode);
+  register_req<configure_node_req>(NCCP_Operation_CfgNode);
+  register_req<end_configure_node_req>(NCCP_Operation_EndCfgNode);
+  //register_resp<crd_response>(NCCP_Operation_CfgNode);
 
   for(uint8_t op=64; op<=254; ++op)
   {

@@ -424,6 +424,7 @@ crd_component::do_initialize()
   }
 
   bool comp_failed = false;
+  std::string vmname;
 
   if(hasCP() && !testing)
   {
@@ -489,6 +490,26 @@ crd_component::do_initialize()
          }
       }
     }
+
+    end_configure_node* endconfig = new end_configure_node(exp, comp);
+    endconfig->set_connection(nccpconn);
+    if (!endconfig->send_and_wait())
+    {
+      write_log("crd_component::do_initialize(): putting " + name + " into repair after failing to get a response from the cp");
+      delete endconfig;
+      cleanup_reqs(true);
+      cleanup_links(true);
+      return;
+    }
+    crd_endconfig_response *endcfgresp = (crd_endconfig_response*)endconfig->get_response();
+    if(endcfgresp->getStatus() != NCCP_Status_Fine)
+    {
+      comp_failed = true;
+    }
+   
+    vmname = endcfgresp->getVMName().getCString();
+    delete endcfgresp;
+    delete endconfig;
   }
 
   component_response* resp;
@@ -499,9 +520,9 @@ crd_component::do_initialize()
   else
   {
     if (!testing)
-      resp = new component_response(compreq, cp, cp_port);
+      resp = new component_response(compreq, cp, cp_port, vmname);
     else
-      resp = new component_response(compreq, cp, cp_port, NCCP_Status_Testing);
+      resp = new component_response(compreq, cp, cp_port, vmname, NCCP_Status_Testing);
   }
   resp->send();
   delete resp;

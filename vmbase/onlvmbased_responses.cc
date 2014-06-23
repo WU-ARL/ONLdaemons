@@ -36,9 +36,13 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
 #include "onlvmbased_userdata.h"
+#include "onlvmbased_session.h"
+#include "onlvmbased_session_manager.h"
 #include "onlvmbased_globals.h"
 #include "onlvmbased_requests.h"
 #include "onlvmbased_responses.h"

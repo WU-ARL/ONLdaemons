@@ -27,6 +27,8 @@ EXEC = $(OBJDIR)/onlvmbased
 OBJS = $(OBJDIR)/onlvmbased_userdata.o \
        $(OBJDIR)/onlvmbased_responses.o \
        $(OBJDIR)/onlvmbased_requests.o \
+       $(OBJDIR)/onlvmbased_session.o \
+       $(OBJDIR)/onlvmbased_session_manager.o \
        $(OBJDIR)/onlvmbased_main.o
 
 all: ${OBJDIR} ${OBJS} ${EXEC}

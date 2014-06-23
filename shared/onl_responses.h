@@ -66,6 +66,22 @@ namespace onld
       uint32_t id;
   }; //class crd_hwresponse
 
+  class crd_endconfig_response : public crd_response
+  {
+    public:
+      crd_endconfig_response(uint8_t *mbuf, uint32_t size);
+      crd_endconfig_response(crd_request *req, NCCP_StatusType stat, std::string vmn);
+      crd_endconfig_response(crd_request *req, NCCP_StatusType stat);
+      virtual ~crd_endconfig_response();
+
+      virtual void parse();
+      virtual void write();
+      nccp_string getVMName() { return vmname;}
+
+    protected:
+      nccp_string vmname;
+  }; //class crd_endconfig_response
+
   class rli_response: public response
   {
     public:

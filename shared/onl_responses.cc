@@ -118,6 +118,38 @@ crd_hwresponse::write()
   buf << id;
 }
 
+
+crd_endconfig_response::crd_endconfig_response(uint8_t *mbuf, uint32_t size) : crd_response(mbuf, size)
+{
+}
+      
+crd_endconfig_response::crd_endconfig_response(crd_request *req, NCCP_StatusType stat) : crd_response(req, stat)
+{
+}
+      
+crd_endconfig_response::crd_endconfig_response(crd_request *req, NCCP_StatusType stat, std::string vmn) : crd_response(req, stat)
+{
+  vmname = vmn.c_str();
+}
+
+crd_endconfig_response::~crd_endconfig_response()
+{
+}
+
+void 
+crd_endconfig_response::parse()
+{
+  crd_response::parse();
+  buf >> vmname;
+}
+
+void 
+crd_endconfig_response::write()
+{
+  crd_response::write();
+  buf << vmname;
+}
+
 rli_response::rli_response(uint8_t *mbuf, uint32_t size): response(mbuf, size)
 {
 }

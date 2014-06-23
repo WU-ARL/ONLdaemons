@@ -246,8 +246,8 @@ namespace onld
       uint32_t real_port;//used for components that support virtual ports this is the real interface assigned
       uint32_t vlanid;
       uint32_t bandwidth; //in Mbits/s
-      nccp_string remote_type;
-      bool is_remote_router;
+      nccp_string remote_type; //component we're connected to's type
+      bool is_remote_router; //if the component we're connected to is a router
       nccp_string nexthop_ipaddr;
   }; // class node_info
 

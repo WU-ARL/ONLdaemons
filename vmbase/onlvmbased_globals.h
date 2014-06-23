@@ -24,6 +24,7 @@ namespace onlvmbased
   extern dispatcher *the_dispatcher;
   extern nccp_listener *rli_conn;
   extern nccp_connection *spec_conn;
+  extern session_manager *the_session_manager;
 
   extern bool using_spec_daemon;
   extern std::string user;

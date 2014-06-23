@@ -44,6 +44,15 @@ namespace onlbased
       virtual bool handle();
   }; // class refresh_req
 
+  class end_configure_node_req : public end_configure_node
+  {
+    public:
+      end_configure_node_req(uint8_t *mbuf, uint32_t size);
+      virtual ~end_configure_node_req();
+ 
+      virtual bool handle();
+  };//class end_configure_node_req
+
   static const NCCP_OperationType NCCP_Operation_UserData = 62;
   class user_data_req : public onld::rli_request
   {

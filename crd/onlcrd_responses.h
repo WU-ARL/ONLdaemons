@@ -86,7 +86,7 @@ namespace onlcrd
   {
     public: 
       component_response(rlicrd_request *req, NCCP_StatusType stat);
-      component_response(rlicrd_request *req, std::string node, uint32_t port, NCCP_StatusType stat=NCCP_Status_Fine);
+      component_response(rlicrd_request *req, std::string node, uint32_t port, std::string vmn, NCCP_StatusType stat=NCCP_Status_Fine);
       virtual ~component_response();
 
       virtual void write();
@@ -94,6 +94,7 @@ namespace onlcrd
     protected:
       nccp_string cp; 
       uint32_t cp_port;
+      nccp_string vmname; //only for RLI version > 8.0
   }; // class component_response
 
   class cluster_response : public rlicrd_response

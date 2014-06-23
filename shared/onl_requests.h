@@ -112,6 +112,7 @@ namespace onld
   }; //class refresh
 
   static const NCCP_OperationType NCCP_Operation_CfgNode = 36;
+  static const NCCP_OperationType NCCP_Operation_EndCfgNode = 37;
   static const NCCP_OperationType NCCP_Operation_LinkUp = 56; // cgw, do we really need this?
   class configure_node : public crd_request
   {
@@ -127,6 +128,15 @@ namespace onld
     protected:
       node_info node_conf;
   }; // class configure_node
+
+  class end_configure_node : public crd_request
+  {
+    public:
+      end_configure_node(uint8_t *mbuf, uint32_t size);
+      end_configure_node(experiment& e, component& c);
+      virtual ~end_configure_node();
+
+  }; // class end_configure_node
 
   class rli_request : public request
   {

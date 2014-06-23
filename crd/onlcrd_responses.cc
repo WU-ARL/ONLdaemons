@@ -163,10 +163,11 @@ rlicrd_response::write()
   buf << comp;
 }
 
-component_response::component_response(rlicrd_request *req, std::string node, uint32_t port, NCCP_StatusType stat): rlicrd_response(req, stat)
+component_response::component_response(rlicrd_request *req, std::string node, uint32_t port, std::string vmn, NCCP_StatusType stat): rlicrd_response(req, stat)
 {
   cp = node.c_str();
   cp_port = port;
+  vmname = vmn.c_str();
 }
 
 component_response::component_response(rlicrd_request *req, NCCP_StatusType stat): rlicrd_response(req, stat)
@@ -185,6 +186,8 @@ component_response::write()
 
   buf << cp;
   buf << cp_port;
+  if (get_request()->get_version() > 0x80)
+    buf << vmname;
 }
 
 cluster_response::cluster_response(rlicrd_request *req, NCCP_StatusType stat): rlicrd_response(req, stat)

@@ -264,6 +264,26 @@ refresh_req::handle()
 
   return true;
 }
+end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size): end_configure_node(mbuf, size)
+{
+}
+
+end_configure_node_req::~end_configure_node_req()
+{
+}
+
+bool
+end_configure_node_req::handle()
+{
+  write_log("end_configure_node_req::handle()");
+
+  //response fills in vm name
+  crd_endconfig_response* resp = new crd_endconfig_response(this, NCCP_Status_Fine);//just need to ack receipt really for vms
+  resp->send();
+  delete resp;
+
+  return true;
+}
 
 user_data_req::user_data_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 { 

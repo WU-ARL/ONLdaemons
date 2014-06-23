@@ -41,9 +41,13 @@
 #include <arpa/inet.h>
 #include <pwd.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
 #include "onlvmbased_userdata.h"
+#include "onlvmbased_session.h"
+#include "onlvmbased_session_manager.h"
 #include "onlvmbased_globals.h"
 
 using namespace onlvmbased;

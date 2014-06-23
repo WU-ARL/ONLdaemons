@@ -258,6 +258,20 @@ configure_node::write()
   buf << node_conf;
 }
 
+end_configure_node::end_configure_node(uint8_t *mbuf, uint32_t size): crd_request(mbuf, size)
+{ 
+}
+
+end_configure_node::end_configure_node(experiment& e, component& c): crd_request(e,c)
+{
+  op = NCCP_Operation_CfgNode;
+  periodic_message = false;
+}
+
+end_configure_node::~end_configure_node()
+{ 
+}
+
 rli_request::rli_request(uint8_t *mbuf, uint32_t size): request(mbuf, size)
 {
 }

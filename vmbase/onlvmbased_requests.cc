@@ -38,9 +38,13 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
 #include "onlvmbased_userdata.h"
+#include "onlvmbased_session.h"
+#include "onlvmbased_session_manager.h"
 #include "onlvmbased_globals.h"
 #include "onlvmbased_requests.h"
 #include "onlvmbased_responses.h"
@@ -59,154 +63,35 @@ bool
 start_experiment_req::handle()
 {
   write_log("start_experiment_req::handle()");
+  NCCP_StatusType status = NCCP_Status_Fine;
 
+  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
+
+  if (sess_ptr)
+    {
+      std::string ip_str = ipaddr.getCString();
+      if (!sess_ptr->addVM(comp, ip_str, cores, memory))
+	{
+	  status = NCCP_Status_Failed;		
+	  write_log("start_experiment_req::handle failed to add VM to session");
+	}
+    }
+  else 
+    {
+      status = NCCP_Status_Failed;		
+      write_log("start_experiment_req::handle failed to get session ptr for experiment");
+    }
   user = exp.getExpInfo().getUserName();
 
-  std::string cmd = "/bin/mkdir -p /users";
-  //std::string cmd = "/bin/mkdir -p /users/" + user;
-  if(system_cmd(cmd) != 0)
-  {
-    write_log("start_experiment_req::handle(): warning: user's home area was not mounted");
-  }
-  else
-  {
-    cmd = "/bin/mount onlsrv:/users /users";
-    //cmd = "/bin/mount onlsrv:/users/" + user + " /users/" + user;
-    if(system_cmd(cmd) != 0)
-    {
-      write_log("start_experiment_req::handle(): warning: user's home area was not mounted");
-    }
-  }
+  //std::string cmd = "/bin/mkdir -p /users";
+  // write_log("start_experiment_req::handle(): request vm");
   
-  NCCP_StatusType status = NCCP_Status_Fine;
-  if(!init_params.empty())
-  {
-    param p = init_params.front();
-    if(p.getType() == string_param && p.getString() != "")
-    {
-      write_log("start_experiment_req::handle(): got specialization daemon: " + p.getString());
-      init_params.pop_front();
-      using_spec_daemon = true;
-      if(!start_specialization_daemon(p.getString()))
-      {
-        status = NCCP_Status_Failed;
-      }
-      else
-      {
-        if(!connect_to_specialization_daemon())
-        {
-          status = NCCP_Status_Failed;
-        }
-      }
-    }
-  }
 
   crd_response* resp = new crd_response(this, status);
   resp->send();
   delete resp;
 
   return true;
-}
-
-bool
-start_experiment_req::start_specialization_daemon(std::string specd)
-{
-  struct stat specd_stat;
-  if(stat(specd.c_str(), &specd_stat) != 0)
-  {
-    return false;
-  }
-
-  write_log("start_experiment_req::start_specialization_daemon passing user: " + user);
-  if(fork() == 0)
-  {    
-    struct passwd *pwent = NULL;
-    if (!root_only) pwent = getpwnam(user.c_str());
-    if (pwent == NULL)
-      {
-        write_log("start_experiment_req::start_specialization_daemon failed couldn't get passwd entry for " + user);
-        //exit(-1);
-      }
-    else
-      {
-        if (setgid(pwent->pw_gid) < 0)
-          {
-            write_log("start_experiment_req::start_specialization_daemon failed set group id for " + user);
-            //exit(-1);
-          }
-        if (setuid(pwent->pw_uid) < 0)
-          {
-            write_log("start_experiment_req::start_specialization_daemon failed set user id for " + user);
-            //exit(-1);
-          }
-        else
-          {
-            char home_path[255];
-            sprintf(home_path, "/users/%s", user.c_str());
-            setenv("HOME", home_path, 1);
-          }
-      }
-
-    //figure out the number of arguments
-    int argc = 1;
-    int pos = 0;
-    while(pos != std::string::npos)
-      {
-	pos = specd.find(" ", pos);
-	++argc;
-	if (pos != std::string::npos)
-	  ++pos;
-      }
-    const char* argv[(argc+3)];
-    pos = 0;
-    int prev_pos = 0;
-    int i = 0;
-    int len = 0;
-    for (i = 0; i < argc; ++i)
-      {
-	pos = specd.find(" ", pos);
-	len = pos - prev_pos;
-	argv[i] = specd.substr(prev_pos, len).c_str();
-	if (pos != std::string::npos)
-	  prev_pos = pos + 1;
-      }
-    argv[argc] = "--onluser";
-    argv[argc+1] = user.c_str();
-    argv[argc+2] = (char*)NULL;
-    execv(argv[0], (char* const*)argv);
-    
-    //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
-    exit(-1);
-  }
-  return true;
-}
-
-bool
-start_experiment_req::connect_to_specialization_daemon()
-{
-  sleep(2);
-  for(int i=0; i<5; ++i)
-  {
-    try
-    {
-      spec_conn = new nccp_connection("localhost", Default_ND_Port);
-      spec_conn->receive_messages(true);
-    }
-    catch(std::exception& e)
-    {
-      if (spec_conn != NULL) delete spec_conn; //JP added 4/2/12
-      spec_conn = NULL;
-      std::string e_msg(e.what());
-      write_log("start_experiment_req::connect_to_specialization_daemon exception:" + e_msg);
-    }
-    write_log("start_experiment_req::connect_to_specialization_daemon");
-    if(spec_conn != NULL) { return true; }
-    
-    sleep(5);
-  }
-  write_log("start_experiment_req::connect_to_specialization_daemon failed");
-
-  return false;
 }
 
 int
@@ -230,37 +115,92 @@ refresh_req::~refresh_req()
 bool
 refresh_req::handle()
 {
-  write_log("refresh_req::handle: about to send Fine response");
+  write_log("refresh_req::handle: about to send Fine response removing vm");
+  
+  if (!the_session_manager->deleteVM(comp, exp.getExpInfo()))
+    {	
+      write_log("refresh_req::handle failed to get session ptr for experiment");
+    }
 
   crd_response* resp = new crd_response(this, NCCP_Status_Fine);
   resp->send();
   delete resp;
 
-  // jdd: added 12/06/2010 to give the response time to get out before we reboot
-  sleep(2);
+  return true;
+}
 
-  if (!testing)
-    system("reboot");
-  else //skip the reboot and send i_am_up
-    {  
-      nccp_connection* crd_conn = NULL;
-      i_am_up* upmsg = NULL;
-      try
+configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): configure_node(mbuf, size)
+{
+}
+
+configure_node_req::~configure_node_req()
+{
+}
+
+bool
+configure_node_req::handle()
+{
+  write_log("configure_node_req::handle()");
+
+  NCCP_StatusType status = NCCP_Status_Fine;
+  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
+
+  if (sess_ptr)
+    {
+      if (!sess_ptr->configureVM(comp, node_conf))
 	{
-	  // cgw, read file to get crd host/port?
-	  //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
-	  crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
-	  i_am_up* upmsg = new i_am_up();
-	  upmsg->set_connection(crd_conn);
-	  upmsg->send();
+	  status = NCCP_Status_Failed;
+	  write_log("configure_node_req::handle() failed to configure vm");
 	}
-      catch(std::exception& e)
-	{
-	  write_log("refresh_req::handle: warning: could not connect CRD");
-	}
-      if(upmsg) delete upmsg;
-      if(crd_conn) delete crd_conn;
     }
+  else
+    {
+      status = NCCP_Status_Failed;
+      write_log("configure_node_req::handle() failed to get session pointer");
+    }
+  //conf->set_port_info(node_conf.getPort(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getNHIPAddr());
+
+  crd_response* resp = new crd_response(this, status);
+  resp->send();
+  delete resp;
+
+  return true;
+}
+
+end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size): end_configure_node(mbuf, size)
+{
+}
+
+end_configure_node_req::~end_configure_node_req()
+{
+}
+
+bool
+end_configure_node_req::handle()
+{
+  write_log("end_configure_node_req::handle()");
+
+  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
+
+  NCCP_StatusType status = NCCP_Status_Fine;
+  vm_ptr vmp = sess_ptr->getVM(comp);
+  if (sess_ptr)
+    {
+      if (!the_session_manager->startVM(sess_ptr, vmp))
+	{
+	  status = NCCP_Status_Failed;
+	  write_log("end_configure_node_req::handle() failed to start vm");
+	}
+    }
+  else
+    {
+      status = NCCP_Status_Failed;
+      write_log("end_configure_node_req::handle() failed to get session pointer");
+    }
+  //response fills in vm name
+  crd_endconfig_response* resp = new crd_endconfig_response(this, status, vmp->name);
+  resp->send();
+  delete resp;
 
   return true;
 }
