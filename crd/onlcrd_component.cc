@@ -493,22 +493,27 @@ crd_component::do_initialize()
 
     end_configure_node* endconfig = new end_configure_node(exp, comp);
     endconfig->set_connection(nccpconn);
+    bool no_endconfig = true;
     if (!endconfig->send_and_wait())
     {
-      write_log("crd_component::do_initialize(): putting " + name + " into repair after failing to get a response from the cp");
-      delete endconfig;
-      cleanup_reqs(true);
-      cleanup_links(true);
-      return;
+      write_log("crd_component::do_initialize(): putting " + name + " into repair after failing to get a response from the cp for endconfig");
+      //delete endconfig;
+      //cleanup_reqs(true);
+      //cleanup_links(true);
+      //return;
     }
-    crd_endconfig_response *endcfgresp = (crd_endconfig_response*)endconfig->get_response();
-    if(endcfgresp->getStatus() != NCCP_Status_Fine)
+    else
     {
-      comp_failed = true;
+      crd_endconfig_response *endcfgresp = (crd_endconfig_response*)endconfig->get_response();
+      if(endcfgresp->getStatus() != NCCP_Status_Fine)
+	{
+	  write_log("crd_component::do_initialize(): endconfig failed for " + name );
+	  comp_failed = true;
+	}
+      
+      vmname = endcfgresp->getVMName().getCString();
+      delete endcfgresp;
     }
-   
-    vmname = endcfgresp->getVMName().getCString();
-    delete endcfgresp;
     delete endconfig;
   }
 

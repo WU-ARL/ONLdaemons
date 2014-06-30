@@ -98,6 +98,19 @@ session_manager::getSession(experiment_info& einfo)
   return no_ptr;
 }
 
+session_ptr 
+session_manager::addSession(experiment_info& einfo)
+{
+  session_ptr sptr = getSession(einfo);
+  if (!sptr)
+    {
+      session_ptr tmp_ptr(new session(einfo));
+      sptr = tmp_ptr;
+      active_sessions.push_back(sptr);
+    }
+  return sptr;
+}
+
 bool 
 session_manager::startVM(session_ptr sptr, vm_ptr vmp)
 {
@@ -125,6 +138,7 @@ session_manager::assignVM(vm_ptr vmp)//assigns control addr and vm name for vm
        if (!vnmit->second)
 	{
 	  vmp->name = vnmit->first;
+	  vnmit->second = true;
 	  return true;
 	}
     }

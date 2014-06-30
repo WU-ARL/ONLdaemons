@@ -50,6 +50,18 @@
 using namespace onlvmbased;
 
 
+vminterface_ptr
+getInterface(vm_ptr vm, node_info& ninfo)
+{
+  std::list<vminterface_ptr>::iterator vmiit;
+  vminterface_ptr noptr;
+  for (vmiit = vm->interfaces.begin(); vmiit != vm->interfaces.end(); ++vmiit)
+    {
+      if ((*vmiit)->ninfo.getPort() == ninfo.getPort()) return (*vmiit);
+    }
+  return noptr;
+}
+
 session::session(experiment_info& ei) throw(std::runtime_error)
 {
   expInfo = ei;
@@ -75,7 +87,10 @@ session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
       vm->cores = crs;
       vm->memory = mem;
       if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
-	rtn_vm = vm;
+	{
+	  rtn_vm = vm;
+	  vms.push_back(vm);
+	}
     }
   return rtn_vm;
 }
@@ -133,11 +148,14 @@ session::configureVM(component& c, node_info& ninfo)
       write_log("session::configureVM failed to find vm for comp " + int2str(c.getID()) );
       return false;
     }
-  vminterface_ptr vmi(new vminterface_info());
-  vmi->ninfo = ninfo;
-  vmi->vm = vm;
-  vm->interfaces.push_back(vmi);
-
+  vminterface_ptr tmp_vmi = getInterface(vm, ninfo);
+  if (!tmp_vmi)
+    {
+      vminterface_ptr vmi(new vminterface_info());
+      vmi->ninfo = ninfo;
+      vmi->vm = vm;
+      vm->interfaces.push_back(vmi);
+    }
   return true;
 }
       
@@ -145,6 +163,7 @@ vm_ptr
 session::getVM(component& c)
 {
   std::list<vm_ptr>::iterator vmit;
+  
   vm_ptr noptr;
   for (vmit = vms.begin(); vmit != vms.end(); ++vmit)
     {

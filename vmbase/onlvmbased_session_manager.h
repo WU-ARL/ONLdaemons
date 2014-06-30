@@ -31,6 +31,7 @@ namespace onlvmbased
       bool assignVM(vm_ptr vmp);//assigns control addr and vm name for vm
       bool deleteVM(component& c, experiment_info& einfo);
       bool releaseVMname(std::string nm);
+      session_ptr addSession(experiment_info& einfo);
   private:
       std::list<session_ptr> active_sessions;
       std::map<std::string, bool> vmnames; //list of available vm names marked true if in use

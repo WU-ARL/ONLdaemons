@@ -65,7 +65,7 @@ start_experiment_req::handle()
   write_log("start_experiment_req::handle()");
   NCCP_StatusType status = NCCP_Status_Fine;
 
-  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
+  session_ptr sess_ptr = the_session_manager->addSession(exp.getExpInfo());
 
   if (sess_ptr)
     {
@@ -116,8 +116,43 @@ bool
 refresh_req::handle()
 {
   write_log("refresh_req::handle: about to send Fine response removing vm");
-  
-  if (!the_session_manager->deleteVM(comp, exp.getExpInfo()))
+
+  if (exp.getExpInfo().getID() == "") //this is the crd sending a reboot to the machine
+    {
+      write_log("refresh_req::handle: about to send Fine response");
+
+      crd_response* resp = new crd_response(this, NCCP_Status_Fine);
+      resp->send();
+      delete resp;
+
+      // jdd: added 12/06/2010 to give the response time to get out before we reboot
+      sleep(2);
+
+      if (!testing)
+	system("reboot");
+      else //skip the reboot and send i_am_up
+	{  
+	  nccp_connection* crd_conn = NULL;
+	  i_am_up* upmsg = NULL;
+	  try
+	    {
+	      // cgw, read file to get crd host/port?
+	      //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
+	      crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
+	      i_am_up* upmsg = new i_am_up();
+	      upmsg->set_connection(crd_conn);
+	      upmsg->send();
+	    }
+	  catch(std::exception& e)
+	    {
+	      write_log("refresh_req::handle: warning: could not connect CRD");
+	    }
+	  if(upmsg) delete upmsg;
+	  if(crd_conn) delete crd_conn;
+	}
+      return true;
+    }
+  else if (!the_session_manager->deleteVM(comp, exp.getExpInfo()))
     {	
       write_log("refresh_req::handle failed to get session ptr for experiment");
     }

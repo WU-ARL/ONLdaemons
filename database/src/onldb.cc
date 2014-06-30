@@ -1363,7 +1363,7 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
 
       if(abs_this_port == res_this_port && (res_this_cap <= 0 || (res_this_cap == abs_this_cap)))
       {
-        if(abs_other_end->type != res_other_end->type) return false;
+        if(abs_other_end->type != res_other_end->type && !(abs_other_end->type == "vm" && res_other_end->has_vmsupport)) return false;
         if(abs_other_port != res_other_port) return false;
 
         (*abs_lit)->marked = true;

@@ -151,6 +151,7 @@ int main(int argc, char** argv)
   register_resp<crd_response>(NCCP_Operation_EndExperiment);
   register_resp<crd_response>(NCCP_Operation_Refresh);
   register_resp<crd_response>(NCCP_Operation_CfgNode);
+  register_resp<crd_endconfig_response>(NCCP_Operation_EndCfgNode);
 
   // done refreshing command from nodes
   register_req<i_am_up_req>(NCCP_Operation_IAmUp);
