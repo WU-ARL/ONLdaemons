@@ -21,6 +21,15 @@
 
 namespace onlvmbased
 {
+  typedef struct _vmname_info
+  {
+    std::string name;
+    int index;
+    bool in_use;
+  } vmname_info;
+
+  typedef boost::shared_ptr<vmname_info> vmname_ptr;
+
   class session_manager
   {
   public:
@@ -34,7 +43,10 @@ namespace onlvmbased
       session_ptr addSession(experiment_info& einfo);
   private:
       std::list<session_ptr> active_sessions;
-      std::map<std::string, bool> vmnames; //list of available vm names marked true if in use
+      std::map<std::string, vmname_info> vmnames; //list of available vm names marked true if in use
+      pthread_mutex_t vmname_lock;
+      pthread_mutex_t session_lock;
+      int getVMIndex(std::string vmnm);
   };
 };
 

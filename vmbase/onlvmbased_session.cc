@@ -85,7 +85,8 @@ session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
       vm->comp = c;
       vm->expaddr = eaddr;
       vm->cores = crs;
-      vm->memory = mem;
+      int tmp_mem = (int)(mem/1000) * 1024;
+      vm->memory = tmp_mem;
       if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
 	{
 	  rtn_vm = vm;
@@ -128,6 +129,16 @@ session::removeVM(vm_ptr vmp)
 	    }
 	}
       //kill vm and release name for reuse
+      //run kill script
+      std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
+      write_log("session::removeVM: system(" + cmd + ")");
+      if(system(cmd.c_str()) != 0)
+      {
+	write_log("session::removeVM: start script failed");
+	//may need to clean up something here
+	return false;
+      }
+      
       if (!the_session_manager->releaseVMname(vmp->name))
 	{
 	  write_log("session::removeVM failed vm " + vmp->name + " comp " + int2str(vmp->comp.getID()) );
