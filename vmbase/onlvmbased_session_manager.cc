@@ -112,10 +112,10 @@ session_manager::getSession(experiment_info& einfo)
 session_ptr 
 session_manager::addSession(experiment_info& einfo)
 {
-  autoLockDebug slock(session_lock, "session_manager::addSession(): session_lock");
   session_ptr sptr = getSession(einfo);
   if (!sptr)
     {
+      autoLockDebug slock(session_lock, "session_manager::addSession(): session_lock");
       session_ptr tmp_ptr(new session(einfo));
       sptr = tmp_ptr;
       active_sessions.push_back(sptr);
@@ -143,14 +143,20 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
       vlan->interfaces.push_back((*vmi_it));
       write_log("    add interface:" + int2str((*vmi_it)->ninfo.getPort()) + " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) 
 		+  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
+      write_log("session_manager::startVM: system(" + cmd + ")");
+      if(system(cmd.c_str()) != 0)
+	{
+	  write_log("session_manager::startVM: setup_vlan.sh failed");
+	  return false;
+	}
       dip_fs << (*vmi_it)->ninfo.getIPAddr() << std::endl;
       vlan_fs << int2str((*vmi_it)->ninfo.getVLan()) << std::endl;
     }
   dip_fs.close();
   vlan_fs.close();
-  int vm_ndx = getVMIndex(vmp->name);
+  //int vm_ndx = getVMIndex(vmp->name);
   //run start VM script
-  std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /users/" + sptr->getExpInfo().getUserName() + "/.ssh/id_rsa.pub /KVM_Images/img/ubuntu_12.04_template.img " + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + int2str(vm_ndx);
+  cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name;
 
   write_log("session_manager::startVM: system(" + cmd + ")");
   if(system(cmd.c_str()) != 0)
