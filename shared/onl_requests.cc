@@ -311,8 +311,8 @@ start_vm::parse()
 void
 start_vm::write()
 {
-	request::write();
+  request::write();
 
-	buf << name;
+  buf << name;
 }
 

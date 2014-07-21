@@ -31,17 +31,17 @@ OBJS = $(OBJDIR)/host_configuration.o \
 all: ${OBJDIR} ${OBJS} ${EXEC}
 
 ${OBJDIR} :
-	mkdir ${OBJDIR}
+  mkdir ${OBJDIR}
 
 $(OBJS) : ${OBJDIR}/%.o : %.cc
-	${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
+  ${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
 
 $(EXEC) : ${OBJDIR}/% : ${OBJS}
-	${CXX} -o $@ ${OBJS} ${LIBS}
-	chmod 0755 $@
+  ${CXX} -o $@ ${OBJS} ${LIBS}
+  chmod 0755 $@
 
 install:
-	scp ${EXEC} root@onlsrv:/users/onl/pc12core
+  scp ${EXEC} root@onlsrv:/users/onl/pc12core
 
 clean:
-	rm -f ${OBJDIR}/*
+  rm -f ${OBJDIR}/*

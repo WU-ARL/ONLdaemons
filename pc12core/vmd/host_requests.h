@@ -62,7 +62,7 @@ namespace host
       uint32_t mask;
   }; // class delete_route_req
 
-	//ard: start of vm code
+  //ard: start of vm code
   class start_vm_req : public start_vm
   {
     public:

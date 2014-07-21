@@ -45,7 +45,7 @@
 using namespace host;
 
 configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): 
-	configure_node(mbuf, size)
+  configure_node(mbuf, size)
 {
 }
 
@@ -57,14 +57,14 @@ bool
 configure_node_req::handle()
 {
   write_log("configure_node_req::handle() + port:" + int2str(node_conf.getPort()) + 
-						" vlan:" + int2str(node_conf.getVLan()));
+            " vlan:" + int2str(node_conf.getVLan()));
 
-	//ard: need to do the proper configuration information here.
+  //ard: need to do the proper configuration information here.
   
 
-	//ard: also probably need to store this somewhere globally
-	// equal operator for node info defined
-	
+  //ard: also probably need to store this somewhere globally
+  // equal operator for node info defined
+  
 
   crd_response* resp = new crd_response(this, NCCP_Status_Fine);
   resp->send();
@@ -74,7 +74,7 @@ configure_node_req::handle()
 }
 
 end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size) : 
-	rli_request(mbuf, size)
+  rli_request(mbuf, size)
 {
 }
 
@@ -92,20 +92,20 @@ end_configure_node_req::handle()
   NCCP_StatusType status = NCCP_Status_Fine;
   vm_ptr vmp = sess_ptr->getVM(comp);
   if (sess_ptr)
-	{
-		//ard: start vm here, not sure if we'll actually use session manager 
-		//or just plug in Jason's scripts right here.
-		if (!the_session_manager->startVM(sess_ptr, vmp))
-		{
-			status = NCCP_Status_Failed;
-			write_log("end_configure_node_req::handle() failed to start vm");
-		}
-	}
+  {
+    //ard: start vm here, not sure if we'll actually use session manager 
+    //or just plug in Jason's scripts right here.
+    if (!the_session_manager->startVM(sess_ptr, vmp))
+    {
+      status = NCCP_Status_Failed;
+      write_log("end_configure_node_req::handle() failed to start vm");
+    }
+  }
   else
-	{
-		status = NCCP_Status_Failed;
-		write_log("end_configure_node_req::handle() failed to get session pointer");
-	}
+  {
+    status = NCCP_Status_Failed;
+    write_log("end_configure_node_req::handle() failed to get session pointer");
+  }
 
   //response fills in vm name
   crd_endconfig_response* resp = new crd_endconfig_response(this, status, vmp->name);
@@ -116,7 +116,7 @@ end_configure_node_req::handle()
 }
 
 start_vm_req::start_vm_req(uint8_t *mbuf, uint32_t size) : 
-	rli_request(mbuf, size)
+  rli_request(mbuf, size)
 {
 }
 

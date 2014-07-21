@@ -71,11 +71,11 @@ int main()
   }
 
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
-	register_req<start_vm_req>(NCCP_Operation_startVM);
+  register_req<start_vm_req>(NCCP_Operation_startVM);
 
   register_req<add_route_req>(HOST_AddRoute);
   register_req<delete_route_req>(HOST_DeleteRoute);
-	register_req<configure_vm_req>(HOST_ConfigureVM);
+  register_req<configure_vm_req>(HOST_ConfigureVM);
 
   rli_conn->receive_messages(false);
 
