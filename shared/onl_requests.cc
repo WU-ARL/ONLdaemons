@@ -290,3 +290,29 @@ rli_request::parse()
   buf >> version;
   buf >> params;
 }
+
+//ard: Start of vm code
+start_vm::start_vm(uint8_t *mbuf, uint32_t size): request(mbuf, size)
+{
+}
+
+start_vm::~start_vm()
+{
+}
+
+void
+start_vm::parse()
+{
+  request::parse();
+
+  buf >> name;
+}
+
+void
+start_vm::write()
+{
+  request::write();
+
+  buf << name;
+}
+
