@@ -40,10 +40,10 @@
 
 #include "shared.h"
 
-#include "host_configuration.h"
-#include "host_globals.h"
+#include "vmd_configuration.h"
+#include "vmd_globals.h"
 
-using namespace host;
+using namespace vmd;
 
 configuration::configuration()
 {

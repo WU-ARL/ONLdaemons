@@ -15,10 +15,10 @@
  *    limitations under the License.
  */
 
-#ifndef _HOST_CONFIGURATION_H
-#define _HOST_CONFIGURATION_H
+#ifndef _VMD_CONFIGURATION_H
+#define _VMD_CONFIGURATION_H
 
-namespace host
+namespace vmd
 {
   typedef struct _port_info 
   {
@@ -49,4 +49,4 @@ namespace host
   };
 };
 
-#endif // _HOST_CONFIGURATION_H
+#endif // _VMD_CONFIGURATION_H

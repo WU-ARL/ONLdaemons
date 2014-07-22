@@ -15,14 +15,14 @@
  *    limitations under the License.
  */
 
-#ifndef _HOST_GLOBALS_H
-#define _HOST_GLOBALS_H
+#ifndef _VMD_GLOBALS_H
+#define _VMD_GLOBALS_H
 
-namespace host
+namespace vmd
 {
   extern dispatcher* the_dispatcher;
   extern nccp_listener* rli_conn;
   extern configuration* conf;
-}; // namespace host
+}; // namespace vmd
 
-#endif // _HOST_GLOBALS_H
+#endif // _VMD_GLOBALS_H

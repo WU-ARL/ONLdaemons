@@ -15,10 +15,10 @@
  *    limitations under the License.
  */
 
-#ifndef _HOST_REQUESTS_H
-#define _HOST_REQUESTS_H
+#ifndef _VMD_REQUESTS_H
+#define _VMD_REQUESTS_H
 
-namespace host
+namespace vmd
 {
   class configure_node_req : public configure_node
   {
@@ -29,7 +29,7 @@ namespace host
       virtual bool handle();
   }; // class configure_node_req
 
-  static const NCCP_OperationType HOST_AddRoute = 73;
+  static const NCCP_OperationType VMD_AddRoute = 73;
   class add_route_req : public rli_request
   {
     public:
@@ -47,7 +47,7 @@ namespace host
       uint32_t stats_index;
   }; // class add_route_req
 
-  static const NCCP_OperationType HOST_DeleteRoute = 75;
+  static const NCCP_OperationType VMD_DeleteRoute = 75;
   class delete_route_req : public rli_request
   {
     public:
@@ -82,4 +82,4 @@ namespace host
   }; // class end_configure_node_req
 };
 
-#endif // _HOST_REQUESTS_H
+#endif // _VMD_REQUESTS_H

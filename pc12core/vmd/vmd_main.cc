@@ -37,11 +37,11 @@
 
 #include "shared.h"
 
-#include "host_configuration.h"
-#include "host_globals.h"
-#include "host_requests.h"
+#include "vmd_configuration.h"
+#include "vmd_globals.h"
+#include "vmd_requests.h"
 
-namespace host
+namespace vmd
 {
   dispatcher* the_dispatcher;
   nccp_listener* rli_conn;
@@ -49,11 +49,11 @@ namespace host
   configuration* conf;
 };
 
-using namespace host;
+using namespace vmd;
 
 int main()
 {
-  log = new log_file("/tmp/host.log");
+  log = new log_file("/tmp/vmd.log");
   the_dispatcher = dispatcher::get_dispatcher();
   rli_conn = NULL;
   conf = new configuration();
@@ -73,9 +73,9 @@ int main()
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
   register_req<start_vm_req>(NCCP_Operation_startVM);
 
-  register_req<add_route_req>(HOST_AddRoute);
-  register_req<delete_route_req>(HOST_DeleteRoute);
-  register_req<configure_vm_req>(HOST_ConfigureVM);
+  register_req<add_route_req>(VMD_AddRoute);
+  register_req<delete_route_req>(VMD_DeleteRoute);
+  register_req<configure_vm_req>(VMD_ConfigureVM);
 
   rli_conn->receive_messages(false);
 
