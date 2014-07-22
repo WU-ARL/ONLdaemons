@@ -46,6 +46,8 @@ then
 	ip route add 10.0.0.0/8 dev br_control table vm_in
 fi
 
+ifconfig data0 up
+
 lines=$(wc -l < $1)
 count=1
 while [ $count -le $lines ]

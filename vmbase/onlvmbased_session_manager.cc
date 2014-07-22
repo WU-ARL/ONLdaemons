@@ -137,26 +137,34 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
   //write data_ips to file /KVM_Images/scripts/lists/<vmp->name>_dataip.txt
   std::string dipnm_str = "/KVM_Images/scripts/lists/" + vmp->name + "_dataip.txt";
   std::ofstream dip_fs(dipnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
+  //std::string cmd = "/KVM_Images/scripts/setup_networking.sh";
+  //write_log("session_manager::startVM: system(" + cmd + ")");
+  //if(system(cmd.c_str()) != 0)
+  //{
+  //  write_log("session_manager::startVM: setup_networking.sh failed");
+  //  return false;
+  //}
   for (vmi_it = vmp->interfaces.begin(); vmi_it != vmp->interfaces.end(); ++vmi_it)
     {
       vlan_ptr vlan = sptr->getVLan((*vmi_it)->ninfo.getVLan());
       vlan->interfaces.push_back((*vmi_it));
       write_log("    add interface:" + int2str((*vmi_it)->ninfo.getPort()) + " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) 
 		+  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
-      write_log("session_manager::startVM: system(" + cmd + ")");
-      if(system(cmd.c_str()) != 0)
-	{
-	  write_log("session_manager::startVM: setup_vlan.sh failed");
-	  return false;
-	}
+      //cmd = "/KVM_Images/scripts/setup_vlan.sh " + int2str((*vmi_it)->ninfo.getVLan()) + " " + int2str((*vmi_it)->ninfo.getRealPort());
+      //write_log("session_manager::startVM: system(" + cmd + ")");
+      //if(system(cmd.c_str()) != 0)
+      //{
+      //  write_log("session_manager::startVM: setup_vlan.sh failed");
+      //  return false;
+      //}
       dip_fs << (*vmi_it)->ninfo.getIPAddr() << std::endl;
-      vlan_fs << int2str((*vmi_it)->ninfo.getVLan()) << std::endl;
+      vlan_fs << (*vmi_it)->ninfo.getVLan() << " " << (*vmi_it)->ninfo.getRealPort() << std::endl;
     }
   dip_fs.close();
   vlan_fs.close();
   //int vm_ndx = getVMIndex(vmp->name);
   //run start VM script
-  cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name;
+  std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name;
 
   write_log("session_manager::startVM: system(" + cmd + ")");
   if(system(cmd.c_str()) != 0)

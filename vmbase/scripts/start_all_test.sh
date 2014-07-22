@@ -1,0 +1,25 @@
+#!/bin/bash
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 1 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 2 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 3 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 4 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 5 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 6 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 7 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 8 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 9 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 10 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 11 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 12 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 13 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 14 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 15 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 16 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 17 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 18 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 19 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 20 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 21 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 22 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 23 &
+sudo ./start_new_vm.sh jp /KVM_Images/img/ubuntu_12.04_template.qcow2 1 1024 0 vlan_null.txt data_ip_null.txt 24 &

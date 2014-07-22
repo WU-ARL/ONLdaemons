@@ -5,13 +5,14 @@ then
   exit 1
   fi
 
-  if [ $# -ne 1 ] 
+  if [ $# -ne 2 ] 
   then
-   echo "Usage: $0 <vlan_num>"
+   echo "Usage: $0 <vlan_num> <port>"
     exit 1
     fi
 
 vlan_num=$1
+vlan_port=$2
 #I'm particular about this script running correctly, so this one
 #does a lot of error checking to avoid the machine crashing.
 
@@ -19,7 +20,13 @@ vlan_num=$1
 is_numeric=$(echo $vlan_num | grep -c "[^0-9]")
 if [ $is_numeric -gt 0 ]
 then
-	echo "Argument should be integer only"
+	echo "vlan should be integer only"
+	exit 1
+fi
+is_numeric=$(echo $port | grep -c "[^0-9]")
+if [ $is_numeric -gt 0 ]
+then
+	echo "port should be integer only"
 	exit 1
 fi
 ifconfig | grep -o "vlan[0-9]\+" > cur_vlans.txt
@@ -31,13 +38,13 @@ then
 fi
 
 #Vlan does not exist, perform the setup
-vlan_port=$(./get_vlan_port.sh $vlan_num)
-if [ $? -eq 1 ]
-then
- echo "Error: vlan does not exist"
- exit 1
-fi
-vlan_interface=$(echo "data$(./get_vlan_port.sh $vlan_num)")
+#vlan_port=$(./get_vlan_port.sh $vlan_num)
+#if [ $? -eq 1 ]
+#then
+# echo "Error: vlan does not exist"
+# exit 1
+#fi
+vlan_interface=$(echo "data$vlan_port")
 
 modprobe 8021q
 vconfig add $vlan_interface $vlan_num

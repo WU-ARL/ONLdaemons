@@ -115,6 +115,7 @@ session::removeVM(vm_ptr vmp)
 		+ ",interfaces" + int2str(vmp->interfaces.size()) + ")");
       
       std::list<vminterface_ptr>::iterator vmi_it;
+      std::string cmd;
       //remove from bridges
       for (vmi_it = vmp->interfaces.begin(); vmi_it != vmp->interfaces.end(); ++vmi_it)
 	{
@@ -124,17 +125,23 @@ session::removeVM(vm_ptr vmp)
 		    +  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
 	  if (vlan->interfaces.empty())
 	    {
+	      cmd = "/KVM_Images/scripts/cleanup_vlan.sh " + int2str(vlan->id);
+	      if(system(cmd.c_str()) != 0)
+		{
+		  write_log("session::removeVM: cleanup_vlan script failed");
+		  //may need to clean up something here
+		}
 	      write_log("     remove vlan:" + int2str(vlan->id));
 	      vlans.remove(vlan);
 	    }
 	}
       //kill vm and release name for reuse
       //run kill script
-      std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
+      cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
       write_log("session::removeVM: system(" + cmd + ")");
       if(system(cmd.c_str()) != 0)
       {
-	write_log("session::removeVM: start script failed");
+	write_log("session::removeVM: undefine script failed");
 	//may need to clean up something here
 	return false;
       }
