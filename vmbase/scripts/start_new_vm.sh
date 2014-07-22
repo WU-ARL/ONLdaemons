@@ -5,53 +5,60 @@ then
   exit 1
   fi
 
-  if [ $# -ne 9 ] 
+  if [ $# -ne 8 ] 
   then
-   echo "Usage: $0 <username> <public key file> <template_path> <num cores> <memory> <number of data interfaces> <vlan list> <data ip list> <vm number>" 
+   echo "Usage: $0 <username> <template_path> <num cores> <memory> <number of data interfaces> <vlan list> <data ip list> <vm name>" 
     exit 1
     fi
 
     username=$1
-    public_key_file=$2
-    template_dir=$3
-    num_cores=$4
-    memory=$5
-    number_of_interfaces=$6
-    network_confile=$7
-    data_ip_list=$8
-    vm_number=$9
+    template_dir=$2
+    num_cores=$3
+    memory=$4
+    number_of_interfaces=$5
+    network_confile=$6
+    data_ip_list=$7
+    vm_name=$8
 
-    echo "Starting new VM for user $username with key $public_key_file, machine config $machine_confile, network config $network_confile, vm number $vm_number"
+    echo "Starting new VM for user $username, machine config $machine_confile, network config $network_confile, vm name $vm_name"
 
-KVM_SCRIPT_DIR="/KVM_Images/scripts"
-cd $KVM_SCRIPT_DIR
-$KVM_SCRIPT_DIR/setup_networking.sh $network_confile
-if [ $? -eq 1 ]
-then
- echo "Error: setup_networking.sh failed"
- exit 1
-fi
-vm_name=$($KVM_SCRIPT_DIR/get_vm_name.sh $vm_number)
-if [ $? -eq 1 ]
-then
- echo "Error: get_vm_name.sh failed"
- exit 1
-fi
-$KVM_SCRIPT_DIR/create_blank_vm.sh $vm_name $template_dir $num_cores $memory $number_of_interfaces $network_confile
+cd "/KVM_Images/scripts"
+{
+ flock -x -w 300 200 || exit 1
+ ./setup_networking.sh $network_confile
+ if [ $? -eq 1 ]
+ then
+  echo "Error: setup_networking.sh failed"
+  exit 1
+ fi
+} 200>/KVM_Images/var/setup_networking.lck
+
+mkdir -p /KVM_Images/var/users/$username/$vm_name
+
+{
+ flock -x -w 300 202 || exit 1
+./create_blank_vm.sh $vm_name $template_dir $num_cores $memory $number_of_interfaces $network_confile $username $data_ip_list
+} 202>/KVM_Images/var/create_blank_vm.lck
+
+{
+ flock -x -w 300 203 || exit 1
+ virsh start $vm_name
+} 203>/KVM_Images/var/virst_start.lck
+exit 0
 
 count=0
 while [ $count -lt 10 ]
 do
 touch prepare.log
 rm prepare.log
-command="$KVM_SCRIPT_DIR/prepare_vm.sh $vm_name $username $public_key_file $data_ip_list"
+command="./prepare_vm.sh $vm_name $username blic_key_file $data_ip_list"
 if [ $count -lt 9 ]
 then
 timeout=5
 else
 timeout=30
 fi
-$KVM_SCRIPT_DIR/try_timeout.sh "$command" "$timeout" &> prepare.log
+./try_timeout.sh "$command" "$timeout" &> prepare.log
 if [ $(wc -l < prepare.log) -eq 0 ]
 then
 break

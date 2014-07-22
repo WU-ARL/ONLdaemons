@@ -1,0 +1,9 @@
+#loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto control
+iface control inet dhcp
+
+iface data0 inet static

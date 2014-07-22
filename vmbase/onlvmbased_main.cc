@@ -145,6 +145,6 @@ int main(int argc, char** argv)
   if(upmsg) delete upmsg;
   if(crd_conn) delete crd_conn;
 
-  while (true) {}
+  while (true) { sleep(2); }
   pthread_exit(NULL);
 }
