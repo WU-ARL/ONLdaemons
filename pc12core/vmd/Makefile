@@ -11,7 +11,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-#    limitations under the License.
+#		 limitations under the License.
 #
 
 include ../../Makefile.inc
@@ -23,25 +23,25 @@ INCLUDES = -I. -I../../shared
 
 LIBS = -lrt -pthread -L../../shared/${OBJDIR} -lONLshared -lrt
 
-EXEC = $(OBJDIR)/host
-OBJS = $(OBJDIR)/host_configuration.o \
-       $(OBJDIR)/host_requests.o \
-       $(OBJDIR)/host_main.o
+EXEC = $(OBJDIR)/vmd
+OBJS = $(OBJDIR)/vmd_configuration.o \
+			 $(OBJDIR)/vmd_requests.o \
+			 $(OBJDIR)/vmd_main.o
 
 all: ${OBJDIR} ${OBJS} ${EXEC}
 
 ${OBJDIR} :
-  mkdir ${OBJDIR}
+	mkdir ${OBJDIR}
 
 $(OBJS) : ${OBJDIR}/%.o : %.cc
-  ${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
+	${CXX} ${CXXFLAGS} ${INCLUDES} -o $@ -c $<
 
 $(EXEC) : ${OBJDIR}/% : ${OBJS}
-  ${CXX} -o $@ ${OBJS} ${LIBS}
-  chmod 0755 $@
+	${CXX} -o $@ ${OBJS} ${LIBS}
+	chmod 0755 $@
 
 install:
-  scp ${EXEC} root@onlsrv:/users/onl/pc12core
+	scp ${EXEC} root@onlsrv:/users/onl/pc12core
 
 clean:
-  rm -f ${OBJDIR}/*
+	rm -f ${OBJDIR}/*

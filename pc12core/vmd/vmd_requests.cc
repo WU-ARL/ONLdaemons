@@ -38,11 +38,12 @@
 
 #include "shared.h"
 
-#include "host_configuration.h"
-#include "host_globals.h"
-#include "host_requests.h"
+#include "vmd_configuration.h"
+#include "vmd_globals.h"
+#include "vmd_requests.h"
+#include "vmd_session.h"
 
-using namespace host;
+using namespace vmd;
 
 configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): 
   configure_node(mbuf, size)
@@ -56,17 +57,37 @@ configure_node_req::~configure_node_req()
 bool
 configure_node_req::handle()
 {
-  write_log("configure_node_req::handle() + port:" + int2str(node_conf.getPort()) + 
-            " vlan:" + int2str(node_conf.getVLan()));
+  write_log("configure_node_req::handle()");
 
-  //ard: need to do the proper configuration information here.
-  
+  NCCP_StatusType status = NCCP_Status_Fine;
+  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
+
+  if (sess_ptr)
+	{
+		// ard: need to do the proper configuration information here.
+
+		/*
+		if (!sess_ptr->configureVM(comp, node_conf))
+		{
+			status = NCCP_Status_Failed;
+			write_log("configure_node_req::handle() failed to configure vm");
+		}
+		*/
+	}
+  else
+	{
+		status = NCCP_Status_Failed;
+		write_log("configure_node_req::handle() failed to get session pointer");
+	}
 
   //ard: also probably need to store this somewhere globally
   // equal operator for node info defined
-  
+	
+	/* Where does the experiment info come from? Couldn't find it in 
+	 * session_ptr or experiment_info...
+	 */
 
-  crd_response* resp = new crd_response(this, NCCP_Status_Fine);
+  crd_response* resp = new crd_response(this, status);
   resp->send();
   delete resp;
 
