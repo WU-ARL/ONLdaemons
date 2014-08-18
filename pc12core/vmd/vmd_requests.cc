@@ -36,12 +36,14 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
+#include "vmd_session.h"
 #include "vmd_configuration.h"
 #include "vmd_globals.h"
 #include "vmd_requests.h"
-#include "vmd_session.h"
 
 using namespace vmd;
 
@@ -75,7 +77,7 @@ configure_node_req::handle()
     write_log("configure_node_req::handle() could not get global session pointer");
   }
 
-  vm_ptr vm = getVM(comp);
+  vm_ptr vm = global_session->getVM(comp);
   if (!vm)
   {
     status = NCCP_Status_Failed;
@@ -90,7 +92,7 @@ configure_node_req::handle()
 }
 
 end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size) : 
-  rli_request(mbuf, size)
+  end_configure_node(mbuf, size)
 {
 }
 

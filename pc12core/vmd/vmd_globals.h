@@ -23,6 +23,7 @@ namespace vmd
   extern dispatcher* the_dispatcher;
   extern nccp_listener* rli_conn;
   extern configuration* conf;
+  extern session_manager* global_session;
 }; // namespace vmd
 
 #endif // _VMD_GLOBALS_H
