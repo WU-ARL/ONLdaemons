@@ -153,7 +153,6 @@ namespace onld
       std::vector<param> params;
   }; //class rli_request
 
-  //ard: Start of vm code
   static const NCCP_OperationType NCCP_Operation_startVM = 67;
   class start_vm : public request
   {

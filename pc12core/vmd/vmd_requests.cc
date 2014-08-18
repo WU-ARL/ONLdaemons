@@ -60,32 +60,27 @@ configure_node_req::handle()
   write_log("configure_node_req::handle()");
 
   NCCP_StatusType status = NCCP_Status_Fine;
-  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
 
-  if (sess_ptr)
-	{
-		// ard: need to do the proper configuration information here.
-
-		/*
-		if (!sess_ptr->configureVM(comp, node_conf))
-		{
-			status = NCCP_Status_Failed;
-			write_log("configure_node_req::handle() failed to configure vm");
-		}
-		*/
-	}
+  if (global_session)
+  {
+    if (!global_session->configureVM(comp, node_conf))
+    {
+      status = NCCP_Status_Failed;
+      write_log("configure_node_req::handle() failed to configure vm");
+    }
+  }
   else
-	{
-		status = NCCP_Status_Failed;
-		write_log("configure_node_req::handle() failed to get session pointer");
-	}
+  {
+    status = NCCP_Status_Failed;
+    write_log("configure_node_req::handle() could not get global session pointer");
+  }
 
-  //ard: also probably need to store this somewhere globally
-  // equal operator for node info defined
-	
-	/* Where does the experiment info come from? Couldn't find it in 
-	 * session_ptr or experiment_info...
-	 */
+  vm_ptr vm = getVM(comp);
+  if (!vm)
+  {
+    status = NCCP_Status_Failed;
+    write_log("configure_node_req::handle() failed to get the VM from its comp");
+  }
 
   crd_response* resp = new crd_response(this, status);
   resp->send();
@@ -108,28 +103,29 @@ end_configure_node_req::handle()
 {
   write_log("end_configure_node_req::handle()");
 
-  session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
-
   NCCP_StatusType status = NCCP_Status_Fine;
-  vm_ptr vmp = sess_ptr->getVM(comp);
-  if (sess_ptr)
+  string vm_name="";
+  if (global_session)
   {
-    //ard: start vm here, not sure if we'll actually use session manager 
-    //or just plug in Jason's scripts right here.
-    if (!the_session_manager->startVM(sess_ptr, vmp))
+    vm_ptr vmp = global_session->getVM(comp);
+    if (vm_ptr)
     {
-      status = NCCP_Status_Failed;
-      write_log("end_configure_node_req::handle() failed to start vm");
+      vm_name = vmp->name;
+      if (!global_session->startVM(vmp))
+      {
+        status = NCCP_Status_Failed;
+        write_log("end_configure_node_req::handle() failed to start vm");
+      }
     }
   }
   else
   {
     status = NCCP_Status_Failed;
-    write_log("end_configure_node_req::handle() failed to get session pointer");
+    write_log("end_configure_node_req::handle() could not get global session pointer");
   }
 
   //response fills in vm name
-  crd_endconfig_response* resp = new crd_endconfig_response(this, status, vmp->name);
+  crd_endconfig_response* resp = new crd_endconfig_response(this, status, vm_name);
   resp->send();
   delete resp;
 
@@ -150,6 +146,21 @@ start_vm_req::handle()
 {
   write_log("start_vm_req::handle() + name:" + name);
 
+  if (sess_ptr)
+  {
+    std::string ip_str = ipaddr.getCString();
+    if (!sess_ptr->addVM(comp, ip_str, cores, memory))
+    {
+      status = NCCP_Status_Failed;    
+      write_log("start_experiment_req::handle failed to add VM to session");
+    }
+  }
+  else 
+  {
+    status = NCCP_Status_Failed;    
+    write_log("start_experiment_req::handle failed to get session ptr for experiment");
+  }
+
   crd_response* resp = new crd_response(this, NCCP_Status_Fine);
   resp->send();
   delete resp;
@@ -157,110 +168,46 @@ start_vm_req::handle()
   return true;
 }
 
-
-
-/*
-add_route_req::add_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+refresh_req::refresh_req(uint8_t *mbuf, uint32_t size): refresh(mbuf, size)
 {
+  write_log("refresh_req::refresh_req: got refresh message");
 }
 
-add_route_req::~add_route_req()
-{
-}
-
-bool
-add_route_req::handle()
-{
-  write_log("add_route_req::handle()");
-
-  std::string prefixstr = conf->addr_int2str(prefix);
-  if(prefixstr == "")
-  {
-    write_log("add_route_req: handle(): got bad prefix");
-    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
-    rliresp->send();
-    delete rliresp;
-    return true;
-  }
-  
-  std::string nhstr = conf->addr_int2str(nexthop_ip);
-  if(nhstr == "")
-  {
-    write_log("add_route_req: handle(): got bad next hop");
-    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
-    rliresp->send();
-    delete rliresp;
-    return true;
-  }
-  
-  NCCP_StatusType stat = NCCP_Status_Fine;
-  if(!conf->add_route(port, prefixstr, mask, nhstr))
-  {
-    stat = NCCP_Status_Failed;
-  }
-
-  rli_response* rliresp = new rli_response(this, stat);
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-add_route_req::parse()
-{
-  rli_request::parse();
-
-  prefix = params[0].getInt();
-  mask = params[1].getInt();
-  output_port = params[2].getInt();
-  nexthop_ip = params[3].getInt();
-  stats_index = params[4].getInt();
-}
-
-delete_route_req::delete_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-delete_route_req::~delete_route_req()
+refresh_req::~refresh_req()
 {
 }
 
 bool
-delete_route_req::handle()
+refresh_req::handle()
 {
-  write_log("delete_route_req::handle()");
+  write_log("refresh_req::handle() about to send Fine response removing vm");
+  NCCP_StatusType status = NCCP_Status_Fine;
+  string vm_name="";
 
-  std::string prefixstr = conf->addr_int2str(prefix);
-  if(prefixstr == "")
+  if (global_session)
   {
-    write_log("delete_route_req: handle(): got bad prefix");
-    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
-    rliresp->send();
-    delete rliresp;
-    return true;
+    vm_ptr vmp = global_session->getVM(comp);
+    if (vm_ptr)
+    {
+      vm_name = vmp->name;
+      if (!global_session->deleteVM(vmp))
+      {
+        status = NCCP_Status_Failed;
+        write_log("refresh_req::handle() failed to start vm");
+      }
+    }
   }
-  
-  NCCP_StatusType stat = NCCP_Status_Fine;
-  if(!conf->delete_route(prefixstr, mask))
+  else
   {
-    stat = NCCP_Status_Failed;
+    status = NCCP_Status_Failed;
+    write_log("refresh_req::handle() could not get global session pointer");
   }
 
-  rli_response* rliresp = new rli_response(this, stat);
-  rliresp->send();
-  delete rliresp;
+  //response fills in vm name
+  crd_endconfig_response* resp = new crd_endconfig_response(this, status, vm_name);
+  resp->send();
+  delete resp;
 
   return true;
 }
-
-void
-delete_route_req::parse()
-{
-  rli_request::parse();
-
-  prefix = params[0].getInt();
-  mask = params[1].getInt();
-}
-*/
 

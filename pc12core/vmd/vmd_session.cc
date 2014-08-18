@@ -49,61 +49,118 @@
 using namespace vmd;
 
 
+bool 
+session_manager::startVM(vm_ptr vmp)
+{
+  write_log("session_manager::startVM experiment:(" + expInfo.getUserName() 
+            + ", " + expInfo.getID() + ") component:(" 
+            + vmp->comp.getLabel() + ", " + int2str(vmp->comp.getID()) 
+            + ") vm:(" + vmp->name + ",cores" + int2str(vmp->cores) + ",memory" 
+            + int2str(vmp->memory) + ",interfaces" + 
+            int2str(vmp->interfaces.size()) + ")");
+  
+  std::list<vminterface_ptr>::iterator vmi_it;
+
+  //write vlans to file 
+  std::string vnm_str = "/KVM_Images/scripts/lists/" + vmp->name + "_vlan.txt";
+  std::ofstream vlan_fs(vnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
+
+  //write data_ips to file
+  std::string dipnm_str = "/KVM_Images/scripts/lists/" + vmp->name + "_dataip.txt";
+  std::ofstream dip_fs(dipnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
+
+  for (vmi_it = vmp->interfaces.begin(); vmi_it != vmp->interfaces.end(); ++vmi_it)
+  {
+    vlan_ptr vlan = getVLan((*vmi_it)->ninfo.getVLan());
+    vlan->interfaces.push_back((*vmi_it));
+
+    write_log("    add interface:" + int2str((*vmi_it)->ninfo.getPort()) 
+              + " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + 
+              " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) 
+              +  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
+
+    dip_fs << (*vmi_it)->ninfo.getIPAddr() << std::endl;
+    vlan_fs << (*vmi_it)->ninfo.getVLan() << " " << 
+      (*vmi_it)->ninfo.getRealPort() << std::endl;
+  }
+
+  dip_fs.close();
+  vlan_fs.close();
+
+  //run start VM script
+  std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + 
+    expInfo.getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " 
+    + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + 
+    int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name;
+
+  write_log("session_manager::startVM: system(" + cmd + ")");
+  if(system(cmd.c_str()) != 0)
+  {
+    write_log("session_manager::startVM: start script failed");
+    //may need to clean up something here
+    return false;
+  }
+  return true;
+}
+
 vminterface_ptr
 getInterface(vm_ptr vm, node_info& ninfo)
 {
   std::list<vminterface_ptr>::iterator vmiit;
   vminterface_ptr noptr;
   for (vmiit = vm->interfaces.begin(); 
-			 vmiit != vm->interfaces.end(); 
-			 ++vmiit)
-	{
-		if ((*vmiit)->ninfo.getPort() == ninfo.getPort()) return (*vmiit);
-	}
+       vmiit != vm->interfaces.end(); 
+       ++vmiit)
+  {
+    if ((*vmiit)->ninfo.getPort() == ninfo.getPort()) return (*vmiit);
+  }
   return noptr;
 }
 
-session::session(experiment_info& ei) throw(std::runtime_error)
+session_manager::session_manager(experiment_info& ei) throw(std::runtime_error)
 {
   expInfo = ei;
-  write_log("session::session: added session " + ei.getID() + " for user " + 
-						ei.getUserName());
+  write_log("session_manager::session_manager: added session_manager " + 
+            ei.getID() + " for user " + ei.getUserName());
 }
 
-session::~session() throw()
+session_manager::~session_manager() throw()
 {
-  write_log("session::session: deleting session " + expInfo.getID() + 
-						" for user " + expInfo.getUserName());
+  write_log("session_manager::session_manager: deleting session_manager " + 
+            expInfo.getID() + " for user " + expInfo.getUserName());
   clear();
 }
      
 
 vm_ptr
-session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
+session_manager::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
 {
   vm_ptr rtn_vm = getVM(c);
   if (!rtn_vm)
-	{
-		vm_ptr vm(new vm_info());
-		vm->comp = c;
-		vm->expaddr = eaddr;
-		vm->cores = crs;
-		int tmp_mem = (int)(mem/1000) * 1024;
-		vm->memory = tmp_mem;
-		/*
-		if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
-		{
-			rtn_vm = vm;
-			vms.push_back(vm);
-		}
-		*/
-	}
+  {
+    vm_ptr vm(new vm_info());
+    vm->comp = c;
+    vm->expaddr = eaddr;
+    vm->cores = crs;
+    int tmp_mem = (int)(mem/1000) * 1024;
+    vm->memory = tmp_mem;
+
+    rtn_vm = vm;
+    vms.push_back(vm);
+    /*
+    if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
+    {
+      rtn_vm = vm;
+      vms.push_back(vm);
+    }
+    */
+  }
   return rtn_vm;
 }
       
 
 bool 
-session::removeVM(component& c)
+session_manager::removeVM(component& c)
 {
   vm_ptr vmp = getVM(c);
   return (removeVM(vmp));
@@ -111,122 +168,123 @@ session::removeVM(component& c)
       
 
 bool 
-session::removeVM(vm_ptr vmp)
+session_manager::removeVM(vm_ptr vmp)
 {
   if (vmp)
-	{
-		write_log("session::removeVM experiment:(" + expInfo.getUserName() + 
-							", " + expInfo.getID() + ") component:(" + vmp->comp.getLabel() + 
-							", " + int2str(vmp->comp.getID()) + ") vm:(" + vmp->name + 
-							",cores" + int2str(vmp->cores) + ",memory" + int2str(vmp->memory) + 
-							",interfaces" + int2str(vmp->interfaces.size()) + ")");
+  {
+    write_log("session_manager::removeVM experiment:(" + expInfo.getUserName() + 
+              ", " + expInfo.getID() + ") component:(" + vmp->comp.getLabel() + 
+              ", " + int2str(vmp->comp.getID()) + ") vm:(" + vmp->name + 
+              ",cores" + int2str(vmp->cores) + ",memory" + int2str(vmp->memory) + 
+              ",interfaces" + int2str(vmp->interfaces.size()) + ")");
       
-		std::list<vminterface_ptr>::iterator vmi_it;
-		//remove from bridges
-		for (vmi_it = vmp->interfaces.begin(); 
-				 vmi_it != vmp->interfaces.end(); 
-				 ++vmi_it)
-		{
-			vlan_ptr vlan = getVLan((*vmi_it)->ninfo.getVLan());
-			vlan->interfaces.remove((*vmi_it));
+    std::list<vminterface_ptr>::iterator vmi_it;
+    //remove from bridges
+    for (vmi_it = vmp->interfaces.begin(); 
+         vmi_it != vmp->interfaces.end(); 
+         ++vmi_it)
+    {
+      vlan_ptr vlan = getVLan((*vmi_it)->ninfo.getVLan());
+      vlan->interfaces.remove((*vmi_it));
 
-			write_log("\tremove interface:" + int2str((*vmi_it)->ninfo.getPort()) + 
-								" with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + 
-								" to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) + 
-								" and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
+      write_log("\tremove interface:" + int2str((*vmi_it)->ninfo.getPort()) + 
+                " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + 
+                " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) + 
+                " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
 
-			if (vlan->interfaces.empty())
-	    {
-	      write_log("\tremove vlan:" + int2str(vlan->id));
-	      vlans.remove(vlan);
-	    }
-		}
+      if (vlan->interfaces.empty())
+      {
+        write_log("\tremove vlan:" + int2str(vlan->id));
+        vlans.remove(vlan);
+      }
+    }
 
-		//kill vm and release name for reuse
-		//run kill script
-		std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
-		write_log("session::removeVM: system(" + cmd + ")");
-		if(system(cmd.c_str()) != 0)
-		{
-			write_log("session::removeVM: start script failed");
-			//may need to clean up something here
-			return false;
-		}
-		/*
-		if (!the_session_manager->releaseVMname(vmp->name))
-		{
-			write_log("session::removeVM failed vm " + vmp->name + " comp " + 
-								int2str(vmp->comp.getID()) );
-			return false;
-		}
-		*/
+    //kill vm and release name for reuse
+    //run kill script
+    std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
+    write_log("session_manager::removeVM: system(" + cmd + ")");
+    if(system(cmd.c_str()) != 0)
+    {
+      write_log("session_manager::removeVM: start script failed");
+      //may need to clean up something here
+      return false;
+    }
 
-		write_log("session::removeVM vm " + vmp->name + " comp " + 
-							int2str(vmp->comp.getID()) );
-		vms.remove(vmp);
-	}
+    /*
+    if (!the_session_manager->releaseVMname(vmp->name))
+    {
+      write_log("session_manager::removeVM failed vm " + vmp->name + " comp " + 
+                int2str(vmp->comp.getID()) );
+      return false;
+    }
+    */
+
+    write_log("session_manager::removeVM vm " + vmp->name + " comp " + 
+              int2str(vmp->comp.getID()) );
+    vms.remove(vmp);
+  }
   return true;
 }
 
 bool 
-session::configureVM(component& c, node_info& ninfo)
+session_manager::configureVM(component& c, node_info& ninfo)
 {
   vm_ptr vm = getVM(c);
   if (!vm)
-	{
-		write_log("session::configureVM failed to find vm for comp " + 
-							int2str(c.getID()) );
-		return false;
-	}
+  {
+    write_log("session_manager::configureVM failed to find vm for comp " + 
+              int2str(c.getID()) );
+    return false;
+  }
 
   vminterface_ptr tmp_vmi = getInterface(vm, ninfo);
   if (!tmp_vmi)
-	{
-		vminterface_ptr vmi(new vminterface_info());
-		vmi->ninfo = ninfo;
-		vmi->vm = vm;
-		vm->interfaces.push_back(vmi);
-	}
+  {
+    vminterface_ptr vmi(new vminterface_info());
+    vmi->ninfo = ninfo;
+    vmi->vm = vm;
+    vm->interfaces.push_back(vmi);
+  }
 
   return true;
 }
       
 vm_ptr 
-session::getVM(component& c)
+session_manager::getVM(component& c)
 {
   std::list<vm_ptr>::iterator vmit;
   vm_ptr noptr;
 
   for (vmit = vms.begin(); vmit != vms.end(); ++vmit)
-	{
-		if ((*vmit)->comp.getID() == c.getID()) 
-			return (*vmit);
-	}
+  {
+    if ((*vmit)->comp.getID() == c.getID()) 
+      return (*vmit);
+  }
   return noptr;
 }
       
 //bool addToVlan(uint32_t vlan, component& c);
 void 
-session::clear()
+session_manager::clear()
 {
   //remove vms 
   while (!vms.empty())
-	{
-		removeVM(vms.front());//this is only called from the session manager so it should get removed from the active_sessions
-		vms.pop_front();
-	}
+  {
+    removeVM(vms.front());//this is only called from the session manager so it should get removed from the active_sessions
+    vms.pop_front();
+  }
   //clear vlans?
 }
 
 
 vlan_ptr 
-session::getVLan(uint32_t vlan)//adds vlan if not already there
+session_manager::getVLan(uint32_t vlan)//adds vlan if not already there
 {
   std::list<vlan_ptr>::iterator vit;
   for (vit = vlans.begin(); vit != vlans.end(); ++vit)
-	{
-		if ((*vit)->id == vlan) return (*vit);
-	}
+  {
+    if ((*vit)->id == vlan) return (*vit);
+  }
   vlan_ptr new_vlan(new vlan_info());
   new_vlan->id = vlan;
   new_vlan->bridge_id = vlan;

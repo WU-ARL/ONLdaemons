@@ -45,8 +45,8 @@ namespace vmd
 {
   dispatcher* the_dispatcher;
   nccp_listener* rli_conn;
-  
   configuration* conf;
+	session_manager* global_session;
 };
 
 using namespace vmd;
@@ -57,12 +57,12 @@ int main()
   the_dispatcher = dispatcher::get_dispatcher();
   rli_conn = NULL;
   conf = new configuration();
+	global_session = new session_manager();
 
   try
   {
     std::string tmp_addr("127.0.0.1");
     rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
-    //rli_conn = new nccp_listener("127.0.0.1", Default_ND_Port);
   }
   catch(std::exception& e)
   {

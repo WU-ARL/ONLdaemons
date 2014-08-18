@@ -29,40 +29,15 @@ namespace vmd
       virtual bool handle();
   }; // class configure_node_req
 
-  static const NCCP_OperationType VMD_AddRoute = 73;
-  class add_route_req : public rli_request
+  class end_configure_node_req : public end_configure_node
   {
     public:
-      add_route_req(uint8_t *mbuf, uint32_t size);
-      virtual ~add_route_req();
-
-      virtual void parse();
+      end_configure_node_req(uint8_t *mbuf, uint32_t size);
+      virtual ~end_configure_node_req();
+ 
       virtual bool handle();
+  }; // class end_configure_node_req
 
-    protected:
-      uint32_t prefix;
-      uint32_t mask;
-      uint32_t output_port;
-      uint32_t nexthop_ip;
-      uint32_t stats_index;
-  }; // class add_route_req
-
-  static const NCCP_OperationType VMD_DeleteRoute = 75;
-  class delete_route_req : public rli_request
-  {
-    public:
-      delete_route_req(uint8_t *mbuf, uint32_t size);
-      virtual ~delete_route_req();
-
-      virtual void parse();
-      virtual bool handle();
-
-    protected:
-      uint32_t prefix;
-      uint32_t mask;
-  }; // class delete_route_req
-
-  //ard: start of vm code
   class start_vm_req : public start_vm
   {
     public:
@@ -72,14 +47,15 @@ namespace vmd
       virtual bool handle();
   }; // class start_vm_req
 
-  class end_configure_node_req : public end_configure_node
+  //onld::refresh? 
+  class refresh_req : public refresh
   {
     public:
-      end_configure_node_req(uint8_t *mbuf, uint32_t size);
-      virtual ~end_configure_node_req();
+      refresh_req(uint8_t *mbuf, uint32_t size);
+      virtual ~refresh_req();
  
       virtual bool handle();
-  }; // class end_configure_node_req
+  }; // class refresh_req
 };
 
 #endif // _VMD_REQUESTS_H

@@ -89,11 +89,13 @@ crd_response::write()
   buf << comp;
 }
 
-crd_hwresponse::crd_hwresponse(uint8_t *mbuf, uint32_t size): crd_response(mbuf, size)
+crd_hwresponse::crd_hwresponse(uint8_t *mbuf, uint32_t size): 
+  crd_response(mbuf, size)
 {
 }
 
-crd_hwresponse::crd_hwresponse(crd_request *req, NCCP_StatusType stat, uint32_t i): crd_response(req, stat)
+crd_hwresponse::crd_hwresponse(crd_request *req, NCCP_StatusType stat, uint32_t i): 
+  crd_response(req, stat)
 {
   id = i;
 }
@@ -119,15 +121,21 @@ crd_hwresponse::write()
 }
 
 
-crd_endconfig_response::crd_endconfig_response(uint8_t *mbuf, uint32_t size) : crd_response(mbuf, size)
+crd_endconfig_response::crd_endconfig_response(uint8_t *mbuf, uint32_t size) : 
+  crd_response(mbuf, size)
 {
 }
       
-crd_endconfig_response::crd_endconfig_response(crd_request *req, NCCP_StatusType stat) : crd_response(req, stat)
+crd_endconfig_response::crd_endconfig_response(crd_request *req, 
+                                               NCCP_StatusType stat) : 
+  crd_response(req, stat)
 {
 }
       
-crd_endconfig_response::crd_endconfig_response(crd_request *req, NCCP_StatusType stat, std::string vmn) : crd_response(req, stat)
+crd_endconfig_response::crd_endconfig_response(crd_request *req, 
+                                               NCCP_StatusType stat, 
+                                               std::string vmn) : 
+  crd_response(req, stat)
 {
   vmname = vmn.c_str();
 }
