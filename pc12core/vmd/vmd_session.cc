@@ -50,6 +50,23 @@
 
 using namespace vmd;
 
+session_manager::session_manager()
+{
+	write_log("session_manager::session_manager: added empty session_manager");
+}
+session_manager::session_manager(experiment_info& ei) throw(std::runtime_error)
+{
+  expInfo = ei;
+  write_log("session_manager::session_manager: added session_manager " + 
+            ei.getID() + " for user " + ei.getUserName());
+}
+
+session_manager::~session_manager()
+{
+  write_log("session_manager::session_manager: deleting session_manager " + 
+            expInfo.getID() + " for user " + expInfo.getUserName());
+  clear();
+}
 
 bool 
 session_manager::startVM(vm_ptr vmp)
@@ -117,22 +134,7 @@ getInterface(vm_ptr vm, node_info& ninfo)
     if ((*vmiit)->ninfo.getPort() == ninfo.getPort()) return (*vmiit);
   }
   return noptr;
-}
-
-session_manager::session_manager(experiment_info& ei) throw(std::runtime_error)
-{
-  expInfo = ei;
-  write_log("session_manager::session_manager: added session_manager " + 
-            ei.getID() + " for user " + ei.getUserName());
-}
-
-session_manager::~session_manager()
-{
-  write_log("session_manager::session_manager: deleting session_manager " + 
-            expInfo.getID() + " for user " + expInfo.getUserName());
-  clear();
-}
-     
+}     
 
 vm_ptr
 session_manager::addVM(component& c, std::string eaddr, 
