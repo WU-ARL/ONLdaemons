@@ -33,37 +33,37 @@ namespace vmd
 {
   struct _vminterface_info;
 
-	class vm_node 
-	{
-	public:
-		vm_node() {}
-		~vm_node() {}
+  class vm_node 
+  {
+  public:
+    vm_node() {}
+    ~vm_node() {}
 
-		bool add_iface( boost::shared_ptr<_vminterface_info> iface);
-		
-		component get_comp() { return comp; }
-		std::string get_name() { return name; }
-		std::string get_ctladdr() { return ctladdr; }
-		std::string get_expaddr() { return expaddr; }
-		uint32_t get_cores(){ return cores; }
-		uint32_t get_memory() { return memory; }
+    bool add_iface( boost::shared_ptr<_vminterface_info> iface);
+    
+    component get_comp() { return comp; }
+    std::string get_name() { return name; }
+    std::string get_ctladdr() { return ctladdr; }
+    std::string get_expaddr() { return expaddr; }
+    uint32_t get_cores(){ return cores; }
+    uint32_t get_memory() { return memory; }
 
-		void set_comp(component& c){ comp = c; }
-		void set_name(std::string n){ name = n; }
-		void set_ctladdr(std::string ctl) { ctladdr = ctl; }
-		void set_expaddr(std::string exp){ expaddr = exp; }
-		void set_cores(uint32_t crs){ cores = crs; }
-		void set_memory(uint32_t mem){ memory = mem; }
+    void set_comp(component& c){ comp = c; }
+    void set_name(std::string n){ name = n; }
+    void set_ctladdr(std::string ctl) { ctladdr = ctl; }
+    void set_expaddr(std::string exp){ expaddr = exp; }
+    void set_cores(uint32_t crs){ cores = crs; }
+    void set_memory(uint32_t mem){ memory = mem; }
 
-	private:
-		std::string name;
+  private:
+    std::string name;
     std::string ctladdr;
     component comp;
     std::list< boost::shared_ptr<_vminterface_info> > interfaces;
     std::string expaddr;
     uint32_t cores;
     uint32_t memory;
-	};
+  };
 
   typedef boost::shared_ptr<vm_node> vm_ptr;
 
@@ -89,29 +89,29 @@ namespace vmd
 
   class session_manager
   {
-    public:
-		  session_manager();
-      session_manager(experiment_info& ei) throw(std::runtime_error);
-      ~session_manager();   
-
-      experiment_info& getExpInfo() { return expInfo;}
-      vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, 
-									 uint32_t mem, std::string pwd, std::string nm);
-			bool removeVM(vm_ptr vmp);
-
-      bool configureVM(component& c, node_info& ninfo);
-      vm_ptr getVM(component& c);
-
-			bool startVM(vm_ptr vm);
-      
-      //bool addToVlan(uint32_t vlan, component& c);
-      void clear();
-      vlan_ptr getVLan(uint32_t vlan);//adds vlan if not already there
-      
-    private:
-      experiment_info expInfo;
-      std::list<vm_ptr> vms;
-      std::list<vlan_ptr> vlans;
+  public:
+    session_manager();
+    session_manager(experiment_info& ei) throw(std::runtime_error);
+    ~session_manager();   
+    
+    experiment_info& getExpInfo() { return expInfo;}
+    vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, 
+                 uint32_t mem, std::string pwd, std::string nm);
+    bool removeVM(vm_ptr vmp);
+    
+    bool configureVM(component& c, node_info& ninfo);
+    vm_ptr getVM(component& c);
+    
+    bool startVM(vm_ptr vm);
+    
+    //bool addToVlan(uint32_t vlan, component& c);
+    void clear();
+    vlan_ptr getVLan(uint32_t vlan);//adds vlan if not already there
+    
+  private:
+    experiment_info expInfo;
+    std::list<vm_ptr> vms;
+    std::list<vlan_ptr> vlans;
   };
 
   typedef boost::shared_ptr<session_manager> session_ptr;
