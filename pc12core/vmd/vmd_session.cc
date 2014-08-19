@@ -133,7 +133,9 @@ session_manager::~session_manager() throw()
      
 
 vm_ptr
-session_manager::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
+session_manager::addVM(component& c, std::string eaddr, 
+											 uint32_t crs, uint32_t mem,
+											 std::string pwd, std::string nm)
 {
   vm_ptr rtn_vm = getVM(c);
   if (!rtn_vm)
@@ -142,18 +144,14 @@ session_manager::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t m
     vm->comp = c;
     vm->expaddr = eaddr;
     vm->cores = crs;
+		vm->passwd = pwd;
+		vm->name = nm;
+
     int tmp_mem = (int)(mem/1000) * 1024;
     vm->memory = tmp_mem;
 
     rtn_vm = vm;
     vms.push_back(vm);
-    /*
-    if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
-    {
-      rtn_vm = vm;
-      vms.push_back(vm);
-    }
-    */
   }
   return rtn_vm;
 }

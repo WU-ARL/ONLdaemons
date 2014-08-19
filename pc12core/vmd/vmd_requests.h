@@ -20,6 +20,15 @@
 
 namespace vmd
 {
+  class start_experiment_req : public onld::start_experiment
+  {
+    public:
+      start_experiment_req(uint8_t *mbuf, uint32_t size);
+      virtual ~start_experiment_req();
+ 
+      virtual bool handle();
+  }; // class start_experiment_req
+
   class configure_node_req : public configure_node
   {
     public:
@@ -38,17 +47,7 @@ namespace vmd
       virtual bool handle();
   }; // class end_configure_node_req
 
-  class start_vm_req : public start_vm
-  {
-    public:
-      start_vm_req(uint8_t *mbuf, uint32_t size);
-      virtual ~start_vm_req();
- 
-      virtual bool handle();
-  }; // class start_vm_req
-
-  //onld::refresh? 
-  class refresh_req : public refresh
+  class refresh_req : public onld::refresh
   {
     public:
       refresh_req(uint8_t *mbuf, uint32_t size);

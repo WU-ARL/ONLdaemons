@@ -47,6 +47,52 @@
 
 using namespace vmd;
 
+
+start_experiment_req::start_experiment_req(uint8_t *mbuf, uint32_t size) : 
+  start_experiment(mbuf, size)
+{
+}
+
+start_experiment_req::~start_experiment_req()
+{
+}
+
+bool
+start_experiment_req::handle()
+{
+  write_log("start_experiment_req::handle()");
+  NCCP_StatusType status = NCCP_Status_Fine;
+
+  if (global_session)
+  {
+		std::list<param>::iterator param_itr;
+		param_itr = (++init_params.begin());
+		std::string vm_pwd = param_itr->getString();
+		++param_itr;
+		std::string vm_name = param_itr->getString();
+
+		//TODO: was there a reason this was a cstring?
+		//	if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, nm))
+    std::string ip_str = ipaddr.getString();
+    if (!global_session->addVM(comp, ip_str, cores, memory, vm_pwd, vm_name))
+    {
+      status = NCCP_Status_Failed;    
+      write_log("start_experiment_req::handle failed to add VM to session");
+    }
+  }
+  else 
+  {
+    status = NCCP_Status_Failed;    
+    write_log("start_experiment_req::handle failed to get session ptr for experiment");
+  }
+
+  crd_response* resp = new crd_response(this, status);
+  resp->send();
+  delete resp;
+
+  return true;
+}
+
 configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): 
   configure_node(mbuf, size)
 {
@@ -60,7 +106,6 @@ bool
 configure_node_req::handle()
 {
   write_log("configure_node_req::handle()");
-
   NCCP_StatusType status = NCCP_Status_Fine;
 
   if (global_session)
@@ -106,13 +151,13 @@ end_configure_node_req::handle()
   write_log("end_configure_node_req::handle()");
 
   NCCP_StatusType status = NCCP_Status_Fine;
-  string vm_name="";
+	std::string vm_name="";
   if (global_session)
   {
     vm_ptr vmp = global_session->getVM(comp);
-    if (vm_ptr)
+    if (vmp)
     {
-      vm_name = vmp->name;
+      vm_name = vmp->get_name();
       if (!global_session->startVM(vmp))
       {
         status = NCCP_Status_Failed;
@@ -134,42 +179,6 @@ end_configure_node_req::handle()
   return true;
 }
 
-start_vm_req::start_vm_req(uint8_t *mbuf, uint32_t size) : 
-  rli_request(mbuf, size)
-{
-}
-
-start_vm_req::~start_vm_req()
-{
-}
-
-bool
-start_vm_req::handle()
-{
-  write_log("start_vm_req::handle() + name:" + name);
-
-  if (sess_ptr)
-  {
-    std::string ip_str = ipaddr.getCString();
-    if (!sess_ptr->addVM(comp, ip_str, cores, memory))
-    {
-      status = NCCP_Status_Failed;    
-      write_log("start_experiment_req::handle failed to add VM to session");
-    }
-  }
-  else 
-  {
-    status = NCCP_Status_Failed;    
-    write_log("start_experiment_req::handle failed to get session ptr for experiment");
-  }
-
-  crd_response* resp = new crd_response(this, NCCP_Status_Fine);
-  resp->send();
-  delete resp;
-
-  return true;
-}
-
 refresh_req::refresh_req(uint8_t *mbuf, uint32_t size): refresh(mbuf, size)
 {
   write_log("refresh_req::refresh_req: got refresh message");
@@ -184,15 +193,15 @@ refresh_req::handle()
 {
   write_log("refresh_req::handle() about to send Fine response removing vm");
   NCCP_StatusType status = NCCP_Status_Fine;
-  string vm_name="";
+	std::string vm_name="";
 
   if (global_session)
   {
     vm_ptr vmp = global_session->getVM(comp);
-    if (vm_ptr)
+    if (vmp)
     {
-      vm_name = vmp->name;
-      if (!global_session->deleteVM(vmp))
+      vm_name = vmp->get_name();
+      if (!global_session->removeVM(vmp))
       {
         status = NCCP_Status_Failed;
         write_log("refresh_req::handle() failed to start vm");

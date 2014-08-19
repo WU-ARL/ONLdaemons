@@ -39,7 +39,7 @@ namespace vmd
 		vm_node() {}
 		~vm_node() {}
 
-		bool add_iface(boost::shared_ptr<_vminterface_info> iface);
+		bool add_iface( boost::shared_ptr<_vminterface_info> iface);
 		
 		component get_comp() { return comp; }
 		std::string get_name() { return name; }
@@ -94,8 +94,9 @@ namespace vmd
       ~session_manager() throw();   
 
       experiment_info& getExpInfo() { return expInfo;}
-      vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem);
-			std::string removeVM(vm_ptr vmp);
+      vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, 
+									 uint32_t mem, std::string pwd, std::string nm);
+			bool removeVM(vm_ptr vmp);
 
       bool configureVM(component& c, node_info& ninfo);
       vm_ptr getVM(component& c);
