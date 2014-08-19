@@ -90,8 +90,9 @@ namespace vmd
   class session_manager
   {
     public:
+		  session_manager();
       session_manager(experiment_info& ei) throw(std::runtime_error);
-      ~session_manager() throw();   
+      ~session_manager();   
 
       experiment_info& getExpInfo() { return expInfo;}
       vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, 

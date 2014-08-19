@@ -124,7 +124,7 @@ session_manager::session_manager(experiment_info& ei) throw(std::runtime_error)
             ei.getID() + " for user " + ei.getUserName());
 }
 
-session_manager::~session_manager() throw()
+session_manager::~session_manager()
 {
   write_log("session_manager::session_manager: deleting session_manager " + 
             expInfo.getID() + " for user " + expInfo.getUserName());

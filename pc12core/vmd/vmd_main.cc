@@ -35,8 +35,11 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "shared.h"
 
+#include "vmd_session.h"
 #include "vmd_configuration.h"
 #include "vmd_globals.h"
 #include "vmd_requests.h"
@@ -70,12 +73,10 @@ int main()
     exit(1);
   }
 
+  register_req<start_experiment_req>(NCCP_Operation_StartExperiment);
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
-  register_req<start_vm_req>(NCCP_Operation_startVM);
-
-  register_req<add_route_req>(VMD_AddRoute);
-  register_req<delete_route_req>(VMD_DeleteRoute);
-  register_req<configure_vm_req>(VMD_ConfigureVM);
+  register_req<end_configure_node_req>(NCCP_Operation_EndCfgNode);
+  register_req<refresh_req>(NCCP_Operation_Refresh);
 
   rli_conn->receive_messages(false);
 
