@@ -18,6 +18,7 @@
 
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdio>
 #include <cstdlib>
@@ -44,6 +45,7 @@
 #include "shared.h"
 
 #include "vmd_session.h"
+#include "vmd_configuration.h"
 #include "vmd_globals.h"
 
 using namespace vmd;
@@ -140,7 +142,7 @@ session_manager::addVM(component& c, std::string eaddr,
   vm_ptr rtn_vm = getVM(c);
   if (!rtn_vm)
   {
-    vm_ptr vm(new vm_info());
+    vm_ptr vm(new vm_node());
     vm->comp = c;
     vm->expaddr = eaddr;
     vm->cores = crs;

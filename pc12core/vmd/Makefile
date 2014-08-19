@@ -24,9 +24,10 @@ INCLUDES = -I. -I../../shared
 LIBS = -lrt -pthread -L../../shared/${OBJDIR} -lONLshared -lrt
 
 EXEC = $(OBJDIR)/vmd
-OBJS = $(OBJDIR)/vmd_configuration.o \
+OBJS = $(OBJDIR)/vmd_session.o \
+			 $(OBJDIR)/vmd_configuration.o \
 			 $(OBJDIR)/vmd_requests.o \
-			 $(OBJDIR)/vmd_main.o
+			 $(OBJDIR)/vmd_main.o 
 
 all: ${OBJDIR} ${OBJS} ${EXEC}
 

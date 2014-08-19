@@ -157,7 +157,7 @@ end_configure_node_req::handle()
     vm_ptr vmp = global_session->getVM(comp);
     if (vmp)
     {
-      vm_name = vmp->get_name();
+      vm_name = vmp->name;
       if (!global_session->startVM(vmp))
       {
         status = NCCP_Status_Failed;
@@ -200,7 +200,7 @@ refresh_req::handle()
     vm_ptr vmp = global_session->getVM(comp);
     if (vmp)
     {
-      vm_name = vmp->get_name();
+      vm_name = vmp->name;
       if (!global_session->removeVM(vmp))
       {
         status = NCCP_Status_Failed;
