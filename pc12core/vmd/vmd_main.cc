@@ -80,5 +80,6 @@ int main()
 
   rli_conn->receive_messages(false);
 
-  pthread_exit(NULL);
+	while (1) { }
+  // pthread_exit(NULL);
 }
