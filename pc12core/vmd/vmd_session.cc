@@ -124,7 +124,7 @@ session_manager::startVM(vm_ptr vmp)
 
   */
   
-  cmd = "ping -c1 " + vmp->name;
+  cmd = "ping -c 1 " + vmp->name;
   for (int i = 0; i < 10; ++i)
   {
     if (system(cmd.c_str()) == 0)
