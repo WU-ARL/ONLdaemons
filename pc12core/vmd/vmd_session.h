@@ -97,6 +97,8 @@ namespace vmd
     experiment_info expInfo;
     std::list<vm_ptr> vms;
     std::list<vlan_ptr> vlans;
+
+    int system_cmd(std::string cmd);
   };
 
   typedef boost::shared_ptr<session_manager> session_ptr;

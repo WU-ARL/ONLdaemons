@@ -77,10 +77,8 @@ start_experiment_req::handle()
     std::string vm_pwd = param_itr->getString();
     ++param_itr;
     std::string vm_name = param_itr->getString();
-
-    //TODO: was there a reason this was a cstring?
-    //  if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, nm))
     std::string ip_str = ipaddr.getString();
+
     if (!global_session->addVM(comp, ip_str, cores, memory, vm_pwd, vm_name))
     {
       status = NCCP_Status_Failed;    

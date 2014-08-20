@@ -79,7 +79,5 @@ int main()
   register_req<refresh_req>(NCCP_Operation_Refresh);
 
   rli_conn->receive_messages(false);
-
-  // while (1) { }
   pthread_exit(NULL);
 }

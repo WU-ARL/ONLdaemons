@@ -115,7 +115,7 @@ session_manager::startVM(vm_ptr vmp)
     vmp->name + " " + vmp->passwd;
   write_log("session_manager::startVM: system(" + cmd + ")");
 
-  if(system(cmd.c_str()) != 0)
+  if(system_cmd(cmd) != 0)
   {
     write_log("session_manager::startVM: start script failed");
     //may need to clean up something here
@@ -125,7 +125,7 @@ session_manager::startVM(vm_ptr vmp)
   cmd = "ping -c 1 " + vmp->name;
   for (int i = 0; i < 10; ++i)
   {
-    if (system(cmd.c_str()) == 0)
+    if (system_cmd(cmd) == 0)
     {
       write_log("session_manager::startVM: vm is successfuly up");
       return true;
@@ -175,14 +175,12 @@ session_manager::addVM(component& c, std::string eaddr,
   return rtn_vm;
 }
       
-
 bool 
 session_manager::removeVM(component& c)
 {
   vm_ptr vmp = getVM(c);
   return (removeVM(vmp));
 }
-      
 
 bool 
 session_manager::removeVM(vm_ptr vmp)
@@ -195,6 +193,7 @@ session_manager::removeVM(vm_ptr vmp)
               ",cores" + int2str(vmp->cores) + ",memory" + int2str(vmp->memory) + 
               ",interfaces" + int2str(vmp->interfaces.size()) + ")");
       
+    std::string cmd;
     std::list<vminterface_ptr>::iterator vmi_it;
     //remove from bridges
     for (vmi_it = vmp->interfaces.begin(); 
@@ -213,7 +212,7 @@ session_manager::removeVM(vm_ptr vmp)
       {
         // clean up vlans
         cmd = "/KVM_Images/scripts/cleanup_vlan.sh " + int2str(vlan->id);
-        if(system(cmd.c_str()) != 0) {
+        if(system_cmd(cmd) != 0) {
           write_log("session::removeVM: cleanup_vlan script failed");
         }
         write_log("\tremove vlan:" + int2str(vlan->id));
@@ -222,10 +221,10 @@ session_manager::removeVM(vm_ptr vmp)
     }
 
     //kill vm 
-    std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
+    cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
     write_log("session_manager::removeVM: system(" + cmd + ")");
 
-    if(system(cmd.c_str()) != 0)
+    if(system_cmd(cmd) != 0)
     {
       write_log("session_manager::removeVM: undefine_vm script failed");
       return false;
@@ -257,7 +256,6 @@ session_manager::configureVM(component& c, node_info& ninfo)
     vmi->vm = vm;
     vm->interfaces.push_back(vmi);
   }
-
   return true;
 }
       
@@ -274,8 +272,6 @@ session_manager::getVM(component& c)
   }
   return noptr;
 }
-      
-//bool addToVlan(uint32_t vlan, component& c);
 
 /* this is only called from the session manager so it should get 
  * removed from the active_sessions
@@ -288,12 +284,11 @@ session_manager::clear()
     removeVM(vms.front());
     vms.pop_front();
   }
-  //clear vlans?
 }
 
-
+/* adds vlan if not already there */
 vlan_ptr 
-session_manager::getVLan(uint32_t vlan)//adds vlan if not already there
+session_manager::getVLan(uint32_t vlan)
 {
   std::list<vlan_ptr>::iterator vit;
   for (vit = vlans.begin(); vit != vlans.end(); ++vit)
@@ -306,3 +301,13 @@ session_manager::getVLan(uint32_t vlan)//adds vlan if not already there
   vlans.push_back(new_vlan);
   return new_vlan;
 }
+
+int
+session_manager::system_cmd(std::string cmd)
+{
+  write_log("session_manager::system_cmd(): cmd = " + cmd);
+  int rtn = system(cmd.c_str());
+  if(rtn == -1) return rtn;
+  return WEXITSTATUS(rtn);
+}
+
