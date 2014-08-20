@@ -209,7 +209,7 @@ refresh_req::handle()
       if (!global_session->removeVM(vmp))
       {
         status = NCCP_Status_Failed;
-        write_log("refresh_req::handle() failed to start vm");
+        write_log("refresh_req::handle() failed to remove vm");
       }
     }
   }
