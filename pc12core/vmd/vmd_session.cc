@@ -113,17 +113,14 @@ session_manager::startVM(vm_ptr vmp)
     int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + 
     int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + 
     vmp->name + " " + vmp->passwd;
-  
   write_log("session_manager::startVM: system(" + cmd + ")");
-  /*
+
   if(system(cmd.c_str()) != 0)
   {
     write_log("session_manager::startVM: start script failed");
     //may need to clean up something here
     return false;
   }
-
-  */
   
   cmd = "ping -c 1 " + vmp->name;
   for (int i = 0; i < 10; ++i)
@@ -137,8 +134,7 @@ session_manager::startVM(vm_ptr vmp)
   }
 
   write_log("session_manager::startVM: vm did not start after 150 seconds");  
-  // should I return something different?
-  return true;
+  return false;
 }
 
 vminterface_ptr
@@ -215,33 +211,25 @@ session_manager::removeVM(vm_ptr vmp)
 
       if (vlan->interfaces.empty())
       {
+        // clean up vlans
+        cmd = "/KVM_Images/scripts/cleanup_vlan.sh " + int2str(vlan->id);
+        if(system(cmd.c_str()) != 0) {
+          write_log("session::removeVM: cleanup_vlan script failed");
+        }
         write_log("\tremove vlan:" + int2str(vlan->id));
         vlans.remove(vlan);
       }
     }
 
-    //kill vm and release name for reuse
-    //run kill script
+    //kill vm 
     std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
     write_log("session_manager::removeVM: system(" + cmd + ")");
 
-    /*
     if(system(cmd.c_str()) != 0)
     {
-      write_log("session_manager::removeVM: start script failed");
-      //may need to clean up something here
+      write_log("session_manager::removeVM: undefine_vm script failed");
       return false;
     }
-    */
-
-    /*
-    if (!the_session_manager->releaseVMname(vmp->name))
-    {
-      write_log("session_manager::removeVM failed vm " + vmp->name + " comp " + 
-                int2str(vmp->comp.getID()) );
-      return false;
-    }
-    */
 
     write_log("session_manager::removeVM vm " + vmp->name + " comp " + 
               int2str(vmp->comp.getID()) );
@@ -288,13 +276,16 @@ session_manager::getVM(component& c)
 }
       
 //bool addToVlan(uint32_t vlan, component& c);
+
+/* this is only called from the session manager so it should get 
+ * removed from the active_sessions
+ */
 void 
 session_manager::clear()
 {
-  //remove vms 
   while (!vms.empty())
-  {
-    removeVM(vms.front());//this is only called from the session manager so it should get removed from the active_sessions
+  { 
+    removeVM(vms.front());
     vms.pop_front();
   }
   //clear vlans?

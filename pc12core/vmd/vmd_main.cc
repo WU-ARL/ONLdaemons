@@ -49,7 +49,7 @@ namespace vmd
   dispatcher* the_dispatcher;
   nccp_listener* rli_conn;
   configuration* conf;
-	session_manager* global_session;
+  session_manager* global_session;
 };
 
 using namespace vmd;
@@ -60,7 +60,7 @@ int main()
   the_dispatcher = dispatcher::get_dispatcher();
   rli_conn = NULL;
   conf = new configuration();
-	global_session = new session_manager();
+  global_session = new session_manager();
 
   try
   {
@@ -80,6 +80,6 @@ int main()
 
   rli_conn->receive_messages(false);
 
-	while (1) { }
-  // pthread_exit(NULL);
+  // while (1) { }
+  pthread_exit(NULL);
 }
