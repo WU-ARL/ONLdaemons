@@ -62,17 +62,24 @@ start_experiment_req::handle()
 {
   write_log("start_experiment_req::handle()");
   NCCP_StatusType status = NCCP_Status_Fine;
+  
+  static int count = 0;
+  if (count == 0)
+  {
+    global_session->setExpInfo(exp.getExpInfo());
+  }
+  ++count;
 
   if (global_session)
   {
-		std::list<param>::iterator param_itr;
-		param_itr = (++init_params.begin());
-		std::string vm_pwd = param_itr->getString();
-		++param_itr;
-		std::string vm_name = param_itr->getString();
+    std::list<param>::iterator param_itr;
+    param_itr = (++init_params.begin());
+    std::string vm_pwd = param_itr->getString();
+    ++param_itr;
+    std::string vm_name = param_itr->getString();
 
-		//TODO: was there a reason this was a cstring?
-		//	if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, nm))
+    //TODO: was there a reason this was a cstring?
+    //  if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, nm))
     std::string ip_str = ipaddr.getString();
     if (!global_session->addVM(comp, ip_str, cores, memory, vm_pwd, vm_name))
     {
@@ -151,7 +158,7 @@ end_configure_node_req::handle()
   write_log("end_configure_node_req::handle()");
 
   NCCP_StatusType status = NCCP_Status_Fine;
-	std::string vm_name="";
+  std::string vm_name="";
   if (global_session)
   {
     vm_ptr vmp = global_session->getVM(comp);
@@ -193,7 +200,7 @@ refresh_req::handle()
 {
   write_log("refresh_req::handle() about to send Fine response removing vm");
   NCCP_StatusType status = NCCP_Status_Fine;
-	std::string vm_name="";
+  std::string vm_name="";
 
   if (global_session)
   {

@@ -52,7 +52,7 @@ using namespace vmd;
 
 session_manager::session_manager()
 {
-	write_log("session_manager::session_manager: added empty session_manager");
+  write_log("session_manager::session_manager: added empty session_manager");
 }
 session_manager::session_manager(experiment_info& ei) throw(std::runtime_error)
 {
@@ -78,7 +78,7 @@ session_manager::startVM(vm_ptr vmp)
             + int2str(vmp->memory) + ",interfaces" + 
             int2str(vmp->interfaces.size()) + ")");
   
-	
+  
   std::list<vminterface_ptr>::iterator vmi_it;
 
   //write vlans to file 
@@ -112,16 +112,31 @@ session_manager::startVM(vm_ptr vmp)
     expInfo.getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " 
     + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + 
     int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name;
-	
+  
   write_log("session_manager::startVM: system(" + cmd + ")");
-	/*
+  /*
   if(system(cmd.c_str()) != 0)
   {
     write_log("session_manager::startVM: start script failed");
     //may need to clean up something here
     return false;
   }
-	*/
+
+  */
+  
+  cmd = "ping -c1 " + vmp->name;
+  for (int i = 0; i < 10; ++i)
+  {
+    if (system(cmd.c_str()) == 0)
+    {
+      write_log("session_manager::startVM: vm is successfuly up");
+      return true;
+    }
+    sleep(15);
+  }
+
+  write_log("session_manager::startVM: vm did not start after 150 seconds");  
+  // should I return something different?
   return true;
 }
 
@@ -141,8 +156,8 @@ getInterface(vm_ptr vm, node_info& ninfo)
 
 vm_ptr
 session_manager::addVM(component& c, std::string eaddr, 
-											 uint32_t crs, uint32_t mem,
-											 std::string pwd, std::string nm)
+                       uint32_t crs, uint32_t mem,
+                       std::string pwd, std::string nm)
 {
   vm_ptr rtn_vm = getVM(c);
   if (!rtn_vm)
@@ -151,8 +166,8 @@ session_manager::addVM(component& c, std::string eaddr,
     vm->comp = c;
     vm->expaddr = eaddr;
     vm->cores = crs;
-		vm->passwd = pwd;
-		vm->name = nm;
+    vm->passwd = pwd;
+    vm->name = nm;
 
     int tmp_mem = (int)(mem/1000) * 1024;
     vm->memory = tmp_mem;
@@ -209,14 +224,14 @@ session_manager::removeVM(vm_ptr vmp)
     std::string cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
     write_log("session_manager::removeVM: system(" + cmd + ")");
 
-		/*
+    /*
     if(system(cmd.c_str()) != 0)
     {
       write_log("session_manager::removeVM: start script failed");
       //may need to clean up something here
       return false;
     }
-		*/
+    */
 
     /*
     if (!the_session_manager->releaseVMname(vmp->name))

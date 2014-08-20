@@ -84,14 +84,15 @@ namespace vmd
     experiment_info& getExpInfo() { return expInfo;}
     vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, 
                  uint32_t mem, std::string pwd, std::string nm);
-		bool removeVM(component& c);
+    bool removeVM(component& c);
     bool removeVM(vm_ptr vmp);
     bool configureVM(component& c, node_info& ninfo);
     vm_ptr getVM(component& c);
     bool startVM(vm_ptr vm);
     void clear();
     vlan_ptr getVLan(uint32_t vlan);//adds vlan if not already there
-    
+    void setExpInfo(experiment_info& exp) { expInfo = exp; }
+
   private:
     experiment_info expInfo;
     std::list<vm_ptr> vms;
