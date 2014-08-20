@@ -38,6 +38,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <boost/shared_ptr.hpp>
 #include "shared.h"
 
 #include "vmd_session.h"
