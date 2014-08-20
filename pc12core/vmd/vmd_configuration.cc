@@ -40,6 +40,7 @@
 
 #include "shared.h"
 
+#include "vmd_session.h"
 #include "vmd_configuration.h"
 #include "vmd_globals.h"
 
