@@ -92,6 +92,7 @@ namespace vmd
     void clear();
     vlan_ptr getVLan(uint32_t vlan);//adds vlan if not already there
     void setExpInfo(experiment_info& exp) { expInfo = exp; }
+    bool empty() { return vms.empty(); }
 
   private:
     experiment_info expInfo;

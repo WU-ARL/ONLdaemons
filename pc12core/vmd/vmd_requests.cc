@@ -224,6 +224,13 @@ refresh_req::handle()
   resp->send();
   delete resp;
 
+  if (global_session->empty())
+  {
+    write_log("refresh_req::handle() no state left, last refresh req, exiting...");
+    sleep(1);
+    exit(0);
+  }
+
   return true;
 }
 
@@ -243,11 +250,23 @@ end_experiment_req::handle()
   write_log("end_experiment_req::handle() about to clean up everything");
   NCCP_StatusType status = NCCP_Status_Fine;
 
+  if (global_session)
+  {
+    global_session->clear();
+    if (!global_session->empty())
+    {
+      status = NCCP_Status_Failed;
+      write_log("session_manager::clear() failed to remove all vms");
+    }
+  }
+
   crd_response* resp = new crd_response(this, status);
   resp->send();
   delete resp;
 
   sleep(1); // make sure response is sent before exit
   exit(0);
+
+  return true;
 }
 
