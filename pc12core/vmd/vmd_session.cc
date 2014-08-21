@@ -115,13 +115,15 @@ session_manager::startVM(vm_ptr vmp)
     vmp->name + " " + vmp->passwd;
   write_log("session_manager::startVM: system(" + cmd + ")");
 
+  /*
   if(system_cmd(cmd) != 0)
   {
     write_log("session_manager::startVM: start script failed");
     //may need to clean up something here
     return false;
   }
-  
+
+
   cmd = "ping -c 1 " + vmp->name;
   for (int i = 0; i < 10; ++i)
   {
@@ -132,6 +134,7 @@ session_manager::startVM(vm_ptr vmp)
     }
     sleep(15);
   }
+  */
 
   write_log("session_manager::startVM: vm did not start after 150 seconds");  
   return false;
@@ -212,9 +215,11 @@ session_manager::removeVM(vm_ptr vmp)
       {
         // clean up vlans
         cmd = "/KVM_Images/scripts/cleanup_vlan.sh " + int2str(vlan->id);
+        /*
         if(system_cmd(cmd) != 0) {
           write_log("session::removeVM: cleanup_vlan script failed");
         }
+        */
         write_log("\tremove vlan:" + int2str(vlan->id));
         vlans.remove(vlan);
       }
@@ -224,11 +229,13 @@ session_manager::removeVM(vm_ptr vmp)
     cmd = "/KVM_Images/scripts/undefine_vm.sh " + vmp->name;
     write_log("session_manager::removeVM: system(" + cmd + ")");
 
+    /*
     if(system_cmd(cmd) != 0)
     {
       write_log("session_manager::removeVM: undefine_vm script failed");
       return false;
     }
+    */
 
     write_log("session_manager::removeVM vm " + vmp->name + " comp " + 
               int2str(vmp->comp.getID()) );
@@ -305,7 +312,6 @@ session_manager::getVLan(uint32_t vlan)
 int
 session_manager::system_cmd(std::string cmd)
 {
-  write_log("session_manager::system_cmd(): cmd = " + cmd);
   int rtn = system(cmd.c_str());
   if(rtn == -1) return rtn;
   return WEXITSTATUS(rtn);

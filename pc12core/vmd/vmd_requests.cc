@@ -227,3 +227,27 @@ refresh_req::handle()
   return true;
 }
 
+end_experiment_req::end_experiment_req(uint8_t *mbuf, uint32_t size): 
+  end_experiment(mbuf, size)
+{
+  write_log("end_experiment_req::end_experiment_req: got end message");
+}
+
+end_experiment_req::~end_experiment_req()
+{
+}
+
+bool
+end_experiment_req::handle()
+{
+  write_log("end_experiment_req::handle() about to clean up everything");
+  NCCP_StatusType status = NCCP_Status_Fine;
+
+  crd_response* resp = new crd_response(this, status);
+  resp->send();
+  delete resp;
+
+  sleep(1); // make sure response is sent before exit
+  exit(0);
+}
+
