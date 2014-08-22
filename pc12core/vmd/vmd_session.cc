@@ -109,7 +109,7 @@ session_manager::startVM(vm_ptr vmp)
 
   //run start VM script
   std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + 
-    expInfo.getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " +
+    expInfo.getUserName() + " /KVM_Images/img/ubuntu_12.04_template.qcow2 " +
     int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + 
     int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + 
     vmp->name + " " + vmp->passwd;
