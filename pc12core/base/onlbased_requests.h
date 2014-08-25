@@ -30,8 +30,8 @@ namespace onlbased
       virtual bool handle();
 
     private:
-      bool start_specialization_daemon(std::string specd);
-      bool connect_to_specialization_daemon();
+      session_ptr start_specialization_daemon(std::string specd);
+      bool connect_to_specialization_daemon(session_ptr sptr);
       int system_cmd(std::string cmd);
   }; // class start_experiment_req
 
@@ -44,15 +44,7 @@ namespace onlbased
       virtual bool handle();
   }; // class refresh_req
 
-  class end_configure_node_req : public end_configure_node
-  {
-    public:
-      end_configure_node_req(uint8_t *mbuf, uint32_t size);
-      virtual ~end_configure_node_req();
- 
-      virtual bool handle();
-  };//class end_configure_node_req
-
+  /*
   static const NCCP_OperationType NCCP_Operation_UserData = 62;
   class user_data_req : public onld::rli_request
   {
@@ -70,7 +62,7 @@ namespace onlbased
  
       userdata* user_data;
   }; // class user_data_req
-
+  
   static const NCCP_OperationType NCCP_Operation_UserDataTS = 63;
   class user_data_ts_req : public onld::rli_request
   {
@@ -88,7 +80,7 @@ namespace onlbased
 
       userdata* user_data;
   }; // class user_data_ts_req
-
+  */
   class rli_relay_req : public onld::rli_request
   {
     public:

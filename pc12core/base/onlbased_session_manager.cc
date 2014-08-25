@@ -95,7 +95,8 @@ session_manager::~session_manager()
 
   //pthread_mutex_destroy(&session_lock);
 }
-/*
+
+
 session_ptr 
 session_manager::getSession(experiment_info& einfo)
 {
@@ -109,20 +110,72 @@ session_manager::getSession(experiment_info& einfo)
   return no_ptr;
 }
 
-session_ptr 
-session_manager::addSession(experiment_info& einfo)
+
+session_ptr
+session_manager::addSession(experiment_info& einfo)//session_ptr sptr)
 {
   session_ptr sptr = getSession(einfo);
   if (!sptr)
     {
       autoLockDebug slock(session_lock, "session_manager::addSession(): session_lock");
-      session_ptr tmp_ptr(new session(einfo));
+      session_ptr tmp_ptr(new session_info());
       sptr = tmp_ptr;
+      sptr->expInfo = einfo;
+      sptr->dport = getNewPort();
+      sptr->spec_conn = NULL;
       active_sessions.push_back(sptr);
     }
   return sptr;
 }
 
+int
+session_manager::getNewPort()
+{
+  std::list<int>::iterator pit;
+  int rtn = Default_ND_Port;
+  bool found = true;
+  autoLockDebug plock(port_lock, "session_manager::getNewPort(): port_lock");
+  while (found)
+    {
+      found = false;
+      for (pit = active_ports.begin(); pit != active_ports.end(); ++pit)
+	{
+	  if (rtn == *pit) 
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+      if (found) ++rtn;
+    }
+  active_ports.push_back(rtn);
+  return rtn;
+}
+
+void
+session_manager::removeSession(session_ptr sptr)
+{
+  //release vmnames
+  autoLockDebug splock(sptr->session_lock, "session_manager::removeSession(): sptr->session_lock");
+  while (!sptr->vms.empty())
+    {
+      releaseVMname(sptr->vms.front());
+      sptr->vms.pop_front();
+    }
+  splock.unlock();
+  //release port
+  autoLockDebug plock(port_lock, "session_manager::removeSession(): port_lock");
+  active_ports.remove(sptr->dport);
+  //remove from active_sessions
+  autoLockDebug slock(session_lock, "session_manager::removeSession(): session_lock");
+  active_sessions.remove(sptr);
+  if (sptr->spec_conn != NULL)
+    {
+      delete sptr->spec_conn;
+      sptr->spec_conn == NULL;
+    }
+}
+/*
 bool 
 session_manager::startVM(session_ptr sptr, vm_ptr vmp)
 {

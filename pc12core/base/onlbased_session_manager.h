@@ -30,23 +30,42 @@ namespace onlbased
 
   typedef boost::shared_ptr<vmname_info> vmname_ptr;
 
+  typedef struct _session_info
+  {
+    //experiment id
+    experiment_info expInfo;
+    //connection id
+    nccp_connection *spec_conn;
+    //port number
+    int dport;
+    //list of allocated vm names
+    std::list< std::string > vms;
+      pthread_mutex_t session_lock;
+  } session_info;
+
+  typedef boost::shared_ptr<session_info> session_ptr;
+
   class session_manager
   {
   public:
       session_manager() throw();
       ~session_manager();
-      //session_ptr getSession(experiment_info& einfo);
+      session_ptr getSession(experiment_info& einfo);
       //bool startVM(session_ptr sptr, vm_ptr vmp);
       std::string getNewVMName();
       //bool assignVM(vm_ptr vmp);//assigns control addr and vm name for vm
       //bool deleteVM(component& c, experiment_info& einfo);
       bool releaseVMname(std::string nm);
-      //session_ptr addSession(experiment_info& einfo);
+      session_ptr addSession(experiment_info& einfo);
+      void removeSession(session_ptr sptr);
+      int getNewPort();
   private:
-      //std::list<session_ptr> active_sessions;
+      std::list<session_ptr> active_sessions;
       std::map<std::string, vmname_info> vmnames; //list of available vm names marked true if in use
+      std::list<int> active_ports;
       pthread_mutex_t vmname_lock;
-      //pthread_mutex_t session_lock;
+      pthread_mutex_t session_lock;
+      pthread_mutex_t port_lock;
       int getVMIndex(std::string vmnm);
   };
 };

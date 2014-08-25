@@ -50,11 +50,12 @@ namespace vmd
   nccp_listener* rli_conn;
   configuration* conf;
   session_manager* global_session;
+  int listen_port;
 };
 
 using namespace vmd;
 
-int main()
+int main(int argc, char** argv)
 {
   log = new log_file("/tmp/vmd.log");
   the_dispatcher = dispatcher::get_dispatcher();
@@ -62,10 +63,21 @@ int main()
   conf = new configuration();
   global_session = new session_manager();
 
+  listen_port = Default_ND_Port;
+
+  for (int i = 0; i < argc; ++i)
+    {
+      if (!strcmp(argv[i], "--onlport"))
+	{
+	  listen_port = atoi(argv[++i]);
+	  break;
+	}
+    }
+
   try
   {
     std::string tmp_addr("127.0.0.1");
-    rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
+    rli_conn = new nccp_listener(tmp_addr, listen_port);//Default_ND_Port);
   }
   catch(std::exception& e)
   {

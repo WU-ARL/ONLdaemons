@@ -459,6 +459,28 @@ param::operator=(const param& p)
   return *this;
 }
 
+
+std::string 
+param::getString()
+{
+  std::string rtn;
+  switch (pt)
+  {
+    case int_param:    
+      return (int2str(int_val));
+    case double_param: // doubles sent/received as strings
+    case string_param: 
+      return string_val.getString();
+    case bool_param:
+    {
+      if(bool_val) rtn = "1";
+      else rtn = "0";
+      break;
+    }
+  }
+  return rtn;
+}
+
 byte_buffer&
 onld::operator<<(byte_buffer& buf, param& p)
 {

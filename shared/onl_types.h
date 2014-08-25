@@ -191,7 +191,7 @@ namespace onld
       uint32_t getInt() { return int_val; }
       double getDouble() { return double_val; }
       bool getBool() { return bool_val; }
-      std::string getString() { return string_val.getString(); }
+      std::string getString();// { return string_val.getString(); }
       
       friend byte_buffer& operator<<(byte_buffer& buf, param& p);
       friend byte_buffer& operator>>(byte_buffer& buf, param& p);

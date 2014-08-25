@@ -226,6 +226,7 @@ session_manager::removeVM(vm_ptr vmp)
     if(system_cmd(cmd) != 0)
     {
       write_log("session_manager::removeVM: undefine_vm script failed");
+      vms.remove(vmp);//PROBLEM:may need to be able to distinguish when cmd fails because vm was no longer present
       return false;
     }
 

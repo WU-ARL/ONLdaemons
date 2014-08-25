@@ -24,6 +24,7 @@ namespace vmd
   extern nccp_listener* rli_conn;
   extern configuration* conf;
   extern session_manager* global_session;
+  extern int listen_port;
 }; // namespace vmd
 
 #endif // _VMD_GLOBALS_H

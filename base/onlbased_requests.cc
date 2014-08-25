@@ -85,7 +85,7 @@ start_experiment_req::handle()
     if(p.getType() == string_param && p.getString() != "")
     {
       write_log("start_experiment_req::handle(): got specialization daemon: " + p.getString());
-      init_params.pop_front();
+      //init_params.pop_front();
       using_spec_daemon = true;
       if(!start_specialization_daemon(p.getString()))
       {
@@ -148,6 +148,19 @@ start_experiment_req::start_specialization_daemon(std::string specd)
       }
 
     //figure out the number of arguments
+    int argc = init_params.size();
+    const char* argv[(argc+3)]; //arguments sent from RLI plus the user
+    std::list<param>::iterator pit;
+    int i = 0;
+    for (pit = init_params.begin(); pit != init_params.end(); ++pit)
+      {
+	argv[i] = pit->getString().c_str();
+	++i
+      }
+    argv[i] = "--onluser";
+    argv[++i] = user.c_str();
+    argv[++i] = (char*)NULL;
+    /*
     int argc = 1;
     int pos = 0;
     while(pos != std::string::npos)
@@ -173,6 +186,7 @@ start_experiment_req::start_specialization_daemon(std::string specd)
     argv[argc] = "--onluser";
     argv[argc+1] = user.c_str();
     argv[argc+2] = (char*)NULL;
+    */
     execv(argv[0], (char* const*)argv);
     
     //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);

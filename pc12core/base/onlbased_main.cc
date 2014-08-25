@@ -40,7 +40,7 @@
 
 #include "shared.h"
 
-#include "onlbased_userdata.h"
+//#include "onlbased_userdata.h"
 #include "onlbased_session_manager.h"
 #include "onlbased_globals.h"
 #include "onlbased_requests.h"
@@ -50,13 +50,17 @@ namespace onlbased
 {
   dispatcher *the_dispatcher;
   nccp_listener *rli_conn;
-  nccp_connection *spec_conn;
+  //nccp_connection *spec_conn;
   session_manager *the_session_manager;
 
   bool using_spec_daemon;
   std::string user;
   bool testing;
   bool root_only;//set to true if specialty daemons are only run as root
+
+  //locks for starting and connecting to a daemon
+  //pthread_mutex_t start_lock;
+  //pthread_mutex_t connect_lock;
 };
 
 using namespace onlbased;
@@ -66,7 +70,7 @@ int main(int argc, char** argv)
   the_dispatcher = dispatcher::get_dispatcher();
   the_session_manager = new session_manager();
   rli_conn = NULL;
-  spec_conn = NULL;
+  //spec_conn = NULL;
   using_spec_daemon = false;
   user = "nobody";
   testing = false;
@@ -107,18 +111,19 @@ int main(int argc, char** argv)
   }
 
   register_req<start_experiment_req>(NCCP_Operation_StartExperiment);
+  register_resp<crd_response>(NCCP_Operation_StartExperiment);
   register_req<refresh_req>(NCCP_Operation_Refresh);
+  register_resp<crd_endconfig_response>(NCCP_Operation_Refresh);
 
-  register_req<user_data_req>(NCCP_Operation_UserData);
-  register_req<user_data_ts_req>(NCCP_Operation_UserDataTS);
+  //register_req<rli_relay_req>(NCCP_Operation_UserData);
+  //register_req<rli_relay_req>(NCCP_Operation_UserDataTS);
 
   register_req<crd_relay_req>(NCCP_Operation_CfgNode);
   register_resp<crd_response>(NCCP_Operation_CfgNode);
-  register_resp<crd_response>(NCCP_Operation_StartExperiment);
-  register_resp<crd_endconfig_response>(NCCP_Operation_Refresh);
   register_req<crd_relay_req>(NCCP_Operation_EndCfgNode);
+  register_resp<crd_response>(NCCP_Operation_EndCfgNode);
 
-  for(uint8_t op=64; op<=254; ++op)
+  for(uint8_t op=62; op<=254; ++op) //this includes user data
   {
     register_req<rli_relay_req>(op);
     register_resp<rli_response>(op);

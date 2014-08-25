@@ -30,6 +30,7 @@ namespace onlbased
   extern std::string user;
   extern bool testing;
   extern bool root_only;
+
 }; // namespace onlbased
 
 #endif // _ONLBASED_GLOBALS_H

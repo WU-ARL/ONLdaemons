@@ -69,8 +69,14 @@ start_experiment_req::handle()
 
   if (sess_ptr)
     {
+      std::list<param>::iterator pit;
+      pit = (++init_params.begin());
+      
       std::string ip_str = ipaddr.getCString();
-      if (!sess_ptr->addVM(comp, ip_str, cores, memory))
+      std::string pwd = pit->getString();
+      ++pit;
+      std::string img = pit->getString();
+      if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, img))
 	{
 	  status = NCCP_Status_Failed;		
 	  write_log("start_experiment_req::handle failed to add VM to session");

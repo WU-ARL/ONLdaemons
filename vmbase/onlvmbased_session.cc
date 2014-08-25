@@ -76,7 +76,7 @@ session::~session() throw()
      
 
 vm_ptr
-session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
+session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem, std::string pw, std::string img)
 {
   vm_ptr rtn_vm = getVM(c);
   if (!rtn_vm)
@@ -85,8 +85,10 @@ session::addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
       vm->comp = c;
       vm->expaddr = eaddr;
       vm->cores = crs;
+      vm->passwd = pw;
       int tmp_mem = (int)(mem/1000) * 1024;
       vm->memory = tmp_mem;
+      vm->img = img;
       if (the_session_manager->assignVM(vm)) //assigns control addr and vm name for vm
 	{
 	  rtn_vm = vm;

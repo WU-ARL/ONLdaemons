@@ -33,6 +33,8 @@ namespace onlvmbased
     std::string expaddr;
     uint32_t cores;
     uint32_t memory;
+    std::string passwd;
+    std::string img;
   } vm_info;
 
   typedef boost::shared_ptr<vm_info> vm_ptr;
@@ -65,7 +67,7 @@ namespace onlvmbased
       ~session() throw();   
 
       experiment_info& getExpInfo() { return expInfo;}
-      vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem);
+      vm_ptr addVM(component& c, std::string eaddr, uint32_t crs, uint32_t mem, std::string pw, std::string img);
       bool removeVM(component& c);
       bool removeVM(vm_ptr vmp);
 

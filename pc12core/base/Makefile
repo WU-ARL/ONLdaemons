@@ -24,8 +24,7 @@ INCLUDES = -I. -I../../shared
 LIBS = -lrt -pthread -L../../shared/${OBJDIR} -lONLshared -lrt
 
 EXEC = $(OBJDIR)/onlbased
-OBJS = $(OBJDIR)/onlbased_userdata.o \
-       $(OBJDIR)/onlbased_responses.o \
+OBJS = $(OBJDIR)/onlbased_responses.o \
        $(OBJDIR)/onlbased_requests.o \
        $(OBJDIR)/onlbased_session_manager.o \
        $(OBJDIR)/onlbased_main.o
