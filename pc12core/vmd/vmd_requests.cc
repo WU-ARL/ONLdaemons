@@ -167,7 +167,7 @@ end_configure_node_req::handle()
       {
         status = NCCP_Status_Failed;
         write_log("end_configure_node_req::handle() failed to start vm");
-	global_session->removeVM(vmp);//jp added
+        global_session->removeVM(vmp);//jp added
       }
     }
     else

@@ -75,27 +75,27 @@ int main(int argc, char** argv)
   testing = false;
 
   static struct option longopts[] =
-  {{"help",       0, NULL, 'h'},
-   {"testing",    0, NULL, 't'},
-   {"root_only",    0, NULL, 'r'},
-   {NULL,         0, NULL,  0}
-  };
+		{{"help",       0, NULL, 'h'},
+		 {"testing",    0, NULL, 't'},
+		 {"root_only",    0, NULL, 'r'},
+		 {NULL,         0, NULL,  0}
+		};
 
   int c;
   while ((c = getopt_long(argc, argv, "htr", longopts, NULL)) != -1) {
     switch (c) {
-      case 't':
-        testing = true;
-        break;
-      case 'r':
-	root_only = true;
-	break;
-      case 'h':
-        std::cout << "usage: onlvmbased [-h] [-t] [-r]" << std::endl;
-        std::cout << "       -h:       print this message" << std::endl;
-        std::cout << "       -t:       run in testing mode, i.e., don't reboot on refresh" << std::endl;
-        std::cout << "       -r:       only launch subtype daemons as root" << std::endl;
-        exit(0);
+		case 't':
+			testing = true;
+			break;
+		case 'r':
+			root_only = true;
+			break;
+		case 'h':
+			std::cout << "usage: onlvmbased [-h] [-t] [-r]" << std::endl;
+			std::cout << "\t-h:\tprint this message" << std::endl;
+			std::cout << "\t-t:\trun in testing mode, i.e., don't reboot on refresh" << std::endl;
+			std::cout << "\t-r:\tonly launch subtype daemons as root" << std::endl;
+			exit(0);
     }
   }
   try
@@ -117,7 +117,6 @@ int main(int argc, char** argv)
 
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
   register_req<end_configure_node_req>(NCCP_Operation_EndCfgNode);
-  //register_resp<crd_response>(NCCP_Operation_CfgNode);
 
   for(uint8_t op=64; op<=254; ++op)
   {
