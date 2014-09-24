@@ -82,8 +82,6 @@ namespace onlvmbased
       experiment_info expInfo;
       std::list<vm_ptr> vms;
       std::list<vlan_ptr> vlans;
-
-			int session::system_cmd(std::string cmd);
   };
 
   typedef boost::shared_ptr<session> session_ptr;

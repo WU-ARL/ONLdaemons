@@ -30,6 +30,7 @@ namespace onld
   static const uint16_t Default_Proxy_Port = 7070;
   static const uint16_t Default_CRD_Port   = 3560;
   static const uint16_t Default_ND_Port    = 3551;
+  static const uint16_t Default_VMD_Port    = 3552;
   static const uint16_t Default_NMD_Port   = 3551;
 
   typedef struct _new_message_data
@@ -65,6 +66,9 @@ namespace onld
       bool has_outstanding_msgs();
 
       std::string get_remote_hostname();
+
+      int get_local_port() { return local_port;}
+      int get_remote_port() { return remote_port;}
 
     private:
       pthread_mutex_t write_lock;

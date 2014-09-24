@@ -64,22 +64,22 @@ session_manager::session_manager() throw()
   int i = 0;
  
   for (i = 1; i < 25; ++i)
-  {
-    if (i < 10)
     {
-      std::string str = "vm12c" + id + "v0" + int2str(i);
-      vmnames[str].in_use = false;
-      vmnames[str].name = str;
-      vmnames[str].index = i;
+      if (i < 10)
+	{
+	  std::string str = "vm12c" + id + "v0" + int2str(i);
+	  vmnames[str].in_use = false;
+	  vmnames[str].name = str;
+	  vmnames[str].index = i;
+	}
+      else
+	{
+	  std::string str = "vm12c" + id + "v" + int2str(i);
+	  vmnames[str].in_use = false;
+	  vmnames[str].name = str;
+	  vmnames[str].index = i;
+	}
     }
-    else
-    {
-      std::string str = "vm12c" + id + "v" + int2str(i);
-      vmnames[str].in_use = false;
-      vmnames[str].name = str;
-      vmnames[str].index = i;
-    }
-  }
 }
 
 session_manager::~session_manager()
@@ -87,10 +87,10 @@ session_manager::~session_manager()
   //need to clear any existing sessions
   std::list<session_ptr>::iterator sit;
   while (!active_sessions.empty())
-  {
-    active_sessions.front()->clear();
-    active_sessions.pop_front();
-  }
+    {
+      active_sessions.front()->clear();
+      active_sessions.pop_front();
+    }
   pthread_mutex_destroy(&vmname_lock);
 
   pthread_mutex_destroy(&session_lock);
@@ -103,9 +103,9 @@ session_manager::getSession(experiment_info& einfo)
   session_ptr  no_ptr;
   autoLockDebug slock(session_lock, "session_manager::getSession(): session_lock");
   for (sit = active_sessions.begin(); sit != active_sessions.end(); ++sit)
-  {
-    if ((*sit)->expInfo == einfo) return (*sit);
-  }
+    {
+      if ((*sit)->expInfo == einfo) return (*sit);
+    }
   return no_ptr;
 }
 
@@ -114,62 +114,61 @@ session_manager::addSession(experiment_info& einfo)
 {
   session_ptr sptr = getSession(einfo);
   if (!sptr)
-  {
-    autoLockDebug slock(session_lock, "session_manager::addSession(): session_lock");
-    session_ptr tmp_ptr(new session(einfo));
-    sptr = tmp_ptr;
-    active_sessions.push_back(sptr);
-  }
+    {
+      autoLockDebug slock(session_lock, "session_manager::addSession(): session_lock");
+      session_ptr tmp_ptr(new session(einfo));
+      sptr = tmp_ptr;
+      active_sessions.push_back(sptr);
+    }
   return sptr;
 }
 
 bool 
 session_manager::startVM(session_ptr sptr, vm_ptr vmp)
 {
-  write_log("session_manager::startVM experiment:(" + 
-            sptr->getExpInfo().getUserName() + ", " + sptr->getExpInfo().getID() + 
-            ") component:(" + vmp->comp.getLabel() + ", " + 
-            int2str(vmp->comp.getID()) + ") vm:(" + vmp->name + ",cores" + 
-            int2str(vmp->cores) + ",memory" + int2str(vmp->memory) + 
-            ",interfaces" + int2str(vmp->interfaces.size()) + ")");
+  write_log("session_manager::startVM experiment:(" + sptr->getExpInfo().getUserName() + ", " + sptr->getExpInfo().getID() + ") component:(" 
+	    + vmp->comp.getLabel() + ", " + int2str(vmp->comp.getID()) + ") vm:(" + vmp->name + ",cores" + int2str(vmp->cores) + ",memory" + int2str(vmp->memory) 
+	    + ",interfaces" + int2str(vmp->interfaces.size()) + ")");
   
   std::list<vminterface_ptr>::iterator vmi_it;
-
-  //write vlans to file 
+  //write vlans to file /KVM_Images/scripts/lists/<vmp->name>_vlan.txt
   std::string vnm_str = "/KVM_Images/scripts/lists/" + vmp->name + "_vlan.txt";
   std::ofstream vlan_fs(vnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
-
-  //write data_ips to file
+  //write data_ips to file /KVM_Images/scripts/lists/<vmp->name>_dataip.txt
   std::string dipnm_str = "/KVM_Images/scripts/lists/" + vmp->name + "_dataip.txt";
   std::ofstream dip_fs(dipnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
-
-
+  //std::string cmd = "/KVM_Images/scripts/setup_networking.sh";
+  //write_log("session_manager::startVM: system(" + cmd + ")");
+  //if(system(cmd.c_str()) != 0)
+  //{
+  //  write_log("session_manager::startVM: setup_networking.sh failed");
+  //  return false;
+  //}
   for (vmi_it = vmp->interfaces.begin(); vmi_it != vmp->interfaces.end(); ++vmi_it)
-  {
-    vlan_ptr vlan = sptr->getVLan((*vmi_it)->ninfo.getVLan());
-    vlan->interfaces.push_back((*vmi_it));
-
-    write_log("    add interface:" + int2str((*vmi_it)->ninfo.getPort()) 
-              + " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + 
-              " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) 
-              +  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
-
-    dip_fs << (*vmi_it)->ninfo.getIPAddr() << std::endl;
-    vlan_fs << (*vmi_it)->ninfo.getVLan() << " " << 
-      (*vmi_it)->ninfo.getRealPort() << std::endl;
-  }
-
+    {
+      vlan_ptr vlan = sptr->getVLan((*vmi_it)->ninfo.getVLan());
+      vlan->interfaces.push_back((*vmi_it));
+      write_log("    add interface:" + int2str((*vmi_it)->ninfo.getPort()) + " with ipaddr:" + (*vmi_it)->ninfo.getIPAddr() + " to physical port:" + int2str((*vmi_it)->ninfo.getRealPort()) 
+		+  " and vlan:" + int2str((*vmi_it)->ninfo.getVLan()));
+      //cmd = "/KVM_Images/scripts/setup_vlan.sh " + int2str((*vmi_it)->ninfo.getVLan()) + " " + int2str((*vmi_it)->ninfo.getRealPort());
+      //write_log("session_manager::startVM: system(" + cmd + ")");
+      //if(system(cmd.c_str()) != 0)
+      //{
+      //  write_log("session_manager::startVM: setup_vlan.sh failed");
+      //  return false;
+      //}
+      dip_fs << (*vmi_it)->ninfo.getIPAddr() << std::endl;
+      vlan_fs << (*vmi_it)->ninfo.getVLan() << " " << (*vmi_it)->ninfo.getRealPort() << std::endl;
+    }
   dip_fs.close();
   vlan_fs.close();
-
-  std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + 
-    sptr->getExpInfo().getUserName() + " /KVM_Images/img/" +  vmp->img + 
-    " "  + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + 
-    int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + 
-    " " + vmp->name + " " + vmp->passwd;
+  //int vm_ndx = getVMIndex(vmp->name);
+  //run start VM script
+  //std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /KVM_Images/img/ubuntu_12.04_template.img " + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name + " " + vmp->passwd;
+  std::string cmd = "/KVM_Images/scripts/start_new_vm.sh " + sptr->getExpInfo().getUserName() + " /KVM_Images/img/" +  vmp->img + " "  + int2str(vmp->cores) + " " + int2str(vmp->memory) + " " + int2str(vmp->interfaces.size()) + " " + vnm_str + " " + dipnm_str + " " + vmp->name + " " + vmp->passwd;
 
   write_log("session_manager::startVM: system(" + cmd + ")");
-  if(system_cmd(cmd) != 0)
+  if(system(cmd.c_str()) != 0)
   {
     write_log("session_manager::startVM: start script failed");
     //may need to clean up something here
@@ -177,38 +176,32 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
   }
   //configure ports for bandwidth restriction
   for (vmi_it = vmp->interfaces.begin(); vmi_it != vmp->interfaces.end(); ++vmi_it)
-  {
-    //rates are given in Mbits/s need to convert to kbits/s
-    uint32_t bw_kbits = (*vmi_it)->ninfo.getBandwidth() * 1000;
-
-    cmd = "/KVM_Images/scripts/swrd_configure_port.sh " + 
-      int2str((*vmi_it)->ninfo.getPort()) + " data" + 
-      int2str((*vmi_it)->ninfo.getRealPort()) + " " + 
-      int2str((*vmi_it)->ninfo.getVLan()) + " " + 
-      (*vmi_it)->ninfo.getIPAddr() + " " + (*vmi_it)->ninfo.getSubnet() + 
-      " " + int2str(bw_kbits) + " 1000 " + int2str((*vmi_it)->ninfo.getVLan());
-    write_log("session_manager::startVM: system(" + cmd + ")");
-    // if(system(cmd.c_str()) != 0)
-    //{
-    //  write_log("session_manager::startVM: swrd_configure_port.sh script failed");
-    //}
-  }
+    {
+      uint32_t bw_kbits = (*vmi_it)->ninfo.getBandwidth() * 1000;//rates are given in Mbits/s need to convert to kbits/s
+      //#define IFACE_DEFAULT_MIN 1000 //is 1000 arg given to script
+      cmd = "/KVM_Images/scripts/swrd_configure_port.sh " + int2str((*vmi_it)->ninfo.getPort()) + " data" + int2str((*vmi_it)->ninfo.getRealPort()) + " " + 
+	int2str((*vmi_it)->ninfo.getVLan()) + " " + (*vmi_it)->ninfo.getIPAddr() + " " + (*vmi_it)->ninfo.getSubnet() + " " + int2str(bw_kbits) + " 1000 "  + 
+	int2str((*vmi_it)->ninfo.getVLan());
+      write_log("session_manager::startVM: system(" + cmd + ")");
+      // if(system(cmd.c_str()) != 0)
+      //{
+      //  write_log("session_manager::startVM: swrd_configure_port.sh script failed");
+      //}
+    }
 
   //make sure we can ping the new vm
   cmd = "ping -c 1 " + vmp->name;
   for (int i = 0; i < 10 ; ++i)
-  {
-    sleep(15);
-    if (system_cmd(cmd) == 0)
     {
-      write_log("session_manager::startVM: system(" + cmd + ") succeeded");
-      return true;
+      sleep(15);
+      if (system(cmd.c_str()) == 0)
+	{
+	  write_log("session_manager::startVM: system(" + cmd + ") succeeded");
+	  return true;
+	}
+      else
+	write_log("session_manager::startVM: system(" + cmd + ") failed");
     }
-    else
-    {
-      write_log("session_manager::startVM: system(" + cmd + ") failed");
-    }
-  }
   return false;
 }
 
@@ -225,14 +218,14 @@ session_manager::assignVM(vm_ptr vmp)//assigns control addr and vm name for vm
   autoLockDebug nmlock(vmname_lock, "session_manager::assignVM(): vmname_lock");
   std::map<std::string, vmname_info>::iterator vnmit;
   for (vnmit = vmnames.begin(); vnmit != vmnames.end(); ++vnmit)
-  {
-    if (!vnmit->second.in_use)
     {
-      vmp->name = vnmit->first;
-      vnmit->second.in_use = true;
-      return true;
+       if (!vnmit->second.in_use)
+	{
+	  vmp->name = vnmit->first;
+	  vnmit->second.in_use = true;
+	  return true;
+	}
     }
-  }
   vmp->name = "";
   return false;
 }
@@ -242,27 +235,26 @@ session_manager::deleteVM(component& c, experiment_info& einfo)
 {
   session_ptr sptr = getSession(einfo);
   if (!sptr) 
-  {
-    write_log("session_manager::deleteVM session (" + einfo.getUserName() + 
-              ", " + einfo.getID() + ") session already gone");
-    return true;
-  }
+    {
+      write_log("session_manager::deleteVM session (" + einfo.getUserName() + ", " + einfo.getID() + ") session already gone");
+      return true;
+    }
   autoLockDebug slock(session_lock, "session_manager::deleteVM(): session_lock");
   if (sptr->removeVM(c))
-  {
-    write_log("session_manager::deleteVM session (" + einfo.getUserName() + 
-              ", " + einfo.getID() + ") succeeded to remove VM " + c.getLabel());
-    if (sptr->vms.empty())
     {
-      sptr->clear();
-      active_sessions.remove(sptr);
+      write_log("session_manager::deleteVM session (" + einfo.getUserName() + ", " + einfo.getID() + ") succeeded to remove VM " + c.getLabel());
+      if (sptr->vms.empty())
+	{
+	  sptr->clear();
+	  active_sessions.remove(sptr);
+	}
+      return true;
     }
-    return true;
-  }
-
-  write_log("session_manager::deleteVM session (" + einfo.getUserName() + 
-            ", " + einfo.getID() + ") failed to remove VM " + c.getLabel());
-  return false;
+  else
+    {
+      write_log("session_manager::deleteVM session (" + einfo.getUserName() + ", " + einfo.getID() + ") failed to remove VM " + c.getLabel());
+      return false;
+    }
 }
 
 bool

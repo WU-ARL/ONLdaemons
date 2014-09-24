@@ -74,6 +74,9 @@ namespace onl
 
     //used for reconstructing user topology on commit and assigning ids at reservation time
     unsigned int vmid;
+
+    //for setting access list for node. if root only doesn't put user in access list
+    bool root_only;
   } node_resource;
 
   typedef boost::shared_ptr<node_resource> node_resource_ptr;

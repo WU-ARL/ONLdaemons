@@ -806,11 +806,18 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       t->nodes.back()->cp = "unused";
     }
 
+    mysqlpp::Query query_tp = onl->query();
+    query_tp << "select tid,hasvport,rootonly from types";
+    vector<typeresinfo> typenfo;
+    query_tp.storein(typenfo);
+    vector<typeresinfo>::iterator tpit;
+
     mysqlpp::Query query2 = onl->query();
     query2 << "select nodes.node,nodes.tid,hwclustercomps.cluster,nodes.acl,nodes.daemonhost,nodeschedule.fixed,nodeschedule.vmid,nodeschedule.cores,nodeschedule.memory from nodes join nodeschedule using (node) left join hwclustercomps using (node) where nodeschedule.rid=" << mysqlpp::quote << rid;
     vector<nodetypes> nt;
     query2.storein(nt);
     vector<nodetypes>::iterator it2;
+
     for(it2 = nt.begin(); it2 != nt.end(); ++it2)
     {
       unsigned int parent_label = 0;
@@ -819,12 +826,23 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
         parent_label = t->get_label(it2->cluster.data);
         if(parent_label == 0) return onldb_resp(-1, (std::string)"database consistency problem");
       }
-      onldb_resp r = has_virtual_port(it2->tid);
+      
+      //find type info
+      for(tpit = typenfo.begin(); tpit != typenfo.end(); ++tpit)
+	{
+	  if (tpit->tid == it2->tid) break;
+	}
+      if (tpit == typenfo.end())
+	{
+	  return onldb_resp(-1, (std::string)"no such type");
+	}
+      /*
+	onldb_resp r = has_virtual_port(it2->tid);
       if(r.result() < 0)
       {
-        return onldb_resp(-1, r.msg());
-      }
-      r = t->add_node(it2->tid, hwid, parent_label, (r.result() != 0), it2->cores, it2->memory);
+      return onldb_resp(-1, r.msg());
+	}*/
+      onldb_resp r = t->add_node(it2->tid, hwid, parent_label, ((int)tpit->hasvport != 0), it2->cores, it2->memory);
       if(r.result() != 1)
       {
         return onldb_resp(-1, (std::string)"database consistency problem");
@@ -834,6 +852,7 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       t->nodes.back()->acl = it2->acl;
       t->nodes.back()->cp = it2->daemonhost;
       t->nodes.back()->vmid = it2->vmid;
+      t->nodes.back()->root_only = ((int)tpit->rootonly != 0);
       if (it2->vmid > 0) 
 	{
 	  t->nodes.back()->has_vmsupport = true;
@@ -1294,6 +1313,7 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
   abs_node->acl = res_node->acl;
   abs_node->cp = res_node->cp;
   abs_node->vmid = res_node->vmid;
+  abs_node->root_only = res_node->root_only;
   if(abs_node->parent && !abs_node->parent->marked) 
   {
     abs_node->parent->node = res_node->parent->node;
@@ -6946,7 +6966,7 @@ onldb_resp onldb::assign_resources(std::string username, topology *t) throw()
   for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
   {
     //#ifdef USE_EXPORTFS
-    if (use_exportfs && ((*nit)->cp).compare("unused")) {
+    if (use_exportfs && ((*nit)->cp).compare("unused") && !(*nit)->root_only) {
       exportList.append((*nit)->cp);
       exportList.append(":/users/");
       exportList.append(username);
@@ -6954,9 +6974,12 @@ onldb_resp onldb::assign_resources(std::string username, topology *t) throw()
     }
     //#endif
 
-    std::string cmd = "/usr/testbed/scripts/system_session_update2.pl add " + username + " " + (*nit)->cp + " " + (*nit)->acl;
-    int ret = system(cmd.c_str());
-    if(ret < 0 || WEXITSTATUS(ret) != 1) cout << "Warning: " << username << "'s home area was not exported to " << (*nit)->cp << " and user was not added to group " << (*nit)->acl << endl;
+    if (!(*nit)->root_only)
+      {
+	std::string cmd = "/usr/testbed/scripts/system_session_update2.pl add " + username + " " + (*nit)->cp + " " + (*nit)->acl;
+	int ret = system(cmd.c_str());
+	if(ret < 0 || WEXITSTATUS(ret) != 1) cout << "Warning: " << username << "'s home area was not exported to " << (*nit)->cp << " and user was not added to group " << (*nit)->acl << endl;
+      }
   }
   //#ifdef USE_EXPORTFS
   if (use_exportfs)

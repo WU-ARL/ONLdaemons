@@ -116,6 +116,7 @@ namespace onld
       void clear_ack() { received_ack = false; }
 
       void get_period(struct timespec *t);
+      void set_timeout(uint32_t t) { timeout = t;}
    
     protected:
       struct timeval period; // sec and usec vals stored as uint32_t

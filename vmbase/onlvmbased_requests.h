@@ -32,7 +32,7 @@ namespace onlvmbased
     private:
       bool start_specialization_daemon(std::string specd);
       bool connect_to_specialization_daemon();
-      int system_cmd(std::string cmd);
+      //int system_cmd(std::string cmd);
   }; // class start_experiment_req
 
   class refresh_req : public onld::refresh

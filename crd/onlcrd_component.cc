@@ -493,10 +493,12 @@ crd_component::do_initialize()
 
     end_configure_node* endconfig = new end_configure_node(exp, comp);
     endconfig->set_connection(nccpconn);
-    bool no_endconfig = true;
+    endconfig->set_timeout(300);//mainly to give vms time to come up
+    //bool no_endconfig = true;
     if (!endconfig->send_and_wait())
     {
-      write_log("crd_component::do_initialize(): putting " + name + " into repair after failing to get a response from the cp for endconfig");
+      write_log("crd_component::do_initialize():  " + name + " failed to get a response from the cp for endconfig");
+      comp_failed = true;
       //delete endconfig;
       //cleanup_reqs(true);
       //cleanup_links(true);
@@ -1311,7 +1313,7 @@ crd_link::do_initialize()
 bool
 crd_link::allocate_vlan()
 {
-  NCCP_StatusType status = NCCP_Status_Fine;
+  //  NCCP_StatusType status = NCCP_Status_Fine;
 
   if(!testing && alloc_vlan && link_vlan == 0)
     {
@@ -1319,7 +1321,7 @@ crd_link::allocate_vlan()
       write_log("crd_link::allocate_vlan(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan));
       if(link_vlan == 0)
 	{
-	  status = NCCP_Status_Failed;
+	  //	  status = NCCP_Status_Failed;
 	  return false;
 	}
     }

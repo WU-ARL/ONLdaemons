@@ -51,8 +51,7 @@
 
 using namespace onlvmbased;
 
-start_experiment_req::start_experiment_req(uint8_t *mbuf, uint32_t size): 
-  start_experiment(mbuf, size)
+start_experiment_req::start_experiment_req(uint8_t *mbuf, uint32_t size): start_experiment(mbuf, size)
 {
 }
 
@@ -69,26 +68,30 @@ start_experiment_req::handle()
   session_ptr sess_ptr = the_session_manager->addSession(exp.getExpInfo());
 
   if (sess_ptr)
-  {
-    std::string ip_str = ipaddr.getCString();
-    std::list<param>::iterator pit;
-    pit = (++init_params.begin());
-    std::string pwd = pit->getString();
-    ++pit;
-    std::string img = pit->getString();
-    
-    if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, img))
     {
-      status = NCCP_Status_Failed;    
-      write_log("start_experiment_req::handle failed to add VM to session");
+      std::list<param>::iterator pit;
+      pit = (++init_params.begin());
+      
+      std::string ip_str = ipaddr.getCString();
+      std::string pwd = pit->getString();
+      ++pit;
+      std::string img = pit->getString();
+      if (!sess_ptr->addVM(comp, ip_str, cores, memory, pwd, img))
+	{
+	  status = NCCP_Status_Failed;		
+	  write_log("start_experiment_req::handle failed to add VM to session");
+	}
     }
-  }
   else 
-  {
-    status = NCCP_Status_Failed;    
-    write_log("start_experiment_req::handle failed to get session ptr for experiment");
-  }
+    {
+      status = NCCP_Status_Failed;		
+      write_log("start_experiment_req::handle failed to get session ptr for experiment");
+    }
   user = exp.getExpInfo().getUserName();
+
+  //std::string cmd = "/bin/mkdir -p /users";
+  // write_log("start_experiment_req::handle(): request vm");
+  
 
   crd_response* resp = new crd_response(this, status);
   resp->send();
@@ -97,17 +100,77 @@ start_experiment_req::handle()
   return true;
 }
 
-int
-start_experiment_req::system_cmd(std::string cmd)
+//int
+//start_experiment_req::system_cmd(std::string cmd)
+//{
+//write_log("start_experiment_req::system_cmd(): cmd = " + cmd);
+//int rtn = system(cmd.c_str());
+//if(rtn == -1) return rtn;
+//return WEXITSTATUS(rtn);
+//}
+
+refresh_req::refresh_req(uint8_t *mbuf, uint32_t size): refresh(mbuf, size)
 {
-  write_log("start_experiment_req::system_cmd(): cmd = " + cmd);
-  int rtn = system(cmd.c_str());
-  if(rtn == -1) return rtn;
-  return WEXITSTATUS(rtn);
+  write_log("refresh_req::refresh_req: got refresh message");
 }
 
-configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): 
-  configure_node(mbuf, size)
+refresh_req::~refresh_req()
+{
+}
+
+bool
+refresh_req::handle()
+{
+  write_log("refresh_req::handle: about to send Fine response removing vm");
+
+  if (exp.getExpInfo().getID() == "") //this is the crd sending a reboot to the machine
+    {
+      write_log("refresh_req::handle: about to send Fine response");
+
+      crd_response* resp = new crd_response(this, NCCP_Status_Fine);
+      resp->send();
+      delete resp;
+
+      // jdd: added 12/06/2010 to give the response time to get out before we reboot
+      sleep(2);
+
+      if (!testing)
+	system("reboot");
+      else //skip the reboot and send i_am_up
+	{  
+	  nccp_connection* crd_conn = NULL;
+	  i_am_up* upmsg = NULL;
+	  try
+	    {
+	      // cgw, read file to get crd host/port?
+	      //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
+	      crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
+	      i_am_up* upmsg = new i_am_up();
+	      upmsg->set_connection(crd_conn);
+	      upmsg->send();
+	    }
+	  catch(std::exception& e)
+	    {
+	      write_log("refresh_req::handle: warning: could not connect CRD");
+	    }
+	  if(upmsg) delete upmsg;
+	  if(crd_conn) delete crd_conn;
+	}
+      return true;
+    }
+  else if (!the_session_manager->deleteVM(comp, exp.getExpInfo()))
+    {	
+      write_log("refresh_req::handle failed to get session ptr for experiment");
+    }
+
+  crd_response* resp = new crd_response(this, NCCP_Status_Fine);
+  resp->send();
+  delete resp;
+
+  return true;
+}
+
+configure_node_req::configure_node_req(uint8_t *mbuf, uint32_t size): configure_node(mbuf, size)
 {
 }
 
@@ -124,18 +187,19 @@ configure_node_req::handle()
   session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
 
   if (sess_ptr)
-  {
-    if (!sess_ptr->configureVM(comp, node_conf))
+    {
+      if (!sess_ptr->configureVM(comp, node_conf))
+	{
+	  status = NCCP_Status_Failed;
+	  write_log("configure_node_req::handle() failed to configure vm");
+	}
+    }
+  else
     {
       status = NCCP_Status_Failed;
-      write_log("configure_node_req::handle() failed to configure vm");
+      write_log("configure_node_req::handle() failed to get session pointer");
     }
-  }
-  else
-  {
-    status = NCCP_Status_Failed;
-    write_log("configure_node_req::handle() failed to get session pointer");
-  }
+  //conf->set_port_info(node_conf.getPort(), node_conf.getIPAddr(), node_conf.getSubnet(), node_conf.getNHIPAddr());
 
   crd_response* resp = new crd_response(this, status);
   resp->send();
@@ -144,8 +208,7 @@ configure_node_req::handle()
   return true;
 }
 
-end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size): 
-  end_configure_node(mbuf, size)
+end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size): end_configure_node(mbuf, size)
 {
 }
 
@@ -158,107 +221,30 @@ end_configure_node_req::handle()
 {
   write_log("end_configure_node_req::handle()");
 
-  NCCP_StatusType status = NCCP_Status_Fine;
   session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
-  std::string name="";
 
+  NCCP_StatusType status = NCCP_Status_Fine;
+  vm_ptr vmp = sess_ptr->getVM(comp);
   if (sess_ptr)
-  {
-    vm_ptr vmp = sess_ptr->getVM(comp);
-    if (vmp)
     {
-      name = vmp->name;
       if (!the_session_manager->startVM(sess_ptr, vmp))
-      {
-        status = NCCP_Status_Failed;
-        write_log("end_configure_node_req::handle() failed to start vm");
-        the_session_manager->removeVM(comp,exp.getExpInfo());
-      }
+	{
+	  status = NCCP_Status_Failed;
+	  write_log("end_configure_node_req::handle() failed to start vm");
+	}
     }
-    else
+  else
     {
       status = NCCP_Status_Failed;
-      write_log("end_configure_node_req::handle() could not get vm pointer");
+      write_log("end_configure_node_req::handle() failed to get session pointer");
     }
-  }
-  else
-  {
-    status = NCCP_Status_Failed;
-    write_log("end_configure_node_req::handle() failed to get session pointer");
-  }
-
   //response fills in vm name
-  crd_endconfig_response* resp = new crd_endconfig_response(this, status, name);
+  crd_endconfig_response* resp = new crd_endconfig_response(this, status, vmp->name);
   resp->send();
   delete resp;
 
   return true;
 }
-
-refresh_req::refresh_req(uint8_t *mbuf, uint32_t size): 
-  refresh(mbuf, size)
-{
-  write_log("refresh_req::refresh_req: got refresh message");
-}
-
-refresh_req::~refresh_req()
-{
-}
-
-bool
-refresh_req::handle()
-{
-  write_log("refresh_req::handle: about to send Fine response removing vm");
-  NCCP_StatusType status = NCCP_Status_Fine;
-  std::string vm_name="";
-
-  if (exp.getExpInfo().getID() == "") //this is the crd sending a reboot to the machine
-  {
-    write_log("refresh_req::handle: about to send Fine response");
-    
-    crd_response* resp = new crd_response(this, NCCP_Status_Fine);
-    resp->send();
-    delete resp;
-    
-    // jdd: added 12/06/2010 to give the response time to get out before we reboot
-    sleep(2);
-    
-    if (!testing)
-      system("reboot");
-    else //skip the reboot and send i_am_up
-    {  
-      nccp_connection* crd_conn = NULL;
-      i_am_up* upmsg = NULL;
-      try
-      {
-        // cgw, read file to get crd host/port?
-        //crd_conn = new nccp_connection("10.0.1.2", Default_CRD_Port);
-        crd_conn = new nccp_connection("onlsrv", Default_CRD_Port);
-        i_am_up* upmsg = new i_am_up();
-        upmsg->set_connection(crd_conn);
-        upmsg->send();
-      }
-      catch(std::exception& e)
-      {
-        write_log("refresh_req::handle: warning: could not connect CRD");
-      }
-      if(upmsg) delete upmsg;
-      if(crd_conn) delete crd_conn;
-    }
-    return true;
-  }
-  else if (!the_session_manager->deleteVM(comp, exp.getExpInfo()))
-  { 
-    write_log("refresh_req::handle failed to get session ptr for experiment");
-  }
-  
-  crd_response* resp = new crd_response(this, NCCP_Status_Fine);
-  resp->send();
-  delete resp;
-
-  return true;
-}
-
 
 user_data_req::user_data_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 { 
@@ -281,8 +267,7 @@ user_data_req::handle()
   {
     if(user_data == NULL)
     {
-      write_log("user_data_req::handle(): making new userdata instance for " + 
-                file + " field " + int2str(field));
+      write_log("user_data_req::handle(): making new userdata instance for " + file + " field " + int2str(field));
       user_data = new userdata(file,field);
     }
 
@@ -331,8 +316,7 @@ user_data_ts_req::handle()
   {
     if(user_data == NULL)
     {
-      write_log("user_data_req::handle(): making new userdata instance for " + 
-                file + " field " + int2str(field));
+      write_log("user_data_req::handle(): making new userdata instance for " + file + " field " + int2str(field));
       user_data = new userdata(file,field);
     }
 
@@ -343,8 +327,7 @@ user_data_ts_req::handle()
       ts_data data = vals.front();
       vals.pop_front();
 
-      rli_response* rliresp = new rli_response(this, NCCP_Status_Fine, 
-                                               data.val, data.ts, data.rate);
+      rli_response* rliresp = new rli_response(this, NCCP_Status_Fine, data.val, data.ts, data.rate);
       rliresp->send();
       delete rliresp;
     }
@@ -401,8 +384,13 @@ rli_relay_req::handle()
 
   periodic_message = false;
   set_connection(spec_conn);
-
+  //write_log("rli_relay_req::handle 1 op:" + int2str(op) + " type:" + int2str(type)); //JP remove
   bool success = send_and_wait();
+  //if (success)	
+   // write_log("rli_relay_req::handle 2 op:" + int2str(op) + " type:" + int2str(type) + " return from send_and_wait success:true");
+  //else
+   // write_log("rli_relay_req::handle 2 op:" + int2str(op) + " type:" + int2str(type) + " return from send_and_wait success:false");
+  
   rend = orig_rend;
   periodic_message = orig_periodic_message;
   set_connection(orig_conn);
@@ -431,7 +419,7 @@ rli_relay_req::handle()
     delete rr;
     delete resp;
   }
-
+  //write_log("rli_relay_req::handle 3 op:" + int2str(op) + " type:" + int2str(type) + " done");
   return true;
 }
 
