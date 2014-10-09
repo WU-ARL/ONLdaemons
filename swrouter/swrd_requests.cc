@@ -37,10 +37,11 @@
 #include <netinet/in.h>
 
 #include "shared.h"
+#include <netlink/route/tc.h>
+#include <netlink/route/link.h>
 
 #include "swrd_types.h"
-#include "swrd_configuration.h"
-//#include "swrd_monitor.h"
+#include "swrd_router.h"
 #include "swrd_globals.h"
 #include "swrd_requests.h"
 
@@ -64,8 +65,8 @@ configure_node_req::handle()
   try
   {
     uint32_t bw_kbits = node_conf.getBandwidth() * 1000;//rates are given in Mbits/s need to convert to kbits/s
-    configuration->set_username(exp.getExpInfo().getUserName());
-    configuration->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), bw_kbits);
+    router->set_username(exp.getExpInfo().getUserName());
+    router->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), bw_kbits);
   }
   catch(std::exception& e)
   { 
@@ -97,7 +98,7 @@ add_route_main_req::handle()
 
   try
   {
-    configuration->add_route_main(prefix, mask, output_port, nexthop_ip);
+    router->add_route_main(prefix, mask, output_port, nexthop_ip);
 
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
@@ -142,7 +143,7 @@ add_route_port_req::handle()
 
   try
   {
-    configuration->add_route_port(port, prefix, mask, output_port, nexthop_ip);
+    router->add_route_port(port, prefix, mask, output_port, nexthop_ip);
 
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
@@ -188,7 +189,7 @@ del_route_main_req::handle()
 
   try
   {
-    configuration->del_route_main(prefix, mask, output_port, nexthop_ip);
+    router->del_route_main(prefix, mask, output_port, nexthop_ip);
 
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
@@ -233,7 +234,7 @@ del_route_port_req::handle()
 
   try
   {
-    configuration->del_route_port(port, prefix, mask, output_port, nexthop_ip);
+    router->del_route_port(port, prefix, mask, output_port, nexthop_ip);
 
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
@@ -287,20 +288,20 @@ add_filter_req::handle()
   unsigned int outputs_val;
   try
   {
-    protocol_val = configuration->get_proto(protocol);
-    tcp_flags = configuration->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    tcp_flags_mask = configuration->get_tcpflags_mask(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    exceptions = configuration->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
-    exceptions_mask = configuration->get_exceptions_mask(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
-    pps_val = configuration->get_pps(port_plugin_selection, multicast);
+    protocol_val = router->get_proto(protocol);
+    tcp_flags = router->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
+    tcp_flags_mask = router->get_tcpflags_mask(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
+    exceptions = router->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
+    exceptions_mask = router->get_exceptions_mask(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
+    pps_val = router->get_pps(port_plugin_selection, multicast);
     if(!multicast)
     {
-      output_port_val = configuration->get_output_port(output_port);
-      output_plugin_val = configuration->get_output_plugin(output_plugin);
+      output_port_val = router->get_output_port(output_port);
+      output_plugin_val = router->get_output_plugin(output_plugin);
     }
     else
     {
-      outputs_val = configuration->get_outputs(output_port, output_plugin);
+      outputs_val = router->get_outputs(output_port, output_plugin);
     }
   }
   catch(std::exception& e)
@@ -355,7 +356,7 @@ add_filter_req::handle()
   pres.ip_mc_valid = multicast;
   if(pres.ip_mc_valid == 0)  // unicast
     {
-      pres.nh_low32 = configuration->get_next_hop_addr(output_port_val);
+      pres.nh_low32 = router->get_next_hop_addr(output_port_val);
       if(pres.nh_low32 == 0)
 	{
 	  pres.nh_ip_valid = 0;
@@ -381,7 +382,7 @@ add_filter_req::handle()
   
   try
     {
-      configuration->add_filter(&pkey, &pmask, priority, &pres);
+      router->add_filter(&pkey, &pmask, priority, &pres);
       
       rliresp = new rli_response(this, NCCP_Status_Fine);
     }
@@ -450,9 +451,9 @@ delete_filter_req::handle()
   unsigned int exceptions;
   try
   {
-    protocol_val = configuration->get_proto(protocol);
-    tcp_flags = configuration->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    exceptions = configuration->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
+    protocol_val = router->get_proto(protocol);
+    tcp_flags = router->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
+    exceptions = router->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
   }
   catch(std::exception& e)
   {
@@ -481,7 +482,7 @@ delete_filter_req::handle()
   
   try
     {
-      configuration->del_pfilter(&pkey);
+      router->del_pfilter(&pkey);
       
       rliresp = new rli_response(this, NCCP_Status_Fine);
     }
@@ -537,8 +538,8 @@ set_queue_params_req::handle()
   rli_response* rliresp;
   try
   {
-    configuration->set_queue_quantum(port, qid, quantum);
-    configuration->set_queue_threshold(port, qid, threshold);
+    router->set_queue_quantum(port, qid, quantum);
+    router->set_queue_threshold(port, qid, threshold);
     rliresp = new rli_response(this, NCCP_Status_Fine);
   }
   catch(std::exception& e)
@@ -580,9 +581,9 @@ set_port_rate_req::handle()
   try
   {
     uint32_t bw_kbits = rate * 1000;//convert rate from Mbits/s to kbits/s
-    configuration->set_port_rate(port, bw_kbits);
+    router->set_port_rate(port, bw_kbits);
     //cgw, how does this fit into the general hw model?
-    uint32_t actual_rate = (uint32_t)(configuration->get_port_rate(port)/1000);
+    uint32_t actual_rate = (uint32_t)(router->get_port_rate(port)/1000);
     rliresp = new rli_response(this, NCCP_Status_Fine, actual_rate);
   }
   catch(std::exception& e)
@@ -608,82 +609,7 @@ set_port_rate_req::parse()
 
 
 //MONITORING Requests
-/*
- 
-get_rx_pkt_req::get_rx_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
 
-get_rx_pkt_req::~get_rx_pkt_req()
-{
-}
-
-bool
-get_rx_pkt_req::handle()
-{
-  rli_response* rliresp;
-  try
-  {
-    uint32_t reg_counter = (port*2) + 1;
-    uint32_t val = monitor->read_stats_register(reg_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_rx_pkt_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_rx_pkt_req::parse()
-{
-  rli_request::parse();
-}
- 
-get_rx_byte_req::get_rx_byte_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_rx_byte_req::~get_rx_byte_req()
-{
-}
-
-bool
-get_rx_byte_req::handle()
-{
-  rli_response* rliresp;
-  try
-  {
-    uint32_t reg_counter = port*2;
-    uint32_t val = monitor->read_stats_register(reg_counter);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_rx_byte_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_rx_byte_req::parse()
-{
-  rli_request::parse();
-}
- 
 get_tx_pkt_req::get_tx_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -698,8 +624,7 @@ get_tx_pkt_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t reg_counter = (port*2) + 11;
-    uint32_t val = monitor->read_stats_register(reg_counter);
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_pkts(port)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -721,29 +646,27 @@ get_tx_pkt_req::parse()
   rli_request::parse();
 }
  
-get_tx_byte_req::get_tx_byte_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+get_tx_kbits_req::get_tx_kbits_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
 
-get_tx_byte_req::~get_tx_byte_req()
+get_tx_kbits_req::~get_tx_kbits_req()
 {
 }
 
 bool
-get_tx_byte_req::handle()
+get_tx_kbits_req::handle()
 {
   rli_response* rliresp;
   try
   {
-    uint32_t reg_counter = (port*2) + 10;
-    uint32_t val = monitor->read_stats_register(reg_counter);
+    uint32_t val = (uint32_t)(router->read_stats_bytes(port)/125);//turn into kbits
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
-    //write_log("get_tx_byte_req::handle(): rliresp->time_stamp " + int2str(rliresp->getTimeStamp()));
   }
   catch(std::exception& e)
   {
     std::string msg = e.what();
-    write_log("get_tx_byte_req::handle(): got exception: " + msg);
+    write_log("get_tx_kbits_req::handle(): got exception: " + msg);
     rliresp = new rli_response(this, NCCP_Status_Failed, msg);
   }
 
@@ -754,85 +677,9 @@ get_tx_byte_req::handle()
 }
 
 void
-get_tx_byte_req::parse()
+get_tx_kbits_req::parse()
 {
   rli_request::parse();
-}
- 
-get_reg_pkt_req::get_reg_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_reg_pkt_req::~get_reg_pkt_req()
-{
-}
-
-bool
-get_reg_pkt_req::handle()
-{
-  rli_response* rliresp;
-  try
-  {
-    uint32_t val = monitor->read_stats_register(stats_index);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_reg_pkt_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_reg_pkt_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
-}
- 
-get_reg_byte_req::get_reg_byte_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-get_reg_byte_req::~get_reg_byte_req()
-{
-}
-
-bool
-get_reg_byte_req::handle()
-{
-  rli_response* rliresp;
-  try
-  {
-    uint32_t val = monitor->read_stats_register(stats_index);
-    rliresp = new rli_response(this, NCCP_Status_Fine, val);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("get_reg_byte_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-  }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-get_reg_byte_req::parse()
-{
-  rli_request::parse();
-  
-  stats_index = params[0].getInt();
 }
  
 get_queue_len_req::get_queue_len_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
@@ -849,7 +696,7 @@ get_queue_len_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = monitor->read_queue_length(port, qid);
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_qlength(port)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -869,7 +716,371 @@ void
 get_queue_len_req::parse()
 {
   rli_request::parse();
-
-  qid = params[0].getInt();
 }
-*/
+ 
+get_drops_req::get_drops_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_drops_req::~get_drops_req()
+{
+}
+
+bool
+get_drops_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_drops(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_drops_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_drops_req::parse()
+{
+  rli_request::parse();
+}
+
+ 
+get_backlog_req::get_backlog_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_backlog_req::~get_backlog_req()
+{
+}
+
+bool
+get_backlog_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_backlog(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_backlog_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_backlog_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_tx_pkt_req::get_link_tx_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_tx_pkt_req::~get_link_tx_pkt_req()
+{
+}
+
+bool
+get_link_tx_pkt_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_txpkts(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_tx_pkt_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_tx_pkt_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_rx_pkt_req::get_link_rx_pkt_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_rx_pkt_req::~get_link_rx_pkt_req()
+{
+}
+
+bool
+get_link_rx_pkt_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_rxpkts(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_rx_pkt_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_rx_pkt_req::parse()
+{
+  rli_request::parse();
+}
+ 
+get_link_tx_kbits_req::get_link_tx_kbits_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_tx_kbits_req::~get_link_tx_kbits_req()
+{
+}
+
+bool
+get_link_tx_kbits_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(router->read_link_stats_txbytes(port)/125);//turn into kbits
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_tx_kbits_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_tx_kbits_req::parse()
+{
+  rli_request::parse();
+}
+ 
+get_link_rx_kbits_req::get_link_rx_kbits_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_rx_kbits_req::~get_link_rx_kbits_req()
+{
+}
+
+bool
+get_link_rx_kbits_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(router->read_link_stats_rxbytes(port)/125);//turn into kbits
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_rx_kbits_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_rx_kbits_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_tx_drops_req::get_link_tx_drops_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_tx_drops_req::~get_link_tx_drops_req()
+{
+}
+
+bool
+get_link_tx_drops_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_txdrops(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_tx_drops_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_tx_drops_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_rx_drops_req::get_link_rx_drops_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_rx_drops_req::~get_link_rx_drops_req()
+{
+}
+
+bool
+get_link_rx_drops_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_rxdrops(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_rx_drops_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_rx_drops_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_tx_errors_req::get_link_tx_errors_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_tx_errors_req::~get_link_tx_errors_req()
+{
+}
+
+bool
+get_link_tx_errors_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_txerrors(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_tx_errors_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_tx_errors_req::parse()
+{
+  rli_request::parse();
+}
+
+
+get_link_rx_errors_req::get_link_rx_errors_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+get_link_rx_errors_req::~get_link_rx_errors_req()
+{
+}
+
+bool
+get_link_rx_errors_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_link_stats_rxerrors(port)));
+    rliresp = new rli_response(this, NCCP_Status_Fine, val);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("get_link_rx_errors_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+get_link_rx_errors_req::parse()
+{
+  rli_request::parse();
+}

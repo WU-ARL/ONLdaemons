@@ -34,14 +34,16 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
-#include <net/if.h>
+//#include <net/if.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 
 #include "shared.h"
 
+#include <netlink/route/tc.h>
+#include <netlink/route/link.h>
 #include "swrd_types.h"
-#include "swrd_configuration.h"
+#include "swrd_router.h"
 //#include "swrd_monitor.h"
 #include "swrd_globals.h"
 #include "swrd_requests.h"
@@ -58,7 +60,7 @@ namespace swr
   nccp_listener* rli_conn;      // RLI 
 
   // major components
-  Configuration* configuration;  // manages all actual configuration of system
+  Router* router;  // manages all actual configuration of system
   //Monitor* monitor;              // read stats
 
 
@@ -92,13 +94,13 @@ namespace swr
     rli_conn = NULL;
 
 
-    configuration = new Configuration();
+    router = new Router();
 
     std::string tmp_addr("127.0.0.1");
     rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
     //monitor = new Monitor();
 
-    configuration->start_router();
+    router->start_router();
     return true;
   }
 
@@ -110,7 +112,7 @@ namespace swr
 
     //if(monitor) { delete monitor; }
 
-    if(configuration) { delete configuration; }
+    if(router) { delete router; }
   
   }
     
@@ -172,19 +174,30 @@ int main()
   register_req<configure_node_req>(SWR_SetPortRate);
   register_req<set_port_rate_req>(SWR_SetPortRate);
 
-/*
   // Monitoring
   // Per port rx and tx byte and pkt counts
-  register_req<get_rx_pkt_req>(SWR_GetRXPkt);
-  register_req<get_rx_byte_req>(SWR_GetRXByte);
+  register_req<get_tx_pkt_req>(SWR_GetTXPkt);
+  register_req<get_tx_kbits_req>(SWR_GetTXKBits);
+
+  //link stats
+  register_req<get_link_tx_pkt_req>(SWR_GetLinkTXPkt);
+  register_req<get_link_rx_pkt_req>(SWR_GetLinkRXPkt);
+  register_req<get_link_tx_kbits_req>(SWR_GetLinkTXKBits);
+  register_req<get_link_rx_kbits_req>(SWR_GetLinkRXKBits);
+  register_req<get_link_tx_drops_req>(SWR_GetLinkTXDrops);
+  register_req<get_link_rx_drops_req>(SWR_GetLinkRXDrops);
+  register_req<get_link_tx_errors_req>(SWR_GetLinkTXErrors);
+  register_req<get_link_rx_errors_req>(SWR_GetLinkRXErrors);
+  /*
   register_req<get_tx_pkt_req>(SWR_GetTXPkt);
   register_req<get_tx_byte_req>(SWR_GetTXByte);
 */
 
-/*
   // queue lengths
   register_req<get_queue_len_req>(SWR_GetQueueLength);
-*/
+  register_req<get_drops_req>(SWR_GetDrops);
+  register_req<get_backlog_req>(SWR_GetBacklog);
+
 
   rli_conn->receive_messages(true);
 
@@ -193,7 +206,7 @@ int main()
   bool started = false;
   while(true)
   {
-    if(!started) { started = configuration->router_started(); }
+    if(!started) { started = router->router_started(); }
     //this sets up a thread that processes any messages coming from the router process
     //for the npr this would have checked messages coming from the ixp
     // For the software router we have nothing for this while(true) loop.

@@ -70,6 +70,8 @@ session::session(uint32_t sid, std::string username, nccp_connection* nc)
 
   pthread_mutex_init(&share_lock, NULL);
 
+  mapping_written = false;
+
   write_log("session::session: added session " + id + " for user " + user);
 }
 
@@ -568,7 +570,8 @@ session::clear()
 
   write_usage_log("USAGE_LOG: CLOSE user " + user + " session " + id);
   //write (empty) component mapping to file
-  write_mapping();
+  //write_mapping();
+  clear_mapping();
 
   if(begin_req != NULL) { delete begin_req; }
   begin_req = NULL;
@@ -587,8 +590,19 @@ session::expired()
 void
 session::write_mapping()
 {
-  std::ofstream e_file(user_session_file.c_str(), std::ofstream::out);
+  //write_log("session::write_mapping " + id + " for user " + user);
+  if (mapping_written) return;
   std::list<crd_component_ptr>::iterator i;
+  //check that all components are active and then write mapping
+  for(i=components.begin(); i!=components.end(); ++i)
+  {
+    if((*i)->getVMID() > 0 && (*i)->getVMName().empty())
+    {
+      //write_log("session::write_mapping " + id + " for user " + user + " vm" + int2str((*i)->getVMID()) + " not done");
+      return; 
+    }
+  }
+  std::ofstream e_file(user_session_file.c_str(), std::ofstream::out);
   for(i=components.begin(); i!=components.end(); ++i)
   {
     crd_component_ptr comp = *i;
@@ -602,10 +616,28 @@ session::write_mapping()
         label.erase(found,1);
         found = label.find_first_of(".",found);
       }
-      e_file << label << " " << comp->getName() << std::endl;
+      if (comp->getVMID() > 0)
+	{
+	  write_log("session::write_mapping " + id + " for user " + user + " writing: " + label + " " + comp->getVMName());
+	  e_file << label << " " << comp->getVMName() << std::endl;
+	}
+      else
+	{
+	  write_log("session::write_mapping " + id + " for user " + user + " writing: " + label + " " + comp->getName());
+	  e_file << label << " " << comp->getName() << std::endl;
+	}
     }
   }
   e_file.close();
+  mapping_written = true;
+}
+
+void
+session::clear_mapping()
+{
+  std::ofstream e_file(user_session_file.c_str(), std::ofstream::out);
+  e_file.close();
+  mapping_written = false;
 }
 
 void *

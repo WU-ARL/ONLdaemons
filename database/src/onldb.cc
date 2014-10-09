@@ -1527,8 +1527,6 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	  current_node->node = it2a->node;
 	  current_node->priority = (int)it2a->priority;
 	  fill_node_info(current_node, typenfo);
-	  if (!current_node->has_vmsupport)
-	    current_node->marked = true;
 	  //t->nodes.back()->has_vport = has_vport(it2->tid, typenfo);
 
 	  onldb_resp ri = is_infrastructure(it2a->node); 
@@ -1542,13 +1540,14 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	{
 	  current_node->core_capacity -= (it2a->cores);
 	  current_node->mem_capacity -= (it2a->memory);
+	  current_node->marked = false;
 	}
       else 
 	{
 	  current_node->core_capacity = 0;
 	  current_node->mem_capacity = 0;
+	  current_node->marked = true;
 	}
-      current_node->marked = true;
     }
 
     mysqlpp::Query query3 = onl->query();
@@ -1848,30 +1847,31 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   for(fixed_comp = fixed_comps.begin(); fixed_comp != fixed_comps.end(); ++fixed_comp)
   {
     for(nit = base_top.nodes.begin(); nit != base_top.nodes.end(); ++nit)
-    {
-      if((*nit)->node == (*fixed_comp)->node && !(*nit)->marked)
       {
-        (*fixed_comp)->in = (*nit)->in;
-        (*nit)->fixed = true;
-        if((*nit)->parent)
-        {
-          (*fixed_comp)->parent->fixed = true;
-          (*fixed_comp)->parent->in = (*nit)->in;
-          (*nit)->parent->fixed = true;
-          (*fixed_comp)->parent->node = (*nit)->parent->node;
-        }
-        break;
+	//nodes with vm support have marked=false even if there is something scheduled
+	if((*nit)->node == (*fixed_comp)->node && !(*nit)->marked)
+	  {
+	    (*fixed_comp)->in = (*nit)->in;
+	    (*nit)->fixed = true;
+	    if((*nit)->parent)
+	      {
+		(*fixed_comp)->parent->fixed = true;
+		(*fixed_comp)->parent->in = (*nit)->in;
+		(*nit)->parent->fixed = true;
+		(*fixed_comp)->parent->node = (*nit)->parent->node;
+	      }
+	    break;
+	  }
       }
-    }
     if(nit == base_top.nodes.end())
-    {
-      if(!admin)
       {
-        return onldb_resp(0, "fixed node " + (*fixed_comp)->node + " is not available");
+	if(!admin)
+	  {
+	    return onldb_resp(0, "fixed node " + (*fixed_comp)->node + " is not available");
+	  }
+	onldb_resp fcr = add_special_node(&base_top, begin, end, *fixed_comp);
+	if(fcr.result() < 1) return onldb_resp(fcr.result(), fcr.msg());
       }
-      onldb_resp fcr = add_special_node(&base_top, begin, end, *fixed_comp);
-      if(fcr.result() < 1) return onldb_resp(fcr.result(), fcr.msg());
-    }
   }
 
   // add everything from the base topology to the assign list

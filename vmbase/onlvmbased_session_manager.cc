@@ -183,10 +183,10 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
 	int2str((*vmi_it)->ninfo.getVLan()) + " " + (*vmi_it)->ninfo.getIPAddr() + " " + (*vmi_it)->ninfo.getSubnet() + " " + int2str(bw_kbits) + " 1000 "  + 
 	int2str((*vmi_it)->ninfo.getVLan());
       write_log("session_manager::startVM: system(" + cmd + ")");
-      // if(system(cmd.c_str()) != 0)
-      //{
-      //  write_log("session_manager::startVM: swrd_configure_port.sh script failed");
-      //}
+      if(system(cmd.c_str()) != 0)
+      {
+        write_log("session_manager::startVM: swrd_configure_port.sh script failed");
+      }
     }
 
   //make sure we can ping the new vm

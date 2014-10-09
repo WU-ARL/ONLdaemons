@@ -424,7 +424,7 @@ crd_component::do_initialize()
   }
 
   bool comp_failed = false;
-  std::string vmname;
+  //std::string vmname;
 
   if(hasCP() && !testing)
   {
@@ -539,6 +539,8 @@ crd_component::do_initialize()
   slock.lock();
   set_state("active");
   slock.unlock();
+
+  if (sess != NULL) sess->write_mapping();
 
   while(!links.empty())
   {

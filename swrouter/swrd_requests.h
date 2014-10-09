@@ -218,8 +218,8 @@ namespace swr
   
 
 
-/*
   //MONITORING REQUESTS
+  /*
   static const NCCP_OperationType SWR_GetRXPkt = 107;
   class get_rx_pkt_req : public rli_request
   {
@@ -245,7 +245,7 @@ namespace swr
 
     protected:
   }; // class get_rx_byte_req
-
+  */
   static const NCCP_OperationType SWR_GetTXPkt = 109;
   class get_tx_pkt_req : public rli_request
   {
@@ -259,18 +259,18 @@ namespace swr
     protected:
   }; // class get_tx_pkt_req
 
-  static const NCCP_OperationType SWR_GetTXByte = 110;
-  class get_tx_byte_req : public rli_request
+  static const NCCP_OperationType SWR_GetTXKBits = 110;
+  class get_tx_kbits_req : public rli_request
   {
     public:
-      get_tx_byte_req(uint8_t *mbuf, uint32_t size);
-      virtual ~get_tx_byte_req();
+      get_tx_kbits_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_tx_kbits_req();
  
       virtual void parse();
       virtual bool handle();
 
     protected:
-  }; // class get_tx_byte_req
+  }; // class get_tx_kbits_req
 
   static const NCCP_OperationType SWR_GetQueueLength = 68;
   class get_queue_len_req : public rli_request
@@ -281,11 +281,134 @@ namespace swr
  
       virtual void parse();
       virtual bool handle();
+  }; // class get_queue_len_req
+
+  static const NCCP_OperationType SWR_GetBacklog = 111;
+  class get_backlog_req : public rli_request
+  {
+    public:
+      get_backlog_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_backlog_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+  }; // class get_backlog_req
+
+  static const NCCP_OperationType SWR_GetDrops = 112;
+  class get_drops_req : public rli_request
+  {
+    public:
+      get_drops_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_drops_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+  }; // class get_drops_req
+
+  static const NCCP_OperationType SWR_GetLinkRXPkt = 113;
+  class get_link_rx_pkt_req : public rli_request
+  {
+    public:
+      get_link_rx_pkt_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_rx_pkt_req();
+ 
+      virtual void parse();
+      virtual bool handle();
 
     protected:
-      uint32_t qid;
-  }; // class get_queue_len_req
-*/
+  }; // class get_link_rx_pkt_req
+
+  static const NCCP_OperationType SWR_GetLinkTXPkt = 114;
+  class get_link_tx_pkt_req : public rli_request
+  {
+    public:
+      get_link_tx_pkt_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_tx_pkt_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_tx_pkt_req
+
+  static const NCCP_OperationType SWR_GetLinkRXKBits = 115;
+  class get_link_rx_kbits_req : public rli_request
+  {
+    public:
+      get_link_rx_kbits_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_rx_kbits_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_rx_kbits_req
+
+  static const NCCP_OperationType SWR_GetLinkTXKBits = 116;
+  class get_link_tx_kbits_req : public rli_request
+  {
+    public:
+      get_link_tx_kbits_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_tx_kbits_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_tx_kbits_req
+
+  static const NCCP_OperationType SWR_GetLinkRXErrors = 117;
+  class get_link_rx_errors_req : public rli_request
+  {
+    public:
+      get_link_rx_errors_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_rx_errors_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_rx_errors_req
+
+  static const NCCP_OperationType SWR_GetLinkTXErrors = 118;
+  class get_link_tx_errors_req : public rli_request
+  {
+    public:
+      get_link_tx_errors_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_tx_errors_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_tx_errors_req
+
+  static const NCCP_OperationType SWR_GetLinkRXDrops = 119;
+  class get_link_rx_drops_req : public rli_request
+  {
+    public:
+      get_link_rx_drops_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_rx_drops_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_rx_drops_req
+
+  static const NCCP_OperationType SWR_GetLinkTXDrops = 120;
+  class get_link_tx_drops_req : public rli_request
+  {
+    public:
+      get_link_tx_drops_req(uint8_t *mbuf, uint32_t size);
+      virtual ~get_link_tx_drops_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  }; // class get_link_tx_drops_req
 };  //namespace swr
 
 #endif // _SWRD_REQUESTS_H

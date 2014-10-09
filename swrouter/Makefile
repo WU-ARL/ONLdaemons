@@ -4,12 +4,12 @@ DEBUG = -g
 
 CXXFLAGS = ${DEBUG} -DPTHREADS -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wall -Wundef -Wimplicit -Wno-deprecated -Woverloaded-virtual 
 
-INCLUDES = -I. -I../shared 
+INCLUDES = -I. -I../shared -I/usr/include/libnl3
 
-LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt
+LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt -lnl-3 -lnl-route-3
 
 EXEC = $(OBJDIR)/swrd
-OBJS = $(OBJDIR)/swrd_configuration.o \
+OBJS = $(OBJDIR)/swrd_router.o \
        $(OBJDIR)/swrd_requests.o \
        $(OBJDIR)/swrd_main.o # \
  #      $(OBJDIR)/swrd_monitor.o 

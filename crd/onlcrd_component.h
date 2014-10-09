@@ -51,6 +51,7 @@ namespace onlcrd
       void set_ip_addr(std::string addr) { ip_addr = addr; }
 
       unsigned int getVMID() { return vmid;}
+      std::string getVMName() { return vmname;}
 
       bool is_admin_mode();
       virtual std::string get_type();
@@ -84,6 +85,7 @@ namespace onlcrd
 
     protected:
       std::string name;
+      std::string vmname;
       std::string cp;
       unsigned short cp_port;
       bool keeboot;
@@ -118,12 +120,12 @@ namespace onlcrd
 
       bool mark; 
 
-      virtual std::string get_state();
       virtual void set_state(std::string s);
 
       bool wait_for_up_msg(int timeout);
       void cleanup_reqs(bool failed);
       void cleanup_links(bool do_init);
+      virtual std::string get_state();
   }; //class crd_component
 
   typedef boost::shared_ptr<crd_component> crd_component_ptr;
@@ -146,8 +148,8 @@ namespace onlcrd
       virtual void do_refresh();
 
     protected:
-      virtual std::string get_state();
   
+      virtual std::string get_state();
       switch_vlan vlan;
   }; //class crd_virtual_switch
 
@@ -165,8 +167,8 @@ namespace onlcrd
       //virtual void do_refresh();
 
     protected:
-      virtual std::string get_state();
       virtual void set_state(std::string s);
+      virtual std::string get_state();
   
   }; //class crd_virtual_machine
 

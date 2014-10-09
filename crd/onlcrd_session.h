@@ -58,6 +58,7 @@ namespace onlcrd
       void expired();
 
       void write_mapping();
+      void clear_mapping();
 
       void send_alerts();
 
@@ -73,6 +74,7 @@ namespace onlcrd
       std::string errmsg;
 
       bool cleared;
+      bool mapping_written;
 
       std::string user_session_file;
 
