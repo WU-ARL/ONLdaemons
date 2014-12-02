@@ -155,11 +155,70 @@ start_experiment_req::start_specialization_daemon(std::string specd)
     for (pit = init_params.begin(); pit != init_params.end(); ++pit)
       {
 	argv[i] = pit->getString().c_str();
+	++i;
+      }
+    argv[0] = specd.c_str();
+    argv[i] = "--onluser";
+    argv[++i] = user.c_str();
+    argv[++i] = (char*)NULL;
+  
+    execv(argv[0], (char* const*)argv);
+    
+    //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
+    exit(-1);
+  }
+  return true;
+  /*
+  struct stat specd_stat;
+  if(stat(specd.c_str(), &specd_stat) != 0)
+  {
+    return false;
+  }
+
+  write_log("start_experiment_req::start_specialization_daemon passing user: " + user);
+  if(fork() == 0)
+  {    
+    struct passwd *pwent = NULL;
+    if (!root_only) pwent = getpwnam(user.c_str());
+    if (pwent == NULL)
+      {
+        write_log("start_experiment_req::start_specialization_daemon failed couldn't get passwd entry for " + user);
+        //exit(-1);
+      }
+    else
+      {
+        if (setgid(pwent->pw_gid) < 0)
+          {
+            write_log("start_experiment_req::start_specialization_daemon failed set group id for " + user);
+            //exit(-1);
+          }
+        if (setuid(pwent->pw_uid) < 0)
+          {
+            write_log("start_experiment_req::start_specialization_daemon failed set user id for " + user);
+            //exit(-1);
+          }
+        else
+          {
+            char home_path[255];
+            sprintf(home_path, "/users/%s", user.c_str());
+            setenv("HOME", home_path, 1);
+          }
+      }
+
+    //figure out the number of arguments
+    int argc = init_params.size();
+    const char* argv[(argc+3)]; //arguments sent from RLI plus the user
+    std::list<param>::iterator pit;
+    int i = 0;
+    for (pit = init_params.begin(); pit != init_params.end(); ++pit)
+      {
+	argv[i] = pit->getString().c_str();
 	++i
       }
     argv[i] = "--onluser";
     argv[++i] = user.c_str();
     argv[++i] = (char*)NULL;
+  */
     /*
     int argc = 1;
     int pos = 0;
@@ -187,12 +246,13 @@ start_experiment_req::start_specialization_daemon(std::string specd)
     argv[argc+1] = user.c_str();
     argv[argc+2] = (char*)NULL;
     */
+  /*
     execv(argv[0], (char* const*)argv);
     
     //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
     exit(-1);
   }
-  return true;
+  return true;*/
 }
 
 bool
