@@ -58,7 +58,7 @@ node_info::node_info() throw()
   is_dependent_ = false;
 }
 
-node_info::node_info(std::string node, std::string state, bool has_cp, bool do_keeboot, std::string cp, unsigned short cp_port, std::string type, bool is_dependent) throw()
+node_info::node_info(std::string node, std::string state, bool has_cp, bool do_keeboot, std::string cp, unsigned short cp_port, std::string type, bool is_dependent, std::string cluster) throw()
 {
   node_ = node;
   state_ = state;
@@ -68,6 +68,10 @@ node_info::node_info(std::string node, std::string state, bool has_cp, bool do_k
   cp_port_ = cp_port;
   type_ = type;
   is_dependent_ = is_dependent;
+  if (cluster == "NULL")
+    cluster_ = "";
+  else
+    cluster_ = cluster;
 }
 
 node_info::node_info(const node_info& ni) throw()
@@ -97,6 +101,7 @@ node_info::operator=(const node_info& ni)
   cp_port_ = ni.cp_port_;
   type_ = ni.type_;
   is_dependent_ = ni.is_dependent_;
+  cluster_ = ni.cluster_;
   return *this;
 }
 
@@ -108,6 +113,11 @@ std::string node_info::node() throw()
 std::string node_info::state() throw()
 {
   return state_;
+}
+
+std::string node_info::cluster() throw()
+{
+  return cluster_;
 }
 
 bool node_info::has_cp() throw()

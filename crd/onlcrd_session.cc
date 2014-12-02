@@ -336,6 +336,8 @@ session::commit(session_ptr sess)
     }
   }
 
+  set_clusters();
+
   while(!link_reqs.empty())
   {
     session_add_link_req* req = (session_add_link_req*)link_reqs.front();
@@ -442,6 +444,31 @@ session::commit(session_ptr sess)
   write_usage_log(usage);
   write_mapping();
   return true;
+}
+
+void
+session::set_clusters()
+{
+  std::list<crd_component_ptr>::iterator cit;
+  std::list<crd_component_ptr>::reverse_iterator cit2;
+  for(cit = components.begin(); cit != components.end(); ++cit)
+    {
+      if (!(*cit)->getCluster().empty())
+	{
+	  write_log("session::set_clusters comp:" + (*cit)->getName() + " cluster:" + (*cit)->getCluster());
+	  for(cit2 = components.rbegin(); cit2 != components.rend(); ++cit2)
+	    {
+	      if ((*cit)==(*cit2)) break;
+	      if ((*cit2)->getCluster() == (*cit)->getCluster())
+		{
+		  (*cit)->setDependentComp((*cit2)->getName());
+		  (*cit2)->setDependentComp((*cit)->getName());
+		  break;
+		}
+	    }
+	}
+    }
+  
 }
 
 void

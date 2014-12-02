@@ -141,6 +141,8 @@ session_manager::initialize()
   database->get_base_node_list(node_list);
 
   autoLockDebug clock(comp_lock, "session_manager::initialize(): comp_lock");
+
+  std::list<crd_component_ptr> new_nodes;
   while(!node_list.empty())
   {
     onl::node_info node = node_list.front();
@@ -157,13 +159,40 @@ session_manager::initialize()
       }
 
       crd_component_ptr new_comp(new crd_component(node.node(), cp, cp_port, node.do_keeboot(), node.is_dependent()));
-      if(!new_comp->ignore())
-      {
-        refreshing_components.push_back(new_comp);
-        new_comp->refresh();
-      }
+      new_comp->setCluster(node.cluster());
+      new_nodes.push_back(new_comp);
+      
     }
   }
+  //set dependent info
+  std::list<crd_component_ptr>::iterator cit;
+  std::list<crd_component_ptr>::reverse_iterator cit2;
+  for(cit = new_nodes.begin(); cit != new_nodes.end(); ++cit)
+    {
+      if (!(*cit)->getCluster().empty())
+	{
+	  write_log("session_manager::initialize set dependent comp:" + (*cit)->getName() + " cluster:" + (*cit)->getCluster());
+	  for(cit2 = new_nodes.rbegin(); cit2 != new_nodes.rend(); ++cit2)
+	    {
+	      if ((*cit)==(*cit2)) break;
+	      if ((*cit2)->getCluster() == (*cit)->getCluster())
+		{
+		  (*cit)->setDependentComp((*cit2)->getName());
+		  (*cit2)->setDependentComp((*cit)->getName());
+		  break;
+		}
+	    }
+	}
+    }
+  for(cit = new_nodes.begin(); cit != new_nodes.end(); ++cit)
+  {
+    if(!(*cit)->ignore())
+    {
+      refreshing_components.push_back((*cit));
+      (*cit)->refresh();
+    }
+  }
+  new_nodes.clear();
   clock.unlock();
 }
 
@@ -769,6 +798,7 @@ session_manager::get_component(std::string name, unsigned int vmid)
   if (vmid == 0)
     {
       crd_component_ptr new_comp(new crd_component(info.node(), cp, cp_port, info.do_keeboot(), info.is_dependent()));
+      new_comp->setCluster(info.cluster());
       return new_comp;
     }
   else

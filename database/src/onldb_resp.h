@@ -49,10 +49,11 @@ namespace onl
       unsigned short cp_port_;
       std::string type_;
       bool is_dependent_;
+      std::string cluster_;
 
     public:
       node_info() throw();
-      node_info(std::string node, std::string state, bool has_cp, bool do_keebot, std::string cp, unsigned short cp_port, std::string type, bool is_dependent) throw();
+      node_info(std::string node, std::string state, bool has_cp, bool do_keebot, std::string cp, unsigned short cp_port, std::string type, bool is_dependent, std::string cluster) throw();
       node_info(const node_info& ni) throw();
       ~node_info() throw();
       
@@ -60,6 +61,7 @@ namespace onl
 
       std::string node() throw();
       std::string state() throw();
+      std::string cluster() throw();
       bool has_cp() throw();
       bool do_keeboot() throw();
       std::string cp() throw();

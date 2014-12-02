@@ -237,7 +237,7 @@ namespace onl
     mysqlpp::sql_datetime, begin,
     mysqlpp::sql_datetime, end)
 
-  sql_create_8(nodeinfo,8,0,
+  sql_create_9(nodeinfo,9,0,
     mysqlpp::sql_varchar, node,
     mysqlpp::sql_varchar, state,
     mysqlpp::sql_tinyint_unsigned,  daemon,
@@ -245,7 +245,8 @@ namespace onl
     mysqlpp::sql_varchar, daemonhost,
     mysqlpp::sql_smallint_unsigned, daemonport,
     mysqlpp::sql_varchar, type,
-    mysqlpp::Null<mysqlpp::sql_tinyint_unsigned>, dependent)
+    mysqlpp::Null<mysqlpp::sql_tinyint_unsigned>, dependent,
+    mysqlpp::sql_varchar, cluster)
 
   sql_create_3(clusterinfo,3,0,
     mysqlpp::sql_varchar, cluster,

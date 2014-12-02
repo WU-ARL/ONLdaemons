@@ -61,6 +61,7 @@ crd_component::crd_component(std::string n, std::string c, unsigned short p, boo
   cp_port = p;
   keeboot = do_k;
   is_dependent = is_d;
+  dependent_comp = "";
 
   compreq = NULL;
   nccpconn = NULL;
@@ -116,6 +117,24 @@ crd_component::~crd_component()
   pthread_cond_destroy(&up_msg_cond);
 }
 
+void 
+crd_component::setDependentComp(std::string str)
+{
+  if (!is_dependent) 
+    {
+      write_log("crd_component::setDependentComp for comp:" + name + " dependent:" + str);
+      dependent_comp = str;
+    }
+}
+
+
+void
+crd_component::setCluster(std::string str)
+{
+  if (str == "NULL") cluster_name = "";
+  else cluster_name = str;
+}
+
 std::string
 crd_component::get_state()
 {
@@ -147,12 +166,48 @@ crd_component::get_state()
   return rv.msg();
 }
 
+std::string
+crd_component::get_dependent_state()
+{
+  //return free if this is a dependent component or if this is a non-cluster component
+  if (is_dependent || dependent_comp.empty()) return "free"; 
+  //autoLock dlock(db_lock);
+  if (database == NULL)
+    {
+      try
+	{
+	  database = new onl::onldb();
+	}
+      catch(std::exception& er)
+	{
+	  write_log("crd_component::get_dependent_state(): database call failed for " + name + ": " + er.what());
+	  database = NULL;
+	  return "";
+	}
+    }
+  onl::onldb_resp rv = database->get_state(dependent_comp,false);
+  if(rv.result() < 0)
+  {
+    write_log("crd_component::get_dependent_state(): database call failed for " + name + ": " + rv.msg());
+    return "free";
+  }
+
+  return rv.msg();
+}
+
 void
 crd_component::set_state(std::string s)
 {
   if(s == "repair")
   {
     needs_refresh = false;
+    if (!is_dependent && !testing)
+      {
+	std::string cmd = "/root/scripts/power_cycle_node.pl " + name;
+	write_log("crd_component::set_state(): repair node " + cmd );
+	int ret = system(cmd.c_str());
+	if(ret < 0 || WEXITSTATUS(ret) != 1) write_log("crd_component::set_state(): Warning: power_cycle_node call failed for " + name );
+      }
   }
 
   internal_state = s;
@@ -365,30 +420,71 @@ void
 crd_component::do_initialize()
 {
   autoLockDebug slock(state_lock, "crd_component::do_initialize(): state_lock");
-  std::string cur_state = get_state();
-  write_log("crd_component::initialize(): node " + name + " state = " + cur_state + " local_state = " + local_state);
+  std::string cur_state = get_state();//if shared then we're shifting from a vm to a non-vm status and we need to reboot
+  std::string dependent_state = get_dependent_state();
+  write_log("crd_component::initialize(" + int2str((unsigned long) this) + "): node " + name + " state = " + cur_state + " local_state = " + local_state + " dependent_state:" + dependent_state);
+
+  //if (cur_state == "shared")
+  //{
+  //set_db_state("refreshing");
+  //do_refresh();
+  //}
+  //cur_state = get_state();
+
 
   while(cur_state != "free" && cur_state != "repair" &&  local_state == "new")
-  {
-    slock.unlock();
-    sleep(1);
-    slock.lock();
-    cur_state = get_state();
-  }
-  if(cur_state == "repair")
-  {
-    if(local_state != "repair")
     {
-      local_state = "repair";
       slock.unlock();
-      cleanup_links(true);
-      cleanup_reqs(true);
+      sleep(1);
+      slock.lock();
+      cur_state = get_state();
+    }
+  
+  if(cur_state == "repair")
+    {
+      if(local_state != "repair")
+	{
+	  local_state = "repair";
+	  slock.unlock();
+	  cleanup_links(true);
+	  cleanup_reqs(true);
+	  return;
+	}
+      slock.unlock();
+      the_session_manager->clear_component(this);
       return;
     }
-    slock.unlock();
-    the_session_manager->clear_component(this);
-    return;
-  }
+  //if this is the dominant side of a cluster make sure the dependent is free 
+  //if the dependent is anything but free. wait for a time and then refresh
+  int i = 0;
+  while(dependent_state == "refreshing" && i < 30)
+    {
+      sleep(1);
+      dependent_state = get_dependent_state();
+      ++i;
+    }
+  
+  if (dependent_state == "refreshing" || dependent_state == "repair")
+    {
+      //slock.lock();
+      //local_state = "refreshing";
+      //needs_refresh = false;
+      //set_state("refreshing");
+      //slock.unlock();
+      write_log("crd_component::initialize(): node " + name + " dependent_state:" + dependent_state + " refresh called due to dependent failure");
+      keebooting_now = true; //refresh won't change the state
+      do_refresh();
+      keebooting_now = false;
+      slock.lock();
+      cur_state = get_state();
+      slock.unlock();
+      if(cur_state == "repair")
+	{
+	  the_session_manager->clear_component(this);
+	  return;
+	}
+    }
+
   if(local_state != "new")
   {
     // this only happens if refresh() was called before we got to actually initialize
@@ -585,9 +681,12 @@ crd_component::refresh()
     the_session_manager->clear_component(this);
     return;
   }
-  if(local_state == "new" && cur_state != "free") //JP is this a BUG? should it be cur_state == "free"?
+  if(local_state == "new" && cur_state != "free") //JP is this a BUG? should it be cur_state == "free"
+    //this is what happens if we're refreshing someone commits and then closes before the initial refresh ends
   {
     local_state = "done";
+    slock.unlock();
+    the_session_manager->clear_component(this);
     return;
   }
   if(cur_state == "initializing")
@@ -595,6 +694,11 @@ crd_component::refresh()
     needs_refresh = true;
     return;
   }
+  if(cur_state == "refreshing" || local_state == "refreshing") //the refreshing process has already started
+    {
+      needs_refresh = false;
+      return;
+    }
   local_state = "refreshing";
   set_state("refreshing");
   needs_refresh = false;
@@ -728,6 +832,22 @@ crd_component::do_refresh()
       cleanup_links(false);
       return;
     }
+    
+    //if this is the dominant component of a clustered pair make sure the dependent also comes up if not do_refresh again
+    std::string dependent_state = get_dependent_state();
+    int i = 0;
+    while((dependent_state == "refreshing" || dependent_state == "repair") && i < 30)
+    {
+      sleep(1);
+      dependent_state = get_dependent_state();
+      ++i;
+    }    
+    if (dependent_state == "refreshing" || dependent_state == "repair")
+    {
+      write_log("crd_component::do_refresh(" + int2str((unsigned long) this) + "): node " + name + " refreshing due to dependent(" + dependent_comp + ") failure dependent_state:" + dependent_state);
+      do_refresh();
+    }
+
 
     if(keeboot)
     {
@@ -824,9 +944,9 @@ crd_component::got_up_msg()
 {
   pthread_mutex_lock(&up_msg_mutex);
   received_up_msg = true;
-  write_log("crd_component::got_up_msg(" + int2str((unsigned long) this) + "): " + name + " set received_up_msg = true, calling pthread_cond_signal(&up_msg_cond)");
   pthread_cond_signal(&up_msg_cond);
   pthread_mutex_unlock(&up_msg_mutex);
+  write_log("crd_component::got_up_msg(" + int2str((unsigned long) this) + "): " + name + " set received_up_msg = true, calling pthread_cond_signal(&up_msg_cond)");
 }
 
 bool
@@ -845,7 +965,7 @@ crd_component::wait_for_up_msg(int timeout)
     wait_rc = pthread_cond_timedwait(&up_msg_cond, &up_msg_mutex, &abstimeout);
   }
 
-  write_log("crd_component::wait_for_up_msg(): " + name + " after while loop: wait_rc = " +  int2str(wait_rc) + " received_up_msg = " +  int2str(received_up_msg) + " ");
+  write_log("crd_component::wait_for_up_msg(" + int2str((unsigned long) this) + "): " + name + " after while loop: wait_rc = " +  int2str(wait_rc) + " received_up_msg = " +  int2str(received_up_msg) + " ");
 
   received_up_msg = false;
   pthread_mutex_unlock(&up_msg_mutex);
@@ -1031,6 +1151,7 @@ crd_virtual_machine::set_state(std::string s)
   }
 
   internal_state = s;
+  //if (s == "active")// set the database to "shared"
 }
 
 crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e2, unsigned short e2p)
@@ -1184,6 +1305,7 @@ crd_link::set_switch_ports(std::list<int>& connlist)
     {
       switch_ports.push_back(p2);
     }
+    //PROBLEM: need to know if we're ignoring vports here to set the pass tag as false
   }
 }
 

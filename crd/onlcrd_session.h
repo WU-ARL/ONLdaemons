@@ -91,6 +91,8 @@ namespace onlcrd
       pthread_mutex_t share_lock;
       std::list<std::string> allowed_observers;
       std::list<observe_session_req *> observe_reqs;
+
+      void set_clusters();//sets dependent name for those components that are part of an ixppair
   }; // class session
 
   void* session_send_alerts_wrapper(void* obj);

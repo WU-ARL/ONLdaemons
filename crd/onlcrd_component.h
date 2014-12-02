@@ -81,9 +81,16 @@ namespace onlcrd
       unsigned int getCores() { return cores;}
       void setMemory(unsigned int m) { memory = m;}
       unsigned int getMemory() { return memory;}
+      void setDependentComp(std::string str);// { dependent_comp = str;}
+      std::string getDependentComp() { return dependent_comp;}
+      void setCluster(std::string str);// { cluster_name = str;}
+      std::string getCluster() { return cluster_name;}
 
 
     protected:
+      std::string dependent_comp;
+      std::string cluster_name;
+
       std::string name;
       std::string vmname;
       std::string cp;
@@ -126,6 +133,7 @@ namespace onlcrd
       void cleanup_reqs(bool failed);
       void cleanup_links(bool do_init);
       virtual std::string get_state();
+      virtual std::string get_dependent_state();
   }; //class crd_component
 
   typedef boost::shared_ptr<crd_component> crd_component_ptr;

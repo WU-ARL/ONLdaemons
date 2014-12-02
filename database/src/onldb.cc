@@ -4772,7 +4772,7 @@ onldb_resp onldb::get_base_node_list(node_info_list& list) throw()
   {
     vector<nodeinfo> nodes;
     mysqlpp::Query query = onl->query();
-    query << "select nodes.node,nodes.state,types.daemon,types.keeboot,nodes.daemonhost,nodes.daemonport,types.tid as type,hwclustercomps.dependent from nodes join types using (tid) left join hwclustercomps using (node) where types.type='base' order by node";
+    query << "select nodes.node,nodes.state,types.daemon,types.keeboot,nodes.daemonhost,nodes.daemonport,types.tid as type,hwclustercomps.dependent,hwclustercomps.cluster from nodes join types using (tid) left join hwclustercomps using (node) where types.type='base' order by node";
     query.storein(nodes);
 
     vector<nodeinfo>::iterator node;
@@ -4788,8 +4788,14 @@ onldb_resp onldb::get_base_node_list(node_info_list& list) throw()
       if(node->dependent.is_null) { is_dependent = false; }
       else if(((int)node->dependent.data) == 0) { is_dependent = false; }
       else { is_dependent = true; }
-      node_info new_node(node->node,node->state,has_cp,do_keeboot,node->daemonhost,node->daemonport,node->type,is_dependent);
+      node_info new_node;
+      //if (strcmp(node->cluster, "NULL") == 0)
+      //new_node = node_info(node->node,node->state,has_cp,do_keeboot,node->daemonhost,node->daemonport,node->type,is_dependent,"");
+      //else
+      new_node = node_info(node->node,node->state,has_cp,do_keeboot,node->daemonhost,node->daemonport,node->type,is_dependent,node->cluster);
+
       list.push_back(new_node);
+      
     }
   }
   catch (const mysqlpp::Exception& er)
@@ -4803,7 +4809,7 @@ onldb_resp onldb::get_node_info(std::string node, bool is_cluster, node_info& in
 {
   if(node.substr(0,5) == "vgige")
   {
-    info = node_info(node,"free",false,false,"",0,"vgige",false);
+    info = node_info(node,"free",false,false,"",0,"vgige",false,"");
     return onldb_resp(1,(std::string)"success");
   }
   try
@@ -4811,7 +4817,7 @@ onldb_resp onldb::get_node_info(std::string node, bool is_cluster, node_info& in
     if(!is_cluster)
     {
       mysqlpp::Query query = onl->query();
-      query << "select nodes.node,nodes.state,types.daemon,types.keeboot,nodes.daemonhost,nodes.daemonport,types.tid as type,hwclustercomps.dependent from nodes join types using (tid) left join hwclustercomps using (node) where types.type='base' and nodes.node=" << mysqlpp::quote << node;
+      query << "select nodes.node,nodes.state,types.daemon,types.keeboot,nodes.daemonhost,nodes.daemonport,types.tid as type,hwclustercomps.dependent,hwclustercomps.cluster from nodes join types using (tid) left join hwclustercomps using (node) where types.type='base' and nodes.node=" << mysqlpp::quote << node;
       mysqlpp::StoreQueryResult res = query.store();
 
       if(res.empty())
@@ -4832,7 +4838,10 @@ onldb_resp onldb::get_node_info(std::string node, bool is_cluster, node_info& in
       if(ni.dependent.is_null) { is_dependent = false; }
       else if(((int)ni.dependent.data) == 0) { is_dependent = false; }
       else { is_dependent = true; }
-      info = node_info(ni.node,ni.state,has_cp,do_keeboot,ni.daemonhost,ni.daemonport,ni.type,is_dependent);
+      //if (strcmp(ni.cluster,"NULL") == 0)
+      //info = node_info(ni.node,ni.state,has_cp,do_keeboot,ni.daemonhost,ni.daemonport,ni.type,is_dependent,"");
+      //else
+      info = node_info(ni.node,ni.state,has_cp,do_keeboot,ni.daemonhost,ni.daemonport,ni.type,is_dependent,ni.cluster);
     }
     else
     {
@@ -4848,7 +4857,7 @@ onldb_resp onldb::get_node_info(std::string node, bool is_cluster, node_info& in
       }
       clusterinfo ci = res[0];
     
-      info = node_info(ci.cluster,ci.state,false,false,"",0,ci.type,false);
+      info = node_info(ci.cluster,ci.state,false,false,"",0,ci.type,false,"");
     }
   }
   catch (const mysqlpp::Exception& er)
