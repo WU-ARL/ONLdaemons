@@ -40,10 +40,14 @@
 #include <netlink/route/tc.h>
 #include <netlink/route/link.h>
 
+#include <boost/shared_ptr.hpp>
+
 #include "swrd_types.h"
 #include "swrd_router.h"
 #include "swrd_globals.h"
 #include "swrd_requests.h"
+
+#define MINUS_1 0xffffffff
 
 using namespace swr;
 
@@ -66,7 +70,7 @@ configure_node_req::handle()
   {
     uint32_t bw_kbits = node_conf.getBandwidth() * 1000;//rates are given in Mbits/s need to convert to kbits/s
     router->set_username(exp.getExpInfo().getUserName());
-    router->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), bw_kbits);
+    router->configure_port(node_conf.getPort(), node_conf.getRealPort(), node_conf.getVLan(), node_conf.getIPAddr(), node_conf.getSubnet(), bw_kbits, node_conf.getNHIPAddr());
   }
   catch(std::exception& e)
   { 
@@ -264,6 +268,7 @@ del_route_port_req::parse()
 }
  
 /*
+
 add_filter_req::add_filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -276,33 +281,27 @@ bool
 add_filter_req::handle()
 {
   rli_response* rliresp;
-
-  unsigned int protocol_val;
-  unsigned int tcp_flags;
-  unsigned int tcp_flags_mask;
-  unsigned int exceptions;
-  unsigned int exceptions_mask;
-  unsigned int pps_val;
-  unsigned int output_port_val;
-  unsigned int output_plugin_val;
-  unsigned int outputs_val;
   try
   {
-    protocol_val = router->get_proto(protocol);
-    tcp_flags = router->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    tcp_flags_mask = router->get_tcpflags_mask(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    exceptions = router->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
-    exceptions_mask = router->get_exceptions_mask(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
-    pps_val = router->get_pps(port_plugin_selection, multicast);
-    if(!multicast)
-    {
-      output_port_val = router->get_output_port(output_port);
-      output_plugin_val = router->get_output_plugin(output_plugin);
-    }
-    else
-    {
-      outputs_val = router->get_outputs(output_port, output_plugin);
-    }
+    filter_ptr filter(new filter_info());
+    filter->dest_prefix = dest_prefix;
+    filter->dest_mask = dest_mask;
+    filter->src_prefix = src_prefix;
+    filter->src_mask = src_mask;
+    filter->protocol = protocol;
+    filter->dest_port = dest_port;
+    filter->src_port = src_port;
+    filter->tcp_fin = tcp_fin;
+    filter->tcp_syn = tcp_syn;
+    filter->tcp_rst = tcp_rst;
+    filter->tcp_psh = tcp_psh;
+    filter->tcp_ack = tcp_ack;
+    filter->tcp_urg = tcp_urg;
+    filter->unicast_drop = unicast_drop;
+    filter->output_port = output_port;
+    filter->sampling = sampling;
+
+    router->add_filter(filter);
   }
   catch(std::exception& e)
   {
@@ -313,86 +312,11 @@ add_filter_req::handle()
     delete rliresp;
     return true;
   }
-
-  pfilter_key pkey;
-  pfilter_key pmask;
-  pfilter_result pres;
-  
-  pkey.daddr = dest_prefix;
-  pkey.saddr = src_prefix;
-  pkey.ptag = plugin_tag;
-  pkey.port = port;
-  pkey.proto = protocol_val;
-  pkey.dport = dest_port;
-  pkey.sport = src_port;
-  pkey.exceptions = exceptions;
-  pkey.tcp_flags = tcp_flags;
-  pkey.res = 0;
   
   write_log("add_filter_req::handle(): primary filter pkey(daddr,saddr,ptag,port,proto,dport,sport,exceptions,tcp_flags)=(" + int2str(pkey.daddr) + "," + int2str(pkey.saddr) + "," + int2str(pkey.ptag) + "," + int2str(pkey.port) + "," + int2str(pkey.proto) + "," + int2str(pkey.dport) + "," + int2str(pkey.sport) + "," + int2str(pkey.exceptions) + "," + int2str(pkey.tcp_flags) + ")");
   
-  pmask.daddr = (~0 << (32-dest_mask));
-  pmask.saddr = (~0 << (32-src_mask));;
-  if(plugin_tag == WILDCARD_VALUE) { pmask.ptag = 0; }
-  else { pmask.ptag = 0x1f; }
-  pmask.port = 0x7;
-  if(protocol_val == WILDCARD_VALUE) { pmask.proto = 0; }
-  else { pmask.proto = 0xff; }
-  if(dest_port == WILDCARD_VALUE) { pmask.dport = 0; }
-  else { pmask.dport = 0xffff; }
-  if(src_port == WILDCARD_VALUE) { pmask.sport = 0; }
-    else { pmask.sport = 0xffff; }
-  pmask.exceptions = exceptions_mask;
-  pmask.tcp_flags = tcp_flags_mask;;
-  pmask.res = 0;
-  
-  write_log("add_filter_req::handle(): primary filter pmask(daddr,saddr,ptag,port,proto,dport,sport,exceptions,tcp_flags)=(" + int2str(pmask.daddr) + "," + int2str(pmask.saddr) + "," + int2str(pmask.ptag) + "," + int2str(pmask.port) + "," + int2str(pmask.proto) + "," + int2str(pmask.dport) + "," + int2str(pmask.sport) + "," + int2str(pmask.exceptions) + "," + int2str(pmask.tcp_flags) + ")");
-
-  pres.entry_valid = 1;
-  pres.stats_index = stats_index;
-  pres.qid = qid;
-  pres.nh_hi16 = 0;
-  
-  pres.ip_mc_valid = multicast;
-  if(pres.ip_mc_valid == 0)  // unicast
-    {
-      pres.nh_low32 = router->get_next_hop_addr(output_port_val);
-      if(pres.nh_low32 == 0)
-	{
-	  pres.nh_ip_valid = 0;
-	}
-      else
-	{
-	  pres.nh_ip_valid = 1;
-	}
-      pres.nh_mac_valid = 0;
-      
-      pres.uc_mc_bits = (unicast_drop << 7) | (pps_val << 6) | (output_port_val << 3) | (output_plugin_val);
-    }
-  else // multicast
-    {
-      pres.nh_low32 = 0;
-      pres.nh_ip_valid = 0;
-      pres.nh_mac_valid = 0;
-      
-      pres.uc_mc_bits = (pps_val << 11) | (outputs_val << 1);
-    }
-
-  write_log("add_filter_req::handle(): primary filter pres(mc_valid,uc_mc_bits,nh_low32,qid,stats_index)=(" + int2str(pres.ip_mc_valid) + "," + int2str(pres.uc_mc_bits) + "," + int2str(pres.nh_low32) + "," + int2str(pres.qid) + "," + int2str(pres.stats_index) + ")");
-  
-  try
-    {
-      router->add_filter(&pkey, &pmask, priority, &pres);
-      
-      rliresp = new rli_response(this, NCCP_Status_Fine);
-    }
-  catch(std::exception& e)
-    {
-      std::string msg = e.what();
-      write_log("add_filter_req::handle(): got exception: " + msg);
-      rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    }
    
+  rliresp = new rli_response(this, NCCP_Status_Fine);
   rliresp->send();
   delete rliresp;
   
@@ -404,33 +328,24 @@ add_filter_req::parse()
 {
   rli_request::parse();
 
-  dest_prefix = params[1].getInt();
+  dest_prefix = params[1].getString();
   dest_mask = params[2].getInt();
-  src_prefix = params[3].getInt();
+  src_prefix = params[3].getString();
   src_mask = params[4].getInt();
-  plugin_tag = params[5].getInt();
-  protocol = params[6].getString();
+  protocol = params[5].getString();
   dest_port = params[7].getInt();
   src_port = params[8].getInt();
-  exception_nonip = params[9].getInt();
-  exception_arp = params[10].getInt();
-  exception_ipopt = params[11].getInt();
-  exception_ttl = params[12].getInt();
-  tcp_fin = params[13].getInt();
-  tcp_syn = params[14].getInt();
-  tcp_rst = params[15].getInt();
-  tcp_psh = params[16].getInt();
-  tcp_ack = params[17].getInt();
-  tcp_urg = params[18].getInt();
-  qid = params[19].getInt();
-  stats_index = params[20].getInt();
-  multicast = params[21].getBool();
-  port_plugin_selection = params[22].getString();
-  unicast_drop = params[23].getBool();
-  output_port = params[24].getString();
-  output_plugin = params[25].getString();
-  sampling_bits = params[26].getInt();
-  priority = params[27].getInt();
+  tcp_fin = params[9].getInt();
+  tcp_syn = params[10].getInt();
+  tcp_rst = params[11].getInt();
+  tcp_psh = params[12].getInt();
+  tcp_ack = params[13].getInt();
+  tcp_urg = params[14].getInt();
+  unicast_drop = params[15].getBool();
+  output_port = params[16].getString();
+  sampling = params[17].getInt();
+  //qid = params[18].getInt();
+  //priority = params[19].getInt(); 
 }
  
 delete_filter_req::delete_filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
@@ -504,25 +419,131 @@ delete_filter_req::parse()
 {
   rli_request::parse();
 
-  dest_prefix = params[1].getInt();
-  src_prefix = params[3].getInt();
-  plugin_tag = params[5].getInt();
-  protocol = params[6].getString();
+  dest_prefix = params[1].getString();
+  dest_mask = params[2].getInt();
+  src_prefix = params[3].getString();
+  src_mask = params[4].getInt();
+  protocol = params[5].getString();
   dest_port = params[7].getInt();
   src_port = params[8].getInt();
-  exception_nonip = params[9].getInt();
-  exception_arp = params[10].getInt();
-  exception_ipopt = params[11].getInt();
-  exception_ttl = params[12].getInt();
-  tcp_fin = params[13].getInt();
-  tcp_syn = params[14].getInt();
-  tcp_rst = params[15].getInt();
-  tcp_psh = params[16].getInt();
-  tcp_ack = params[17].getInt();
-  tcp_urg = params[18].getInt();
+  tcp_fin = params[9].getInt();
+  tcp_syn = params[10].getInt();
+  tcp_rst = params[11].getInt();
+  tcp_psh = params[12].getInt();
+  tcp_ack = params[13].getInt();
+  tcp_urg = params[14].getInt();
+  unicast_drop = params[15].getBool();
+  output_port = params[16].getString();
+  sampling = params[17].getInt();
 }
-*/
  
+*/
+
+
+ 
+
+filter_req::filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+filter_req::~filter_req()
+{
+}
+
+bool
+filter_req::handle()
+{
+  rli_response* rliresp;
+  std::string req_name = "add_filter_req";
+  if (get_op() == SWR_DeleteFilter) req_name = "delete_filter_req";
+  try
+  {
+    filter_ptr filter(new filter_info());
+    filter->dest_prefix = dest_prefix;
+    filter->dest_mask = dest_mask;
+    filter->src_prefix = src_prefix;
+    filter->src_mask = src_mask;
+    filter->protocol = protocol;
+    if (dest_port == MINUS_1)
+      filter->dest_port = -1;
+    else
+      filter->dest_port = dest_port;
+    if (src_port == MINUS_1)
+      filter->src_port = -1;
+    else
+      filter->src_port = src_port;
+    if (tcp_fin > 1) filter->tcp_fin = -1;
+    else filter->tcp_fin = tcp_fin;
+    if (tcp_syn > 1) filter->tcp_syn = -1;
+    else filter->tcp_syn = tcp_syn;
+    if (tcp_rst > 1) filter->tcp_rst = -1;
+    else filter->tcp_rst = tcp_rst;
+    if (tcp_psh > 1) filter->tcp_psh = -1;
+    else filter->tcp_psh = tcp_psh;
+    if (tcp_ack > 1) filter->tcp_ack = -1;
+    else filter->tcp_ack = tcp_ack;
+    if (tcp_urg > 1) filter->tcp_urg = -1;
+    else filter->tcp_urg = tcp_urg;
+    filter->unicast_drop = unicast_drop;
+    filter->output_port = output_port;
+    filter->sampling = sampling;
+
+    if (get_op() == SWR_AddFilter)
+      router->add_filter(filter);
+    else 
+      router->del_filter(filter);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log(req_name + "::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+    rliresp->send();
+    delete rliresp;
+    return true;
+  }
+
+  int drop = 0;
+  if (unicast_drop) drop = 1;
+  
+  write_log(req_name + "::handle(): filter(daddr,saddr,proto,dport,sport,tcp_flags,sampling,oport,drop)=(" + dest_prefix + "/" + int2str(dest_mask) + "," + src_prefix + "/" + int2str(src_mask) + "," + protocol + "," + int2str(dest_port) + "," + int2str(src_port) + "," + int2str(tcp_fin) + int2str(tcp_syn) + int2str(tcp_rst) + int2str(tcp_psh) + int2str(tcp_ack) + int2str(tcp_urg) + "," + int2str(sampling) + "," + output_port + "," + int2str(drop) + ")");
+  
+   
+  rliresp = new rli_response(this, NCCP_Status_Fine);
+  rliresp->send();
+  delete rliresp;
+  
+  return true;
+}
+
+void
+filter_req::parse()
+{
+  rli_request::parse();
+
+  dest_prefix = router->addr_int2str(params[0].getInt());
+  dest_mask = params[1].getInt();
+  src_prefix = router->addr_int2str(params[2].getInt());
+  src_mask = params[3].getInt();
+  protocol = params[4].getString();
+  dest_port = params[5].getInt();
+  src_port = params[6].getInt();
+  tcp_fin = params[7].getInt();
+  tcp_syn = params[8].getInt();
+  tcp_rst = params[9].getInt();
+  tcp_psh = params[10].getInt();
+  tcp_ack = params[11].getInt();
+  tcp_urg = params[12].getInt();
+  unicast_drop = params[13].getBool();
+  if (get_op() == SWR_AddFilter) 
+    {
+      output_port = params[14].getString();
+      sampling = params[15].getInt();
+    }
+  else sampling = 1;
+  //qid = params[18].getInt();
+  //priority = params[19].getInt(); 
+}
 /*
 set_queue_params_req::set_queue_params_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {

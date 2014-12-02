@@ -200,6 +200,7 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
     }
   else nicTable[realPort].rate -= rate;
 
+  int mark = get_next_mark();
   struct in_addr addr;
 
   inet_pton(AF_INET, ip.c_str(), &addr);
@@ -210,6 +211,7 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
   portTable[port].vlan = vlan;
   portTable[port].nicIndex = realPort;
   portTable[port].rate = rate;
+  portTable[port].mark = mark;
   if (portTable[port].configured == false) {
     char shcmd[256];
     //char device[] = "dataX"; // change device[4] to 0, 1, ... depending on which device
@@ -228,7 +230,7 @@ Configuration::configure_port(unsigned int port, unsigned int realPort, uint16_t
     //device[4] = '0' + (unsigned char) realPort;
 #define IFACE_DEFAULT_MIN 1000
     // sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
-    sprintf(shcmd, "/usr/local/bin/swrd_configure_port.sh %d %s %d %s %s %d %d %d", port, nicTable[realPort].nic.c_str(), vlan, ip.c_str(), mask.c_str(), rate, IFACE_DEFAULT_MIN, vlan);
+    sprintf(shcmd, "/usr/local/bin/swrd_configure_port.sh %d %s %d %s %s %d %d %d", port, nicTable[realPort].nic.c_str(), vlan, ip.c_str(), mask.c_str(), rate, IFACE_DEFAULT_MIN, mark);//vlan);
     write_log("Configuration::configure_port system(" + std::string(shcmd) + ")");
     if(system(shcmd) < 0)
       {

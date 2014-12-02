@@ -40,6 +40,7 @@
 
 #include "shared.h"
 
+#include <boost/shared_ptr.hpp>
 #include <netlink/route/tc.h>
 #include <netlink/route/link.h>
 #include "swrd_types.h"
@@ -70,37 +71,42 @@ namespace swr
   void* handle_task(void *); // thread main
 
 
-  bool init()
+  bool init(int rtr_type)
   {
     onld::log = new log_file("/tmp/swrd.log");
     write_log("init: Initializing");
+    /*
     char shcmd[256];
+    int num_ports = rtr_type;
     //run tuning script
-    sprintf(shcmd, "/usr/local/bin/ixgb_perf.sh data0 /usr/local/bin");
-    write_log("init tuning-system(" + std::string(shcmd) + ")");
-    if (system(shcmd) < 0)
+    for (int i = 0; i < num_ports; ++i)
       {
-	write_log("tuning script for data0 failed");
-	return false;
-      }
-    sprintf(shcmd, "/usr/local/bin/ixgb_perf.sh data1 /usr/local/bin");
-    write_log("init tuning-system(" + std::string(shcmd) + ")");
-    if (system(shcmd) < 0)
-      {
-	write_log("tuning script for data1 failed");
-	return false;
-      }
+	sprintf(shcmd, "/usr/local/bin/ixgb_perf.sh data%d /usr/local/bin", i);
+	write_log("init tuning-system(" + std::string(shcmd) + ")");
+	if (system(shcmd) < 0)
+	  {
+	    write_log("tuning script for data" + int2str(i) + " failed");
+	    return false;
+	  }
+      }*/
     the_dispatcher = dispatcher::get_dispatcher();
     rli_conn = NULL;
 
 
-    router = new Router();
+    router = new Router(rtr_type);
 
     std::string tmp_addr("127.0.0.1");
     rli_conn = new nccp_listener(tmp_addr, Default_ND_Port);
     //monitor = new Monitor();
 
-    router->start_router();
+    try
+    {
+      router->start_router();
+    }
+    catch(std::exception& e)
+    {
+      return false;
+    }
     return true;
   }
 
@@ -125,11 +131,21 @@ namespace swr
 
 using namespace swr;
 
-int main()
+int main(int argc, char** argv)
 {
+
+  int rtr_type = SWR_2P_10G;
+  for (int i = 0; i < argc; ++i)
+    {
+      if (strcmp(argv[i], "-swr5") == 0) 
+	{
+	  rtr_type = SWR_5P_1G;
+	  break;
+	} 
+    }
   try
   {  
-    if(!init())
+    if(!init(rtr_type))
     {
       exit(1);
     }
@@ -159,11 +175,11 @@ int main()
   register_req<add_route_port_req>(SWR_AddRoutePort);
   register_req<del_route_port_req>(SWR_DeleteRoutePort);
 
-/*
   // manage filters
-  register_req<add_filter_req>(SWR_AddFilter);
-  register_req<del_filter_req>(SWR_DeleteFilter);
-  
+  register_req<filter_req>(SWR_AddFilter);
+  register_req<filter_req>(SWR_DeleteFilter);
+
+  /*  
   // configure queues 
   register_req<add_queue_req>(SWR_AddQueue);
   register_req<del_queue_req>(SWR_DeleteQueue);
@@ -215,7 +231,7 @@ int main()
   }
 */
 
-  while(true);
+  while(true){ sleep(1);}
 
   pthread_exit(NULL);
 }

@@ -118,8 +118,37 @@ namespace swr
   }; // class del_route_port_req
 
 
-/*
-  static const NCCP_OperationType SWR_AddFilter = 76;
+  static const NCCP_OperationType SWR_AddFilter = 77;
+  static const NCCP_OperationType SWR_DeleteFilter = 78;
+  class filter_req : public rli_request
+  {
+    public:
+      filter_req(uint8_t *mbuf, uint32_t size);
+      virtual ~filter_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+  //echo "Usage: $0 <portnum> <iface> <vlanNum> <filterId> <dstAddr> <dstMask> <srcAddr> <srcMask> <proto> <dport> <sport> <tcpSyn> <tcpAck> <tcpFin> <tcpRst> <tcpUrg> <tcpPsh> <drop> <outputPortNum> <outputDev>"
+      std::string dest_prefix;
+      uint32_t dest_mask;
+      std::string src_prefix;
+      uint32_t src_mask;
+      std::string protocol;
+      uint32_t dest_port;
+      uint32_t src_port;
+      uint32_t tcp_fin;
+      uint32_t tcp_syn;
+      uint32_t tcp_rst;
+      uint32_t tcp_psh;
+      uint32_t tcp_ack;
+      uint32_t tcp_urg;
+      bool unicast_drop;
+      std::string output_port;
+      uint32_t sampling;
+  }; // class filter_req
+  /*
   class add_filter_req : public rli_request
   {
     public:
@@ -130,13 +159,11 @@ namespace swr
       virtual bool handle();
 
     protected:
-  //echo "Usage: $0 <portnum> <iface> <vlanNum> <filterId> <dstAddr> <dstMask> <srcAddr> <srcMask> <proto> <dport> <sport> <tcpSyn> <tcpAck> <tcpFin> <tcpRst> <tcpUrg> <tcpPsh> <qid> <drop> <outputPortNum> <outputDev> <outputVlan> <gw>"
-      bool aux;
+  //echo "Usage: $0 <portnum> <iface> <vlanNum> <filterId> <dstAddr> <dstMask> <srcAddr> <srcMask> <proto> <dport> <sport> <tcpSyn> <tcpAck> <tcpFin> <tcpRst> <tcpUrg> <tcpPsh> <drop> <outputPortNum> <outputDev>"
       uint32_t dest_prefix;
       uint32_t dest_mask;
       uint32_t src_prefix;
       uint32_t src_mask;
-      uint32_t plugin_tag;
       std::string protocol;
       uint32_t dest_port;
       uint32_t src_port;
@@ -146,14 +173,11 @@ namespace swr
       uint32_t tcp_psh;
       uint32_t tcp_ack;
       uint32_t tcp_urg;
-      uint32_t qid;
-      bool multicast;
       bool unicast_drop;
       std::string output_port;
-      uint32_t priority;
+      uint32_t sampling;
   }; // class add_filter_req
 
-  static const NCCP_OperationType SWR_DeleteFilter = 77;
   class delete_filter_req : public rli_request
   {
     public:
@@ -164,26 +188,24 @@ namespace swr
       virtual bool handle();
 
     protected:
-      bool aux;
       uint32_t dest_prefix;
+      uint32_t dest_mask;
       uint32_t src_prefix;
-      uint32_t plugin_tag;
+      uint32_t src_mask;
       std::string protocol;
       uint32_t dest_port;
       uint32_t src_port;
-      uint32_t exception_nonip;
-      uint32_t exception_arp;
-      uint32_t exception_ipopt;
-      uint32_t exception_ttl;
       uint32_t tcp_fin;
       uint32_t tcp_syn;
       uint32_t tcp_rst;
       uint32_t tcp_psh;
       uint32_t tcp_ack;
       uint32_t tcp_urg;
+      bool unicast_drop;
+      std::string output_port;
+      uint32_t sampling;
   }; // class delete_filter_req
-*/
-
+  */
 /*
   static const NCCP_OperationType SWR_SetQueueParams = 78;
   class set_queue_params_req : public rli_request

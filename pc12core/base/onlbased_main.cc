@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 
   register_req<crd_relay_req>(NCCP_Operation_CfgNode);
   register_resp<crd_response>(NCCP_Operation_CfgNode);
-  register_req<crd_relay_req>(NCCP_Operation_EndCfgNode);
+  register_req<crd_relay_req>(NCCP_Operation_EndCfgNode);//relayed if vm
   register_resp<crd_response>(NCCP_Operation_EndCfgNode);
 
   for(uint8_t op=62; op<=254; ++op) //this includes user data

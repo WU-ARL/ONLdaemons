@@ -15,6 +15,9 @@ else
   ifaceDefRate=$7 # in kbit/s
   iptMark=$8 # perhaps same as vlan?
 
+  # make sure that reverse path filtering is turned off
+  echo  0 > /proc/sys/net/ipv4/conf/default/rp_filter 
+
   rate=${ifaceRate}kbit
   echo "rate = $rate"
   

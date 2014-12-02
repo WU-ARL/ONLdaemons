@@ -28,4 +28,5 @@ namespace swr
   //extern Monitor* monitor;
 }; // namespace swr
 
+
 #endif // _SWRD_GLOBALS_H
