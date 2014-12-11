@@ -164,6 +164,7 @@ void Router::start_router() throw(configuration_exception)
   
   write_log("Router::start_router: system_tuned");
 
+  //sets up rules for route tables
   if (router_type == SWR_5P_1G)
     {
       sprintf(shcmd, "/usr/local/bin/swrd_iprules.sh");

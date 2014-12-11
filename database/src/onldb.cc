@@ -1413,6 +1413,27 @@ bool onldb::find_mapping(node_resource_ptr abs_node, node_resource_ptr res_node,
   return true;
 }
 
+bool onldb::check_fixed_comps(std::list<node_resource_ptr>& fixed_comp, std::string begin, std::string end) throw()
+{
+    std::list<node_resource_ptr>::iterator fit;
+    vector<nodenames>::iterator nnit;
+    mysqlpp::Query query = onl->query();
+    //get a list of nodes in repair or testing
+    query << "select nodes.node from nodes where node in (select node from nodeschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and (user='testing' or user='repair') and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )) order by nodes.node";
+    vector<nodenames> nn;
+    ++db_count;
+    query.storein(nn);
+
+    for(fit = fixed_comp.begin(); fit != fixed_comp.end(); ++fit)
+      {
+	for (nnit = nn.begin(); nnit != nn.end(); ++nnit)
+	  {
+	    if ((*fit)->node == nnit->node) return false;
+	  }
+      }
+    return true;
+}
+
 onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string end) throw()
 {
   struct timeval stime;
@@ -1842,6 +1863,10 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   if(ra.result() < 0) return onldb_resp(ra.result(),ra.msg());
   bool admin = false;
   if(ra.result() == 1) { admin = true; }
+
+  //if not admin. check if they are requesting fixed components in testing or repair and say no
+  if (!fixed_comps.empty() && !admin && !check_fixed_comps(fixed_comps, begin, end)) 
+     return onldb_resp(0, "fixed nodes in testing or repair");
 
   // handle fixed components, potentially adding admin stuff to the base topology
   for(fixed_comp = fixed_comps.begin(); fixed_comp != fixed_comps.end(); ++fixed_comp)

@@ -147,6 +147,7 @@ namespace onl
       onldb_resp get_switch_ports(unsigned int cid, switch_port_info& info1, switch_port_info& info2) throw();
 
       onldb_resp has_virtual_port(std::string type) throw();
+      bool check_fixed_comps(std::list<node_resource_ptr>& fixed_comp, std::string begin, std::string end) throw();
   };
 };
 #define MAX_INTERCLUSTER_CAPACITY 10000 //Mbps
