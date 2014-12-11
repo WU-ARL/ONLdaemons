@@ -871,6 +871,7 @@ session_manager::clear_component(crd_component* comp)
     return;
   }
 
+  write_log("session_manager::clear_component: comp(" + int2str((unsigned long) comp) + ") " + comp->getName());
   autoLockDebug clock(comp_lock, "session_manager::clear_component(): comp_lock");
   std::list<crd_component_ptr>::iterator i;
   for(i=refreshing_components.begin(); i!=refreshing_components.end(); ++i)
