@@ -181,7 +181,7 @@ configure_node_req::~configure_node_req()
 bool
 configure_node_req::handle()
 {
-  write_log("configure_node_req::handle()");
+  write_log("configure_node_req::handle() interface " + int2str(node_conf.getPort()) + " with ipaddr:" + node_conf.getIPAddr() + " to physical port:" + int2str(node_conf.getRealPort()) + " vlan:" + int2str(node_conf.getVLan()));
 
   NCCP_StatusType status = NCCP_Status_Fine;
   session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());

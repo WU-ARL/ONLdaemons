@@ -163,6 +163,9 @@ bool
 session::configureVM(component& c, node_info& ninfo)
 {
   vm_ptr vm = getVM(c);
+
+  write_log("session::configureVM interface " + int2str(ninfo.getPort()) + " with ipaddr:" + ninfo.getIPAddr() + " to physical port:" + int2str(ninfo.getRealPort()) + " vlan:" + int2str(ninfo.getVLan()));
+
   if (!vm)
     {
       write_log("session::configureVM failed to find vm for comp " + int2str(c.getID()) );
