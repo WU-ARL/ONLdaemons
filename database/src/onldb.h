@@ -89,6 +89,7 @@ namespace onl
       int compute_mapping_cost(mapping_cluster_ptr cluster, node_resource_ptr node, topology* req, std::list<mapping_cluster_ptr>& clusters, topology* base) throw();
       int compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw();
       int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path) throw();
+      int find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, std::list<link_resource_ptr>& potential_mappings) throw();
       node_resource_ptr map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr cluster, std::list<mapping_cluster_ptr>& clusters, topology* base) throw();
       node_resource_ptr get_new_vswitch(topology* req) throw();
       void map_edges(node_resource_ptr unode, node_resource_ptr rnode, topology* base) throw();
@@ -103,7 +104,8 @@ namespace onl
       //added to support virtual ports
       onldb_resp get_link_vport(unsigned int linkid, unsigned int rid, int port);
       bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin);
-      bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin, node_resource_ptr excluded);
+      bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_resource_ptr>& potential_mappings);
+      bool subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_resource_ptr>& potential_mappings, node_resource_ptr excluded);
 
     public:
       onldb() throw();

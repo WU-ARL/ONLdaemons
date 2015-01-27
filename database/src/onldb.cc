@@ -56,6 +56,7 @@ using namespace onl;
 #define UNUSED_CLUSTER_COST 50
 #define CANT_SPLIT_VGIGE_COST 20 //penalty for not splitting is multiply MAX_INTERCLUSTER_CAPACITY * each unmapped node
 #define USER_UNUSED_CLUSTER_COST 20
+#define VM_COST 10 //penalty for putting more than one vm of the same experiment on the same machine
 int fnd_path;
 
 bool in_list(node_resource_ptr node, std::list<node_resource_ptr> nodes)
@@ -66,6 +67,17 @@ bool in_list(node_resource_ptr node, std::list<node_resource_ptr> nodes)
       if ((*nit) == node) return true;
     }
   return false;
+}
+
+int num_in_subnet(subnet_info_ptr subnet, std::list<node_resource_ptr>& nodes)
+{
+  int rtn = 0;
+  std::list<node_resource_ptr>::iterator nit;
+  for (nit = nodes.begin(); nit != nodes.end(); ++nit)
+    {
+      if (in_list((*nit), subnet->nodes)) ++rtn;
+    }
+  return rtn;
 }
 
 void fill_in_cluster(mapping_cluster_ptr cluster)
@@ -286,11 +298,19 @@ bool
 onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin)
 {
   node_resource_ptr nptr;
-  return (subnet_mapped(subnet, cin, nptr));
+  std::list<link_resource_ptr> potential_mappings;
+  return (subnet_mapped(subnet, cin, potential_mappings, nptr));
 }
 
 bool 
-onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, node_resource_ptr excluded)
+onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_resource_ptr>& potential_mappings )
+{
+  node_resource_ptr nptr;
+  return (subnet_mapped(subnet, cin, potential_mappings, nptr));
+}
+
+bool 
+onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_resource_ptr>& potential_mappings, node_resource_ptr excluded)
 {
   std::list<node_resource_ptr>::iterator snnit;
   std::list<link_resource_ptr>::iterator snlit;
@@ -314,16 +334,34 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, node_resource_ptr
 	  for(lit = (*snlit)->mapped_path.begin(); lit != (*snlit)->mapped_path.end(); ++lit)
 	    {
 	      // if ((*lit)->node1->in == cin && (*lit)->node2 == (*lit)->node1 && (*lit)->node1->type == "infrastructure")
-	      //if we see to links with an endpoint on the infrastructure node then there is a link on this subnet that is mapped to this
+	      //if we see two links with an endpoint on the infrastructure node then there is a link on this subnet that is mapped to this
 	      //cluster
-	      if (((*lit)->node1->in == cin && (*lit)->node1->type == "infrastructure") ||
-		  ((*lit)->node2->in == cin && (*lit)->node2->type == "infrastructure"))
+	      if (((*lit)->node1->in == cin && (*lit)->node1->type_type == "infrastructure") ||
+		  ((*lit)->node2->in == cin && (*lit)->node2->type_type == "infrastructure"))
 		++n;
 	      if (n > 1)
 		{
 		  cout << "subnet_mapped cluster " << cin << " no mapping. link " << (*snlit)->label << " already mapped here" << endl;
 		  return true;
 		}
+	    }
+	}
+    }
+
+  for (snlit = potential_mappings.begin(); snlit != potential_mappings.end(); ++snlit)
+    {
+      int n = 0;
+      for(lit = (*snlit)->mapped_path.begin(); lit != (*snlit)->mapped_path.end(); ++lit)
+	{
+	  //if we see two links with an endpoint on the infrastructure node then there is a link on this subnet that is mapped to this
+	  //cluster
+	  if (((*lit)->node1->in == cin && (*lit)->node1->type_type == "infrastructure") ||
+	      ((*lit)->node2->in == cin && (*lit)->node2->type_type == "infrastructure"))
+	    ++n;
+	  if (n > 1)
+	    {
+	      cout << "subnet_mapped cluster " << cin << " no mapping. link " << (*snlit)->label << " already potentially mapped here" << endl;
+		  return true;
 	    }
 	}
     }
@@ -891,6 +929,9 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       unsigned int node2_port;
       unsigned int node2_rport;
       unsigned int node2_cap = 0;
+      //need the name of node since physical node won't match up to the topology for vms i.e. get_label won't work
+      std::string node1_name;
+      std::string node2_name;
 	 
       if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
 	{
@@ -905,8 +946,10 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	    {
 	      node1_label = t->get_label(vps_it->node1, vps_it->node1vmid);
 	      node1_port = vps_it->port1;
+	      node1_name = vps_it->node1;
 	      node1_cap = vps_it->port1capacity;
 	      node2_label = t->get_label(vps_it->node2, vps_it->node2vmid);
+	      node2_name = vps_it->node2;
 	      node2_port = vps_it->port2;
 	      node2_cap = vps_it->port2capacity;
 	      break;
@@ -950,9 +993,11 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	      if (vps_it->linkid == cur_link)
 		{
 		  node1_label = t->get_label(vps_it->node1, vps_it->node1vmid);
+		  node1_name = vps_it->node1;
 		  node1_port = vps_it->port1;
 		  node1_cap = vps_it->port1capacity;
 		  node2_label = t->get_label(vps_it->node2, vps_it->node2vmid);
+		  node2_name = vps_it->node2;
 		  node2_port = vps_it->port2;
 		  node2_cap = vps_it->port2capacity;
 		  break;
@@ -988,8 +1033,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 		  }
 	      }
 	  }
-	else if (node1_label == t->get_label(it3->node1)) node1_rport = it3->node1port;
-	else if (node2_label == t->get_label(it3->node1)) node2_rport = it3->node1port;
+	else if (node1_label == t->get_label(it3->node1) || node1_name == it3->node1) node1_rport = it3->node1port;
+	else if (node2_label == t->get_label(it3->node1) || node2_name == it3->node1) node2_rport = it3->node1port;
       }
       if(!li.empty())
       {
@@ -2477,6 +2522,10 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
   std::list<node_resource_ptr>::iterator clnit;
   std::list<node_resource_ptr>::iterator nit;
   std::list<node_resource_ptr> nodes_available;
+  subnet_info_ptr subnet(new subnet_info());
+  int rtn_num_vms = 0;
+
+  if (node->type == "vm") get_subnet(subnet, node, 0);
   if (node->type == "vgige" && !in_list(cluster->cluster, cluster->rnodes_used)) return cluster->cluster;
   for (clnit = cluster->nodes.begin(); clnit != cluster->nodes.end(); ++clnit)
     {
@@ -2516,7 +2565,21 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			break;
 		    }
 		  if (rportit != n->port_capacities.end()) //node has enough interface bw
-		    return n;
+		    {
+		      //here for vm check if there is already a vm from this reservation here if there is go on to the next keep track of node with the least number of vms from this reservation on it. 
+		      if (node->type == "vm" && !n->user_nodes.empty())
+			{
+			  int tmp_num = num_in_subnet(subnet, n->user_nodes);
+			  if (tmp_num == 0) return n;
+			  if (!rtn || (rtn_num_vms > tmp_num))
+			    {
+			      rtn_num_vms = tmp_num;
+			      rtn = n;//keep this if this is the lowest utilized node we've seen but keep looking for one with no vms
+			    }
+			}
+		      else
+			return n;
+		    }
 		  else if (fixed) //the node we want doesn't have enough bw
 		    break;
 		  //keep looking
@@ -2528,6 +2591,11 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	    break;
 	}
     }
+
+  //if vm and we didn't find one that was free use the one with the least of this reservation on it. If there is one.
+  //in the calling process introduce a larger penalty to a cluster that has to map to a machine that already has a vm from this 
+  //reservation on it.
+  
   return rtn;
 }
 
@@ -2705,8 +2773,16 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
 	}
     }
 
-  //if the node is a vgige, we need to check if either an edge or vgige in it's subnet is already allocated to this cluster
+  //penalize if vm and couldn't find a completely free node on this cluster
   subnet_info_ptr subnet(new subnet_info());
+  if (node->type == "vm" && !n->user_nodes.empty()) 
+    {    
+      get_subnet(subnet, node, 0);
+      int num_vms = num_in_subnet(subnet, n->user_nodes);
+      cluster_cost += (VM_COST * num_vms);
+    }
+
+  //if the node is a vgige, we need to check if either an edge or vgige in it's subnet is already allocated to this cluster
   if (node->type == "vgige")
     {
       get_subnet(subnet, node, 0);
@@ -2848,6 +2924,20 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
       if (unmapped_nodes.size() == 1) split_cost = CANT_SPLIT_VGIGE_COST;
       else
 	{
+	  //jp - 1/19/15 fixes trying to split vgige that are too large that would have a link that was larger than MAX_INTERCLUSTER_CAP 
+	  // in either direction
+	  //this should be put in split_vgige?
+	  int unmapped_load = 0;
+	  std::list<node_load_ptr>::iterator um_nlit;
+	  for (um_nlit = unmapped_nodes.begin(); um_nlit != unmapped_nodes.end(); ++um_nlit)
+	    {
+	      unmapped_load += (*um_nlit)->load;
+	    }
+	  if (unmapped_load > MAX_INTERCLUSTER_CAPACITY) //reject the cluster if it result in one side having a larger load than the max intercluster bandwidth
+	    {
+	      cout << "vgige split is infeasible the load is larger than max intercluster bandwidth" << endl;
+	      return -1;
+	    }
 	  //see if there is a set of clusters that we can map the split switch to 
 	  std::list<node_resource_ptr> vgige_nodes;
 	  link_resource vgige_lnk;
@@ -2961,6 +3051,12 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 		      available_node->potential_memcap -= (*nit)->node->mem_capacity;
 		    }
 		  else available_node->potential_corecap = 0;
+		  //JP: PROBLEM need to check if there is a feasible path to any neighbor of the neighbor that has already been mapped
+		  if (compute_path_costs((*nit)->node, available_node) < 0)//couldn't reach some neighbor of the neighbor from this cluster
+		    {
+		      unmapped_nodes.push_back(*nit);
+		      continue;
+		    }//END FIX
 		  cluster->rnodes_used.push_back(available_node);
 		  cluster->nodes_used.push_back(*nit);
 		  total_load += (*nit)->load;
@@ -3278,7 +3374,7 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw()
       potential_path->node2 = sink;
       if ((*lit)->node2->type == "vgige") potential_path->node2_port = -1;
       else potential_path->node2_port = (*lit)->node2_port;
-      int pe_cost = find_cheapest_path(*lit, potential_path);
+      int pe_cost = find_cheapest_path(*lit, potential_path, mapped_edges);
       if (pe_cost < 0)
 	{
 	  cout << "compute_path_cost node:" << node->label << " failed to find a path for link " << (*lit)->label << " mapped nodes:(" << source->label << "," << sink->label << ")" << endl;
@@ -3316,6 +3412,7 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw()
 		    }
 		}
 	    }
+	  mapped_edges.push_back(potential_path);
 	}
     }
   print_diff("onldb::compute_path_costs", stime);
@@ -3334,6 +3431,13 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw()
 
 int
 onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path) throw()
+{
+  std::list<link_resource_ptr> potential_mappings;
+  return (find_cheapest_path(ulink, potential_path, potential_mappings));
+}
+
+int
+onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, std::list<link_resource_ptr>& potential_mappings) throw()
 {
   ++fnd_path;
 
@@ -3449,11 +3553,13 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 			{
 			  if (node2_ptr == sink)
 			    {
-			      if (subnet_mapped(subnet, node2_ptr->in, ulink->node2)) 
+			      if (subnet_mapped(subnet, node2_ptr->in, potential_mappings, ulink->node2) ||
+				  subnet_mapped(subnet, node1_ptr->in, potential_mappings)) 
 				continue;
 			    }
 			  else
-			    if (subnet_mapped(subnet, node2_ptr->in))
+			    if (subnet_mapped(subnet, node2_ptr->in, potential_mappings) ||
+				subnet_mapped(subnet, node1_ptr->in, potential_mappings))
 			      continue;
 			}
 		      lcap -= lload;
@@ -3528,224 +3634,6 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
   return -1;
 }
 
-/*
-int
-onldb::orig_find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_path, subnet_info_ptr subnet) throw()
-{
-  ++fnd_path;
-  int num_paths = 0;
-  struct timeval stime;
-  gettimeofday(&stime, NULL);
-  int current_cost = -1;
-  int loop_count = 0;
-  int list_ops = 0;
-  std::list<link_resource_ptr> best_path;
-  std::list<link_resource_ptr>::iterator lit;
-  bool is_right = true;
-
-  node_resource_ptr source = potential_path->node1;
-  int src_port = potential_path->node1_port;
-  node_resource_ptr sink = potential_path->node2;
-  int sink_port = potential_path->node2_port;
-
-  std::list<link_path_ptr> current_paths;
-  std::list<link_path_ptr> new_paths;
-
-  std::list<node_resource_ptr> nodes_seen;
-  nodes_seen.push_back(source);
-  std::list<link_path_ptr>::iterator pathit;
-  int rload = ulink->rload;
-  int lload = ulink->lload;
-  if (rload > MAX_INTERCLUSTER_CAPACITY) rload =  MAX_INTERCLUSTER_CAPACITY;
-  if (lload > MAX_INTERCLUSTER_CAPACITY) lload =  MAX_INTERCLUSTER_CAPACITY;
-
-  //iterate through the sources links consider it a potential path if the othernode is either the sink or an infrastructure node
-  for (lit = source->links.begin(); lit != source->links.end(); ++lit)
-    {
-      node_resource_ptr othernode;
-      int o_port = -1;
-      if ((*lit)->node1 == source && (src_port < 0 || src_port == (*lit)->node1_port || source->has_vport))
-	{
-	  othernode = (*lit)->node2;
-	  if (othernode->type_type != "infrastructure")
-	    o_port = (*lit)->node2_port;
-	  is_right = true;
-	}
-      else if ((*lit)->node2 == source && (src_port < 0 || src_port == (*lit)->node2_port || source->has_vport))
-	{
-	  othernode = (*lit)->node1;
-	  if (othernode->type_type != "infrastructure")
-	    o_port = (*lit)->node1_port;
-	  is_right = false;
-	}
-      //now handle the case of a virtual port 
-      if (((*lit)->node1 == source || (*lit)->node2 == source) && 
-	  source->has_vport &&
-	  ((is_right && ((*lit)->potential_rcap < ulink->node1_capacity)) || 
-	   (!is_right && ((*lit)->potential_lcap < ulink->node1_capacity))))
-	continue;
-      if (othernode == sink && 
-	  sink->has_vport &&
-	  ((is_right && ((*lit)->potential_lcap < ulink->node2_capacity)) || 
-	   (!is_right && ((*lit)->potential_rcap < ulink->node2_capacity))))
-	continue;
-      if (othernode && (othernode->type_type == "infrastructure" || (othernode == sink && (o_port == sink_port || sink->has_vport))))
-	{
-	  //if this is an infrastructure node need to check if there's enough bandwidth 
-	  //and if the link passes through a switch which already has this subnet's vgige or link mapped.
-	  //PROBLEM:subnet mapped returns true if the vgige that is one of the endpoints is there 
-	  //which is fine in this case
-	  if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure")
-	    {
-	      if ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
-		  (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))))// ||
-	    //(subnet_mapped(subnet, othernode->in, othernode))))
-		continue;
-	      else
-		{
-		  if (othernode == sink)
-		    {
-		      if (subnet_mapped(subnet, othernode->in, ulink->node2)) 
-			continue;
-		    }
-		  else
-		    if (subnet_mapped(subnet, othernode->in))
-		      continue;
-		}
-	    }
-
-	  //create a new path object, tmp_path, and with this link as a part, sink points to the last node in the path
-	  link_path_ptr tmp_path(new link_path());
-	  ++list_ops;
-	  tmp_path->path.push_back(*lit);
-	  tmp_path->sink = othernode;
-	  tmp_path->sink_port = o_port;
-	  if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure") tmp_path->cost = ulink->cost;
-	  else tmp_path->cost = 0;	    
-	  //add tmp_path to paths to be examined
-	  ++num_paths;
-	  current_paths.push_back(tmp_path);
-	  ++list_ops;
-	}
-      ++loop_count;
-    }
-  while(!current_paths.empty() && current_cost < 0)//while there are still valid paths and we haven't found a path to the sink keep looking
-    {
-      ++list_ops;
-      new_paths.clear();
-      ++list_ops;
-      for (pathit = current_paths.begin(); pathit != current_paths.end(); ++pathit)
-	{
-	  ++loop_count;
-	  node_resource_ptr psnk = (*pathit)->sink;
-	  int psnk_port = (*pathit)->sink_port;
-	  ++list_ops;
-	  if (!in_list(psnk, nodes_seen)) 
-	    {
-	      ++list_ops;
-	      nodes_seen.push_back(psnk);
-	    }
-	  if (psnk == sink && (sink_port < 0 || psnk_port == sink_port || sink->has_vport))
-	    {
-	      if (current_cost < 0 || current_cost > ((*pathit)->cost))
-		{
-		  current_cost = (*pathit)->cost;
-		  best_path.clear();
-		  best_path.assign((*pathit)->path.begin(), (*pathit)->path.end());
-		  list_ops += 2;
-		}
-	    }
-	  else if (psnk->type_type == "infrastructure") //stop if the node is not an infrastructure node but a leaf
-	    {
-	      for (lit = psnk->links.begin(); lit != psnk->links.end(); ++lit)
-		{
-		  node_resource_ptr othernode;
-		  int o_port = -1;
-		  if ((*lit)->node1 == psnk )//&& (psnk_port < 0 || psnk_port == (*lit)->node1_port))
-		    {
-		      othernode = (*lit)->node2;
-		      if (othernode->type_type != "infrastructure")
-			o_port = (*lit)->node2_port;
-		      is_right = true;
-		    }
-		  else if ((*lit)->node2 == psnk)// && (psnk_port < 0 || psnk_port == (*lit)->node2_port))
-		    {
-		      othernode = (*lit)->node1;
-		      if (othernode->type_type != "infrastructure")
-			o_port = (*lit)->node1_port;
-		      is_right = false;
-		    }
-		  ++list_ops;
-		  if (othernode && ((!in_list(othernode, nodes_seen) && othernode->type_type == "infrastructure") || (othernode == sink && (o_port == sink_port || sink->has_vport))))
-		    {
-		      //if this is an infrastructure node need to check if there's enough bandwidth 
-		      //and if the link passes through a switch which already has this subnet's vgige or link mapped.
-		      //if ((*lit)->in > 0 && 
-		      //  ((is_right && (((*lit)->potential_rcap < ulink->rload) || ((*lit)->potential_lcap < ulink->lload))) ||
-		      //   (!is_right && (((*lit)->potential_lcap < ulink->rload) || ((*lit)->potential_rcap < ulink->lload))) ||
-		      //   (subnet_mapped(subnet, othernode->in))))
-		      //continue;
-		      if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure")
-			{
-			  if ((is_right && (((*lit)->potential_rcap < rload) || ((*lit)->potential_lcap < lload))) ||
-			      (!is_right && (((*lit)->potential_lcap < rload) || ((*lit)->potential_rcap < lload))))
-			    //(subnet_mapped(subnet, othernode->in, othernode))))
-			    continue;
-			  else
-			    {
-			      if (othernode == sink)
-				{
-				  if (subnet_mapped(subnet, othernode->in, ulink->node2)) 
-				    continue;
-				}
-			      else
-				if (subnet_mapped(subnet, othernode->in))
-				  continue;
-			    }
-			}
-		      link_path_ptr tmp_path(new link_path());
-                      tmp_path->path.assign((*pathit)->path.begin(), (*pathit)->path.end());
-		      tmp_path->path.push_back(*lit);
-		      ++num_paths;
-		      list_ops += 2;
-		      tmp_path->sink = othernode;
-		      tmp_path->sink_port = o_port;
-		      if ((*lit)->node1->type_type == "infrastructure" && (*lit)->node2->type_type == "infrastructure" ) 
-			tmp_path->cost = ((*pathit)->cost) + (ulink->cost);
-		      else tmp_path->cost = ((*pathit)->cost);	    
-		      new_paths.push_back(tmp_path);
-		      ++list_ops;
-		    }
-		}
-	    }
-	}
-      current_paths.clear();
-      ++list_ops;
-      if (current_cost >= 0)
-	{
-	  potential_path->cost = current_cost;
-	  while(!best_path.empty())
-	    {
-	      ++list_ops;
-	      potential_path->mapped_path.push_back(*(best_path.begin()));
-	      best_path.pop_front();
-	    }
-	  break;
-	}
-      else
-	{
-	  ++list_ops;
-	  current_paths.assign(new_paths.begin(), new_paths.end());
-	}
-      ++loop_count;
-    }
-  cout << "onldb::find_cheapest_path path_addition_count:" << num_paths << " loop_count:" << loop_count << " list_ops:" << list_ops << endl;
-  print_diff("onldb::find_cheapest_path", stime);
-  return current_cost;
-}
-*/
-
-
 node_resource_ptr
 onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr cluster, std::list<mapping_cluster_ptr>& clusters, topology* base) throw()
 {
@@ -3775,6 +3663,7 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
       rnode->marked = true;
       rnode->core_capacity -= node->core_capacity;
       rnode->mem_capacity -= node->mem_capacity;
+      rnode->user_nodes.push_back(node);
       if (node->is_parent) map_children(node, rnode);
     }
 
@@ -3819,6 +3708,7 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
 	  (*nrnode_it)->marked = true;
 	  (*nrnode_it)->core_capacity -= (*nbrit)->node->core_capacity;
 	  (*nrnode_it)->mem_capacity -= (*nbrit)->node->mem_capacity;
+	  (*nrnode_it)->user_nodes.push_back((*nbrit)->node);
 	  if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
 	}
       cout << "     side effect: request node (" << (*nbrit)->node->type << (*nbrit)->node->label << "," << (*nbrit)->node->user_nodes.front()->label << ") real node (" << (*nrnode_it)->type << (*nrnode_it)->label << ", " << (*nrnode_it)->node << ")" << endl;
@@ -4043,6 +3933,7 @@ onldb::map_children(node_resource_ptr unode, node_resource_ptr rnode)
 	      (*rcit)->marked = true;
 	      (*rcit)->core_capacity -= (*ucit)->core_capacity;
 	      (*rcit)->mem_capacity -= (*ucit)->mem_capacity;
+	      (*rcit)->user_nodes.push_back((*ucit));
 	      break;
 	    }
 	}
