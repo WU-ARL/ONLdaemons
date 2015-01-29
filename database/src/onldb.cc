@@ -1613,7 +1613,7 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	  current_node->core_capacity = 0;
 	  current_node->mem_capacity = 0;
 	  current_node->marked = true;
-	}
+	}	
     }
 
     mysqlpp::Query query3 = onl->query();
@@ -1636,19 +1636,19 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       query4.storein(ci);
       vector<caploadinfo>::iterator it4;
       for(it4 = ci.begin(); it4 != ci.end(); ++it4)
-      {
-        //cap -= it4->capacity;
-	if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
-	  {
-	    rl += (it4->rload * 1000);
-	    ll += (it4->lload * 1000);
-	  }
-	else
-	  {
-	    rl += it4->rload;
-	    ll += it4->lload;
-	  }
-      }
+	{
+	  //cap -= it4->capacity;
+	  if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
+	    {
+	      rl += (it4->rload * 1000);
+	      ll += (it4->lload * 1000);
+	    }
+	  else
+	    {
+	      rl += it4->rload;
+	      ll += it4->lload;
+	    }
+	}
       
       if(cap <= rl || cap <= ll) { continue; }
 
@@ -2029,8 +2029,6 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
     (*lit)->conns.clear();
   }
 
-  //try
-  //{
   if(find_embedding(t, &base_top, cluster_list))
     {
       print_diff("onldb::try_reservation succeeded", stime);
@@ -2041,13 +2039,6 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
       return onldb_resp(1,s);
     }
   cout << "onldb::try_reservation find_cheapest_path called " << fnd_path << " times." << endl;
-  //}
-  //catch(GRBException& e)
-  //{
-  //cerr << "Error code = " << e.getErrorCode() << endl;
-  //cerr << e.getMessage() << endl;
-  //return onldb_resp(0,(std::string)"solver error");
-  //}
   
   print_diff("onldb::try_reservation failed", stime);
   return onldb_resp(0,(std::string)"topology doesn't fit during that time");
@@ -2297,6 +2288,13 @@ onldb::merge_vswitches(topology* req) throw()
   node_resource_ptr node1;
   node_resource_ptr node2;
   unsigned int total_load;
+  std::list<node_resource_ptr>::iterator nit;
+
+  //check if this is a special fixed topology
+  for (nit = req->nodes.begin(); nit != req->nodes.end(); ++nit)
+    {
+      if ((*nit)->fixed) return;
+    }
 
   while (found_merge)
     {
@@ -3553,14 +3551,34 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 			{
 			  if (node2_ptr == sink)
 			    {
-			      if (subnet_mapped(subnet, node2_ptr->in, potential_mappings, ulink->node2) ||
-				  subnet_mapped(subnet, node1_ptr->in, potential_mappings)) 
-				continue;
+			      if (node1_ptr == source)
+				{
+				  if (subnet_mapped(subnet, node2_ptr->in, potential_mappings, ulink->node2) ||
+				      subnet_mapped(subnet, node1_ptr->in, potential_mappings, ulink->node1)) 
+				    continue;
+				}
+			      else
+				{
+				  if (subnet_mapped(subnet, node2_ptr->in, potential_mappings, ulink->node2) ||
+				      subnet_mapped(subnet, node1_ptr->in, potential_mappings)) 
+				    continue;
+				}
 			    }
 			  else
-			    if (subnet_mapped(subnet, node2_ptr->in, potential_mappings) ||
-				subnet_mapped(subnet, node1_ptr->in, potential_mappings))
-			      continue;
+			    {
+			      if (node1_ptr == source)
+				{
+				  if (subnet_mapped(subnet, node2_ptr->in, potential_mappings) ||
+				      subnet_mapped(subnet, node1_ptr->in, potential_mappings, ulink->node1))
+				    continue;
+				}
+			      else
+				{
+				  if (subnet_mapped(subnet, node2_ptr->in, potential_mappings) ||
+				      subnet_mapped(subnet, node1_ptr->in, potential_mappings))
+				    continue;
+				}
+			    }
 			}
 		      lcap -= lload;
 		      rcap -= rload;
