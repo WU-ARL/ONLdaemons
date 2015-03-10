@@ -487,6 +487,7 @@ filter_req::handle()
     filter->unicast_drop = unicast_drop;
     filter->output_port = output_port;
     filter->sampling = sampling;
+    filter->qid = qid;
 
     if (get_op() == SWR_AddFilter)
       router->add_filter(filter);
@@ -506,7 +507,7 @@ filter_req::handle()
   int drop = 0;
   if (unicast_drop) drop = 1;
   
-  write_log(req_name + "::handle(): filter(daddr,saddr,proto,dport,sport,tcp_flags,sampling,oport,drop)=(" + dest_prefix + "/" + int2str(dest_mask) + "," + src_prefix + "/" + int2str(src_mask) + "," + protocol + "," + int2str(dest_port) + "," + int2str(src_port) + "," + int2str(tcp_fin) + int2str(tcp_syn) + int2str(tcp_rst) + int2str(tcp_psh) + int2str(tcp_ack) + int2str(tcp_urg) + "," + int2str(sampling) + "," + output_port + "," + int2str(drop) + ")");
+  write_log(req_name + "::handle(): filter(daddr,saddr,proto,dport,sport,tcp_flags,sampling,oport,drop,qid)=(" + dest_prefix + "/" + int2str(dest_mask) + "," + src_prefix + "/" + int2str(src_mask) + "," + protocol + "," + int2str(dest_port) + "," + int2str(src_port) + "," + int2str(tcp_fin) + int2str(tcp_syn) + int2str(tcp_rst) + int2str(tcp_psh) + int2str(tcp_ack) + int2str(tcp_urg) + "," + int2str(sampling) + "," + output_port + "," + int2str(drop) + "," + int2str(qid) + ")");
   
    
   rliresp = new rli_response(this, NCCP_Status_Fine);
@@ -539,12 +540,13 @@ filter_req::parse()
     {
       output_port = params[14].getString();
       sampling = params[15].getInt();
+      qid = params[16].getInt();
     }
   else sampling = 1;
-  //qid = params[18].getInt();
   //priority = params[19].getInt(); 
 }
-/*
+
+
 set_queue_params_req::set_queue_params_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -559,9 +561,38 @@ set_queue_params_req::handle()
   rli_response* rliresp;
   try
   {
-    router->set_queue_quantum(port, qid, quantum);
-    router->set_queue_threshold(port, qid, threshold);
-    rliresp = new rli_response(this, NCCP_Status_Fine);
+    switch(get_op())
+      {
+      case SWR_AddQueue:
+	router->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu);
+	if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
+	  router->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
+	rliresp = new rli_response(this, NCCP_Status_Fine);
+	break;
+      case SWR_ChangeQueue:
+	router->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu, true);
+	rliresp = new rli_response(this, NCCP_Status_Fine);
+	break;
+      case SWR_DeleteQueue:
+	router->delete_queue(port, qid);
+	rliresp = new rli_response(this, NCCP_Status_Fine);
+	break;
+      case SWR_AddNetemParams:
+	if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
+	  router->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
+	else
+	  router->delete_netem_queue(port, qid);
+	rliresp = new rli_response(this, NCCP_Status_Fine);
+	break;
+      case SWR_DeleteNetemParams:
+	//if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
+	router->delete_netem_queue(port, qid);
+	rliresp = new rli_response(this, NCCP_Status_Fine);
+	break;
+      default:
+	write_log("set_queue_params_req::handle(): invalid op");
+	rliresp = new rli_response(this, NCCP_Status_Failed, "invalid op");
+      }
   }
   catch(std::exception& e)
   {
@@ -581,11 +612,38 @@ set_queue_params_req::parse()
 {
   rli_request::parse();
 
-  qid = params[0].getInt();
-  threshold = params[1].getInt();
-  quantum = params[2].getInt();
+  rate = 0;
+  burst = 0;
+  mtu = 0;
+  delay = 0;
+  jitter = 0;
+  loss_percent = 0;
+  corrupt_percent = 0;
+  duplicate_percent = 0;
+  int i = 0;
+  qid = params[i++].getInt();
+  switch(get_op())
+    {
+    case(SWR_DeleteQueue):
+      break;
+    case(SWR_AddQueue):
+    case(SWR_ChangeQueue):
+      rate = params[i++].getInt();
+      burst = params[i++].getInt();
+      mtu = params[i++].getInt();
+      if (get_op() == SWR_ChangeQueue) break;
+    case(SWR_AddNetemParams):
+    case(SWR_DeleteNetemParams):
+      delay = params[i++].getInt();
+      jitter = params[i++].getInt();
+      loss_percent = params[i++].getInt();
+      corrupt_percent = params[i++].getInt();
+      duplicate_percent = params[i++].getInt();
+    }
+  ceil_rate = rate; //params[3].getInt();
+  cburst = burst; //params[4].getInt();
 }
-*/
+
  
 set_port_rate_req::set_port_rate_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
@@ -601,11 +659,8 @@ set_port_rate_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t bw_kbits = rate * 1000;//convert rate from Mbits/s to kbits/s
-    router->set_port_rate(port, bw_kbits);
-    //cgw, how does this fit into the general hw model?
-    uint32_t actual_rate = (uint32_t)(router->get_port_rate(port)/1000);
-    rliresp = new rli_response(this, NCCP_Status_Fine, actual_rate);
+    router->set_port_rate(port, rate);
+    rliresp = new rli_response(this, NCCP_Status_Fine, rate);
   }
   catch(std::exception& e)
   {
@@ -628,6 +683,76 @@ set_port_rate_req::parse()
   rate = params[0].getInt();
 }
 
+//Traffic Control
+add_delay_req::add_delay_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+add_delay_req::~add_delay_req()
+{
+}
+
+bool
+add_delay_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    router->add_delay_port(port, dtime, jitter);
+    rliresp = new rli_response(this, NCCP_Status_Fine);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("add_delay_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+add_delay_req::parse()
+{
+  rli_request::parse();
+
+  dtime = params[0].getInt();
+  jitter = params[1].getInt();
+}
+
+delete_delay_req::delete_delay_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+delete_delay_req::~delete_delay_req()
+{
+}
+
+bool
+delete_delay_req::handle()
+{
+  rli_response* rliresp;
+  try
+  {
+    router->delete_delay_port(port);
+    rliresp = new rli_response(this, NCCP_Status_Fine);
+  }
+  catch(std::exception& e)
+  {
+    std::string msg = e.what();
+    write_log("delete_delay_req::handle(): got exception: " + msg);
+    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
+  }
+
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
 
 //MONITORING Requests
 
@@ -645,7 +770,9 @@ get_tx_pkt_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_pkts(port)));
+    bool use_class = false;
+    if (get_op() == SWR_GetClassTXPkt) use_class = true;
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_pkts(port, qid, use_class)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -665,6 +792,9 @@ void
 get_tx_pkt_req::parse()
 {
   rli_request::parse();
+  if (get_op() == SWR_GetQueueTXPkt)
+    qid = params[0].getInt(); 
+  else qid = 0;
 }
  
 get_tx_kbits_req::get_tx_kbits_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
@@ -681,7 +811,9 @@ get_tx_kbits_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = (uint32_t)(router->read_stats_bytes(port)/125);//turn into kbits
+    bool use_class = false;
+    if (get_op() == SWR_GetClassTXKBits) use_class = true;
+    uint32_t val = (uint32_t)(router->read_stats_bytes(port, qid, use_class)/125);//turn into kbits
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -701,6 +833,9 @@ void
 get_tx_kbits_req::parse()
 {
   rli_request::parse();
+  if (get_op() == SWR_GetQueueTXKBits)
+    qid = params[0].getInt(); 
+  else qid = 0;
 }
  
 get_queue_len_req::get_queue_len_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
@@ -717,7 +852,9 @@ get_queue_len_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_qlength(port)));
+    bool use_class = false;
+    if (get_op() == SWR_GetClassLength) use_class = true;
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_qlength(port, qid, use_class)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -737,6 +874,9 @@ void
 get_queue_len_req::parse()
 {
   rli_request::parse();
+  if (get_op() == SWR_GetQueueLength)
+    qid = params[0].getInt(); 
+  else qid = 0;
 }
  
 get_drops_req::get_drops_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
@@ -753,7 +893,9 @@ get_drops_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_drops(port)));
+    bool use_class = false;
+    if (get_op() == SWR_GetClassDrops) use_class = true;
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_drops(port, qid, use_class)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -773,6 +915,9 @@ void
 get_drops_req::parse()
 {
   rli_request::parse();
+  if (get_op() == SWR_GetQueueDrops)
+    qid = params[0].getInt(); 
+  else qid = 0;
 }
 
  
@@ -790,7 +935,9 @@ get_backlog_req::handle()
   rli_response* rliresp;
   try
   {
-    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_backlog(port)));
+    bool use_class = false;
+    if (get_op() == SWR_GetClassBacklog) use_class = true;
+    uint32_t val = (uint32_t)(0xffffffff & (router->read_stats_backlog(port, qid, use_class)));
     rliresp = new rli_response(this, NCCP_Status_Fine, val);
   }
   catch(std::exception& e)
@@ -810,6 +957,9 @@ void
 get_backlog_req::parse()
 {
   rli_request::parse();
+  if (get_op() == SWR_GetQueueBacklog)
+    qid = params[0].getInt(); 
+  else qid = 0;
 }
 
 

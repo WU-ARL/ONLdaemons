@@ -46,6 +46,9 @@
 #include <netlink/route/qdisc.h>
 #include <netlink/route/link.h>
 #include <netlink/route/tc.h>
+#include <netlink/route/class.h>
+#include <netlink/route/qdisc/netem.h>
+#include <netlink/route/qdisc/htb.h>
 
 #include <boost/shared_ptr.hpp>
 
@@ -53,6 +56,7 @@
 
 #include "swrd_types.h"
 #include "swrd_router.h"
+#include "swrd_requests.h"
 
 
 using namespace swr;
@@ -67,7 +71,7 @@ Router::Router(int rtr_type) throw(configuration_exception)
   int temp_port=5555;
   next_mark = 10;
   next_priority = 255;
-
+  delay_index = max_port + 2;
   router_type = rtr_type;
   if (rtr_type == SWR_2P_10G)
     virtual_ports = true;
@@ -102,6 +106,7 @@ Router::Router(int rtr_type) throw(configuration_exception)
   state = STOP;
 
   numConfiguredNics = 0;
+  
   for (unsigned int i=0; i < max_nic; i++)
   {
     nicTable[i].configured = true;//false;
@@ -251,6 +256,7 @@ Router::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, 
   portTable[port].vlan = vlan;
   portTable[port].nicIndex = realPort;
   portTable[port].rate = rate;
+  portTable[port].max_rate = rate;
   portTable[port].mark = mark;
   if (portTable[port].configured == false) {
     char shcmd[256];
@@ -272,13 +278,13 @@ Router::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, 
     // sprintf(shcmd, "/usr/local/bin/swrd_configure_port %d %s %d %s %s %d %d %d", port, device, vlan, ipStr, maskStr, rate, IFACE_DEFAULT_MIN, vlan);
     sprintf(shcmd, "/usr/local/bin/swrd_configure_port.sh %d %s %d %s %s %d %d %d", port, nicTable[realPort].nic.c_str(), vlan, ip.c_str(), mask.c_str(), rate, IFACE_DEFAULT_MIN, mark);//vlan);
     write_log("Router::configure_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
       {
 	throw configuration_exception("system (/usr/local/bin/swrd_configure_port failed");
       }
     sprintf(shcmd, "/usr/local/bin/swrd_add_route.sh 192.168.0.0 16 %s %d %s port%dFilters", nicTable[realPort].nic.c_str(), vlan, nhip.c_str(), port);
     write_log("Router::configure_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
       {
 	throw configuration_exception("system (/usr/local/bin/swrd_add_route.sh failed");
       }
@@ -441,12 +447,13 @@ void Router::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint1
 
     // get device and vlan from port_info struct
     // <gw> is optional?
+
     nic = nicTable[portTable[output_port].nicIndex].nic;
 
     // port is used to direct this to a route table dedicated to a particular port
     sprintf(shcmd, "/usr/local/bin/swrd_add_route.sh %s %d %s %d port%dRoutes", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, port);
     write_log("Router::add_route_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_add_route port failed");
     }
@@ -492,12 +499,13 @@ void Router::add_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint1
 
     // get device and vlan from port_info struct
     // <gw> is optional?
+
     nic = nicTable[portTable[output_port].nicIndex].nic;
 
     // port is used to direct this to a route table dedicated to a particular port
     sprintf(shcmd, "/usr/local/bin/swrd_add_route.sh %s %d %s %d %s port%dRoutes", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nhipStr.c_str(), port);
     write_log("Router::add_route_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_add_route port failed");
     }
@@ -546,7 +554,7 @@ void Router::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port
 
     sprintf(shcmd, "/usr/local/bin/swrd_del_route.sh %s %d %s %d main", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan);
     write_log("Router::del_route_main system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_del_route main failed");
     }
@@ -596,7 +604,7 @@ void Router::del_route_main(uint32_t prefix, uint32_t mask, uint16_t output_port
 
     sprintf(shcmd, "/usr/local/bin/swrd_del_route.sh %s %d %s %d %s main", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, nhipStr.c_str());
     write_log("Router::del_route_main system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_del_route main failed");
     }
@@ -640,12 +648,13 @@ void Router::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint1
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[output_port].nicIndex].nic;
+    
+      nic = nicTable[portTable[output_port].nicIndex].nic;
 
     // port is used to direct this to a route table dedicated to a particular port
     sprintf(shcmd, "/usr/local/bin/swrd_del_route.sh %s %d %s %d port%dRoutes", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan, port);
     write_log("Router::del_route_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_del_route port failed");
     }
@@ -691,12 +700,13 @@ void Router::del_route_port(uint16_t port, uint32_t prefix, uint32_t mask, uint1
 
     // get device and vlan from port_info struct
     // <gw> is optional?
-    nic = nicTable[portTable[output_port].nicIndex].nic;
+
+      nic = nicTable[portTable[output_port].nicIndex].nic;
 
     // port is used to direct this to a route table dedicated to a particular port
     sprintf(shcmd, "/usr/local/bin/swrd_del_route.sh %s %d %s %d %s port%dRoutes", prefixStr.c_str(), mask, nic.c_str(), portTable[output_port].vlan,  nhipStr.c_str(), port);
     write_log("Router::del_route_port system(" + std::string(shcmd) + ")");
-    if(system_cmd(shcmd) < 0)
+    if(system_cmd(shcmd) != 0)
     {
       throw configuration_exception("system (/usr/local/bin/swrd_del_route port failed");
     }
@@ -730,8 +740,14 @@ unsigned int Router::get_port_rate(unsigned int port) throw(configuration_except
 }
 
 // rates should be in Kbps
-void Router::set_port_rate(unsigned int port, unsigned int rate) throw(configuration_exception)
+void Router::set_port_rate(unsigned int port, uint32_t rate) throw(configuration_exception)
 {
+  //struct nl_sock *my_sock = nl_socket_alloc();
+  //struct nl_cache *link_cache, *all_classes;
+  //struct rtnl_link *link_ptr;
+  //struct rtnl_class *tcclass;
+  std::string nic;
+  char shcmd[256];
   write_log("set_port_rate:");
 
   if(port > max_port)
@@ -742,7 +758,71 @@ void Router::set_port_rate(unsigned int port, unsigned int rate) throw(configura
   {
     throw configuration_exception("unconfigured port");
   }
+  if (rate > portTable[port].max_rate)
+  {
+    throw configuration_exception("invalid link rate");
+  }
   portTable[port].rate = rate;
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+  sprintf(shcmd, "tc class change dev %s parent root classid %d:0 htb rate %dkbit ceil %dkbit mtu 1500", nic.c_str(), p1, rate, rate); 
+  write_log("Router::set_port_rate: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::set_port_rate: tc class change failed");
+      throw configuration_exception("tc class change failed");
+    }
+
+  /*
+  nl_connect(my_sock, NETLINK_ROUTE);
+  if (rtnl_link_alloc_cache(my_sock, AF_UNSPEC, &link_cache) < 0)
+    {
+      nl_socket_free(my_sock);
+      throw monitor_exception("rtnl_link_alloc_cache failed");
+    }
+  if (!(link_ptr = rtnl_link_get_by_name(link_cache, nic.c_str())))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw monitor_exception("rtnl_link_get_by_name failed");
+    }
+
+  int ifindex = rtnl_link_get_ifindex(link_ptr);
+
+  if ((rtnl_class_alloc_cache(my_sock, ifindex, &all_classes)) < 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw monitor_exception("rtnl_class_alloc_cache failed ");
+    }
+
+  if (!(tcclass = rtnl_class_get(all_classes, ifindex, TC_HANDLE((port + 1),1))))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      nl_cache_free(all_classes);
+      throw monitor_exception("rtnl_class_get failed");
+    }
+
+  uint32_t rate_bytes = (rate*125);//rate is Kbps to convert to bytes/s rate * 1000/8
+  rtnl_htb_set_ceil(tcclass, rate_bytes);
+  rtnl_htb_set_rate(tcclass, rate_bytes);
+  if (rtnl_class_add(my_sock, tcclass, NLM_F_CREATE) < 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      nl_cache_free(all_classes);
+      throw monitor_exception("rtnl_qdisc_add failed");
+    }
+
+  nl_socket_free(my_sock);
+  nl_cache_free(link_cache);
+  nl_cache_free(all_classes);*/
 }
 
 void Router::add_filter(filter_ptr f) throw(configuration_exception)
@@ -797,11 +877,27 @@ filter_ptr Router::get_filter(filter_ptr f)
   return empty_ptr;
 }
 
+filter_ptr Router::get_filter(int port, int qid)
+{
+  filter_ptr empty_ptr;
+  std::list<filter_ptr>::iterator fit;
+  std::string port_str = int2str(port);
+  for (fit = filters.begin(); fit != filters.end(); ++fit)
+    {
+      if ((*fit)->qid == qid &&
+	  (*fit)->output_port == port_str)
+	return (*fit);
+    }
+  return empty_ptr;
+}
+
 
 void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_exception)
 {
-
-  std::string shcmd = "iptables -t mangle";
+  //need to add 2 entries through iptables one in PREROUTING and one in FORWARD to make packets reach the right queue
+  std::string cmdprefix1 = "iptables -t mangle";
+  std::string cmdprefix2 = "iptables -t filter";
+  std::string shcmd = "";
   std::string command_type = "add_filter";
   if (!isdel)
     {
@@ -811,11 +907,13 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
 	write_log("Router::add_route: prefix does not start with 192");
 	throw configuration_exception("add filter prefix needs to start with 192");
       }
-      shcmd += " -I PREROUTING";
+      cmdprefix1 += " -I PREROUTING";
+      cmdprefix2 += " -A FORWARD";
     }
   else
     {
-      shcmd += " -D PREROUTING";
+      cmdprefix1 += " -D PREROUTING";
+      cmdprefix2 += " -D FORWARD";
       command_type = "del_filter";
     }
 
@@ -924,14 +1022,46 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
   
   shcmd += " -j MARK --set-mark " + int2str(f->mark);
   
-  write_log("Router::" + command_type + ": " + shcmd);
-  if (system_cmd(shcmd) < 0)
+  write_log("Router::" + command_type + ": " + cmdprefix1 + shcmd);
+  if (system_cmd(cmdprefix1 + shcmd) < 0)
     {
-      write_log("Router::" + command_type + ": iptables failed");
-      throw configuration_exception("iptables failed");
+      write_log("Router::" + command_type + ": iptables failed -- " + cmdprefix1);
+      throw configuration_exception("iptables1 failed");
+    }
+  write_log("Router::" + command_type + ": " + cmdprefix2 + shcmd);
+  if (system_cmd(cmdprefix2 + shcmd) < 0)
+    {
+      write_log("Router::" + command_type + ": iptables failed -- " + cmdprefix2);
+      throw configuration_exception("iptables2 failed");
     }
   
+  //set up tc filter for qid if set
+  int op = atoi(f->output_port.c_str());
+  if (f->output_port != "use_route" && f->qid > 1 && portTable[op].configured)
+    {
+      std::string nic;
+      std::string cmd_type = "add";
+      if (isdel) cmd_type = "del";
+
+      if (virtual_ports)
+	nic = (nicTable[portTable[op].nicIndex].nic) + "." + int2str(portTable[op].vlan);
+      else
+	nic = nicTable[portTable[op].nicIndex].nic;
+
+      int p1 = op + 1;
+
+      shcmd = "tc filter " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":0 protocol ip prio 2 handle " + 
+	int2str(f->mark) + " fw flowid " + int2str(p1) + ":" + int2str(f->qid);
+      write_log("Router::" + command_type + ": " + shcmd);
+      if (system_cmd(shcmd) < 0)
+	{
+	  write_log("Router::" + command_type + ": tc filter " + cmd_type + " failed");
+	  throw configuration_exception("tc filter " + cmd_type + " failed");
+	}
+    }
   //set ip rule
+  if (!f->unicast_drop && f->output_port == "use route") //don't have to add a rule it will just use default route
+    return;
   if (!isdel)
     shcmd = "ip rule add";
   else shcmd = "ip rule del";
@@ -975,7 +1105,337 @@ unsigned int Router::get_next_hop_addr(unsigned int port) throw()
   }
   return (portTable[port].next_hop);
 }
-*/
+*/ 
+
+void Router::add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change) throw(configuration_exception)
+{
+  std::string nic;
+  std::string shcmd;
+  std::string cmd_type = "add";
+  if (change) cmd_type = "change";
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+
+  shcmd = "tc class " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":0 classid " + int2str(p1) + ":"
+    + int2str(qid) + " htb rate ";
+
+  if (rate == 0 && ceil_rate > 0) shcmd += int2str(ceil_rate) + "kbit ceil ";
+  else shcmd += int2str(rate) + "kbit ceil ";
+
+  if (ceil_rate > 0) 
+    shcmd += int2str(ceil_rate) + "kbit";
+  else 
+    shcmd += int2str(rate) + "kbit";
+
+  if (burst > 0) shcmd += " burst " + int2str(burst);
+  if (cburst > 0) shcmd += " cburst " + int2str(cburst);
+  shcmd += " prio 2";
+  if (mtu > 0) shcmd += " mtu " + int2str(mtu);
+  else shcmd += " mtu 1500";
+  write_log("Router::" + cmd_type +"_queue: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::" + cmd_type + "_queue: tc class " + cmd_type + " failed");
+      throw configuration_exception("tc class " + cmd_type + " failed");
+    }
+  //need to add qdisc so can get qlength think sfq
+  if (!change)
+    {
+      int newq_handle = qid + delay_index;
+      //shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 sfq perturb 10" ;
+      shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 netem delay 0ms" ;
+      write_log("Router::" + cmd_type +"_queue: (" + std::string(shcmd) + ")");
+      if (system_cmd(shcmd) != 0)
+	{
+	  write_log("Router::" + cmd_type + "_queue: tc qdisc " + cmd_type + " failed");
+	  throw configuration_exception("tc qdisc " + cmd_type + " failed");
+	}
+    }
+}
+
+void Router::delete_queue(uint16_t port, uint32_t qid) throw(configuration_exception)
+{
+  std::string nic;
+  std::string shcmd;
+
+  if (qid > 1)
+    {
+      filter_ptr fptr = get_filter(port, qid);
+      if (fptr)
+	{
+	  throw configuration_exception("filter attached to this queue. disable filter first.");
+	}
+    }
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+
+  shcmd = "tc class del dev " + nic + " parent " + int2str(p1) + ":0 classid " + int2str(p1) + ":"
+    + int2str(qid);
+
+  write_log("Router::delete_queue: (" + std::string(shcmd) + ")");
+
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::delete_queue: tc class delete failed");
+      throw configuration_exception("tc class delete failed");
+    }
+}
+
+//Add delay on port for outgoing traffic
+void Router::add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, uint32_t corrupt, uint32_t duplicate, bool change) throw(configuration_exception)
+{
+  std::string nic;
+  std::string shcmd;
+  std::string cmd_type = "add";
+  if (change) cmd_type = "change";
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+  int newq_handle = qid + delay_index;
+
+
+  //first delete any existing q
+  shcmd = "tc qdisc del dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0" ;
+  write_log("Router::" + cmd_type + "_netem_queue: (" + std::string(shcmd) + ")");
+  system_cmd(shcmd);//don't care if this fails
+
+  shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 netem" ;
+
+  if (dtime > 0)
+    {
+      shcmd += " delay " + int2str(dtime) + "ms";
+      if (jitter > 0) shcmd += " " + int2str(jitter);
+    }
+  else if (change) 
+    shcmd += " delay 0ms";
+
+  if (loss > 0) shcmd += " loss random " + int2str(loss);
+  else if (change) 
+    shcmd += " loss random 0";
+  if (corrupt > 0) shcmd += " corrupt " + int2str(corrupt);
+  else if (change) 
+    shcmd += " corrupt 0";
+  if (duplicate > 0) shcmd += " duplicate " + int2str(duplicate);
+  else if (change) 
+    shcmd += " duplicate 0";
+
+  write_log("Router::" + cmd_type + "_netem_queue: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::" + cmd_type + "_netem_queue: tc qdisc " + cmd_type + " failed");
+      throw configuration_exception("tc qdisc " + cmd_type + " failed");
+    }
+}
+
+void Router::delete_netem_queue(uint16_t port, uint32_t qid) throw(configuration_exception) 
+{
+  std::string nic;
+  std::string shcmd;
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+  int newq_handle = qid + delay_index;
+  shcmd = "tc qdisc del dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0";// netem" ;
+
+  write_log("Router::delete_netem_queue: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::delete_netem_queue: tc qdisc delete failed");
+      throw configuration_exception("tc qdisc delete failed");
+    }
+
+  //need to add back in another queue for monitoring purposes
+  //shcmd = "tc qdisc add dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 sfq perturb 10" ;
+  shcmd = "tc qdisc add dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 netem delay 0ms" ;
+  write_log("Router::delete_netem_queue: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::delete_netem_queue: tc qdisc add sfq failed");
+      //throw configuration_exception("tc qdisc " + cmd_type + " failed");//don't throw and error this will just cause monitoring to fail
+    }
+}
+
+//Add delay on port for outgoing traffic
+void Router::add_delay_port(uint16_t port, uint32_t dtime, uint32_t jitter) throw(configuration_exception)
+{
+  std::string nic;
+  char shcmd[256];
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  int p1 = port + 1;
+  int delay_handle = port + delay_index;
+  sprintf(shcmd, "tc qdisc add dev %s parent %d:1 handle %d:0 netem delay %dms %d", nic.c_str(), p1, delay_handle, dtime, jitter); 
+  write_log("Router::add_delay_port: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::add_delay_port: tc qdisc add failed trying change");
+      sprintf(shcmd, "tc qdisc change dev %s parent %d:1 handle %d:0 netem delay %dms %d", nic.c_str(), p1, delay_handle, dtime, jitter); 
+      write_log("Router::add_delay_port try 2: (" + std::string(shcmd) + ")");
+      if (system_cmd(shcmd) != 0)
+	{
+	  write_log("Router::add_delay_port: tc qdisc change failed");
+	  throw configuration_exception("tc qdisc change failed");
+	}
+    }
+  /*
+  struct nl_sock *my_sock = nl_socket_alloc();
+  struct nl_cache *link_cache, *all_qdiscs;
+  struct rtnl_link *link_ptr;
+  struct rtnl_qdisc *qdisc;
+  std::string nic;
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+  nl_connect(my_sock, NETLINK_ROUTE);
+  if (rtnl_link_alloc_cache(my_sock, AF_UNSPEC, &link_cache) < 0)
+    {
+      nl_socket_free(my_sock);
+      throw configuration_exception("rtnl_link_alloc_cache failed");
+    }
+  if (!(link_ptr = rtnl_link_get_by_name(link_cache, nic.c_str())))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw configuration_exception("rtnl_link_get_by_name failed");
+    }
+
+  //int ifindex = rtnl_link_get_ifindex(link_ptr); 
+
+  qdisc = rtnl_qdisc_alloc();               
+
+  //rtnl_tc_set_ifindex(TC_CAST(qdisc), ifindex);
+  rtnl_tc_set_link(TC_CAST(qdisc), link_ptr);
+  rtnl_tc_set_parent(TC_CAST(qdisc), TC_HANDLE((port + 1),1));
+  rtnl_tc_set_handle(TC_CAST(qdisc), TC_HANDLE((port + delay_index),0));
+  rtnl_tc_set_kind(TC_CAST(qdisc), "netem"); 
+  rtnl_netem_set_delay(qdisc, dtime);
+  rtnl_netem_set_limit(qdisc, 1000);
+  if (jitter > 0)
+    rtnl_netem_set_jitter(qdisc, jitter);
+
+  //nl_object_dump(OBJ_CAST(qdisc), NULL);
+  int rtn = rtnl_qdisc_add(my_sock, qdisc, NLM_F_CREATE);
+  if (rtn < 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      //nl_cache_free(all_qdiscs);
+      rtnl_qdisc_put(qdisc);
+      rtnl_link_put(link_ptr);
+      throw configuration_exception("rtnl_qdisc_add failed error code:" + int2str(rtn));
+    }
+
+  nl_socket_free(my_sock);
+  nl_cache_free(link_cache);
+  //nl_cache_free(all_qdiscs);
+  rtnl_qdisc_put(qdisc);
+  rtnl_link_put(link_ptr);
+  */
+}
+
+//Delete delay on port for outgoing traffic
+void Router::delete_delay_port(uint16_t port) throw(configuration_exception)
+{
+  struct nl_sock *my_sock = nl_socket_alloc();
+  struct nl_cache *link_cache, *all_qdiscs;
+  struct rtnl_link *link_ptr;
+  struct rtnl_qdisc *qdisc;
+  std::string nic;
+
+  if (!portTable[port].configured) 
+    throw configuration_exception("port not configured");
+
+  nl_connect(my_sock, NETLINK_ROUTE);
+  if (rtnl_link_alloc_cache(my_sock, AF_UNSPEC, &link_cache) < 0)
+    {
+      nl_socket_free(my_sock);
+      throw configuration_exception("rtnl_link_alloc_cache failed");
+    }
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+
+  if (!(link_ptr = rtnl_link_get_by_name(link_cache, nic.c_str())))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw configuration_exception("rtnl_link_get_by_name failed");
+    }
+
+  if (rtnl_qdisc_alloc_cache(my_sock, &all_qdiscs) < 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw configuration_exception("rtnl_qdisc_alloc_cache failed");
+    }
+
+  int qlen = nl_cache_nitems(all_qdiscs);
+  int ifindex = rtnl_link_get_ifindex(link_ptr); 
+  
+  if (!(qdisc = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, TC_HANDLE((port + 1),1))))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      nl_cache_free(all_qdiscs);
+      throw configuration_exception("rtnl_qdisc_get failed");
+    }
+
+  if (rtnl_qdisc_delete(my_sock, qdisc) != 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      nl_cache_free(all_qdiscs);
+      throw configuration_exception("rtnl_qdisc_delete failed");
+    }
+
+  nl_socket_free(my_sock);
+  nl_cache_free(link_cache);
+  nl_cache_free(all_qdiscs);
+}
 
 void Router::set_username(std::string un) throw()
 {
@@ -1002,47 +1462,122 @@ std::string Router::addr_int2str(uint32_t addr)
 
 
 uint64_t 
-Router::read_stats_pkts(int port) throw(monitor_exception)
+Router::read_stats_pkts(int port, int qid, bool use_class) throw(monitor_exception)
 {
-  uint64_t pkts = read_stats(port, RTNL_TC_PACKETS);
-  write_log("Router::read_stats_pkts for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  uint64_t pkts;
+  bool retry = false;
+  try
+    {
+      if (!use_class) pkts = read_stats(port, RTNL_TC_PACKETS, qid);
+      else pkts = read_stats_class(port, RTNL_TC_PACKETS, qid);
+    }
+  catch(std::exception& e)
+    {
+      std::string msg = e.what();
+      retry = true;
+      write_log("Router::read_stats_pkts: retry got exception:" + msg);
+    }
+  if (retry)
+    {
+      sleep(3);
+      if (!use_class) pkts = read_stats(port, RTNL_TC_PACKETS, qid);
+      else pkts = read_stats_class(port, RTNL_TC_PACKETS, qid);
+    }
+  write_log("Router::read_stats_pkts for port(" + int2str(port) + ") packets(" + int2str(qid) + "): " + int2str(pkts));
   return pkts;
 }
 
 uint64_t 
-Router::read_stats_bytes(int port) throw(monitor_exception)
+Router::read_stats_bytes(int port, int qid, bool use_class) throw(monitor_exception)
 {  
-  uint64_t bytes = read_stats(port, RTNL_TC_BYTES);
-  write_log("Router::read_stats_bytes for port(" + int2str(port) + ") bytes: " + int2str(bytes));
+  uint64_t bytes;  
+  bool retry = false;
+  try
+    {
+      if (!use_class) bytes = read_stats(port, RTNL_TC_BYTES, qid);
+      else bytes = read_stats_class(port, RTNL_TC_BYTES, qid);
+    }
+  catch(std::exception& e)
+    {
+      std::string msg = e.what();
+      retry = true;
+      write_log("Router::read_stats_bytes: retry got exception:" + msg);
+    }
+  if (retry)
+    {
+      sleep(3);
+      if (!use_class) bytes = read_stats(port, RTNL_TC_BYTES, qid);
+      else bytes = read_stats_class(port, RTNL_TC_BYTES, qid);
+    }
+  write_log("Router::read_stats_bytes for port(" + int2str(port) + ") bytes(" + int2str(qid) + "): " + int2str(bytes));
   return bytes;
 }
 
 uint64_t 
-Router::read_stats_qlength(int port) throw(monitor_exception)
+Router::read_stats_qlength(int port, int qid, bool use_class) throw(monitor_exception)
 {  
-  uint64_t rtn = read_stats(port, RTNL_TC_QLEN);
-  write_log("Router::read_stats_qlength for port(" + int2str(port) + ") qlength: " + int2str(rtn));
+  uint64_t rtn; 
+  bool retry = false;
+  try
+    {
+      if (!use_class) rtn = read_stats(port, RTNL_TC_QLEN, qid);
+      else rtn = read_stats_class(port, RTNL_TC_QLEN, qid);
+      //uint64_t rtn = read_stats(port, RTNL_TC_BACKLOG, qid);
+    }
+  catch(std::exception& e)
+    {
+      std::string msg = e.what();
+      retry = true;
+      write_log("Router::read_stats_qlength: retry got exception:" + msg);
+    }
+  if (retry)
+    {
+      sleep(3);
+      if (!use_class) rtn = read_stats(port, RTNL_TC_QLEN, qid);
+      else rtn = read_stats_class(port, RTNL_TC_QLEN, qid);
+    }
+  write_log("Router::read_stats_qlength for port(" + int2str(port) + ") qlength(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
 uint64_t 
-Router::read_stats_drops(int port) throw(monitor_exception)
+Router::read_stats_drops(int port, int qid, bool use_class) throw(monitor_exception)
 {  
-  uint64_t rtn = read_stats(port, RTNL_TC_DROPS);
-  write_log("Router::read_stats_drops for port(" + int2str(port) + ") drops: " + int2str(rtn));
+  uint64_t rtn;
+  bool retry = false;
+  try
+    {
+      if (!use_class) rtn = read_stats(port, RTNL_TC_DROPS, qid); 
+      else rtn = read_stats_class(port, RTNL_TC_DROPS, qid);
+    }
+  catch(std::exception& e)
+    {
+      std::string msg = e.what();
+      retry = true;
+      write_log("Router::read_stats_drops: retry got exception:" + msg);
+    }
+  if (retry)
+    {
+      sleep(3);
+      if (!use_class) rtn = read_stats(port, RTNL_TC_DROPS, qid); 
+      else rtn = read_stats_class(port, RTNL_TC_DROPS, qid);
+    }
+  write_log("Router::read_stats_drops for port(" + int2str(port) + ") drops(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
 uint64_t 
-Router::read_stats_backlog(int port) throw(monitor_exception)
+Router::read_stats_backlog(int port, int qid, bool use_class) throw(monitor_exception)
 {  
-  uint64_t rtn = read_stats(port, RTNL_TC_BACKLOG);
-  write_log("Router::read_stats_backlog for port(" + int2str(port) + ") backlog: " + int2str(rtn));
+  uint64_t rtn = 0;
+  if (!use_class) rtn = read_stats(port, RTNL_TC_BACKLOG, qid);
+  else rtn = read_stats_class(port, RTNL_TC_BACKLOG, qid);
+  write_log("Router::read_stats_backlog for port(" + int2str(port) + ") backlog(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
 uint64_t 
-Router::read_stats(int port, enum rtnl_tc_stat sid) throw(monitor_exception) //enum rtnl_tc_stat
+Router::read_stats(int port, enum rtnl_tc_stat sid, int qid) throw(monitor_exception) //enum rtnl_tc_stat
 {  
   struct nl_sock *my_sock = nl_socket_alloc();
   struct nl_cache *link_cache, *all_qdiscs;
@@ -1080,18 +1615,99 @@ Router::read_stats(int port, enum rtnl_tc_stat sid) throw(monitor_exception) //e
       throw monitor_exception("rtnl_qdisc_alloc_cache failed ");
     }
 
-  if (!(qdisc = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),0))))
+  if (qid == 0)
     {
-      nl_socket_free(my_sock);
-      nl_cache_free(link_cache);
-      nl_cache_free(all_qdiscs);
-      throw monitor_exception("rtnl_qdisc_get failed");
+      if (!(qdisc = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),0))))
+	{
+	  //sleep and retry
+	  //write_log("rtnl_qdisc_get failed: sleep and retry");
+	  //sleep(5);
+	  //if (!(qdisc = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),0))))
+	  //{
+	      write_log("rtnl_qdisc_get failed");
+	      nl_socket_free(my_sock);
+	      nl_cache_free(link_cache);
+	      nl_cache_free(all_qdiscs);
+	      throw monitor_exception("rtnl_qdisc_get failed");
+	      //}
+	}
+    }
+  else
+    {
+      if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
+	{
+	  //sleep and retry
+	  //write_log("rtnl_qdisc_get_by_parent failed: sleep and retry");
+	  //sleep(5);
+	  //if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
+	  //{
+	      write_log("rtnl_qdisc_get_by_parent failed");
+	      nl_socket_free(my_sock);
+	      nl_cache_free(link_cache);
+	      nl_cache_free(all_qdiscs);
+	      throw monitor_exception("rtnl_qdisc_get_by_parent failed");
+	      //}
+	}
     }
 
   rtn_stat = rtnl_tc_get_stat(TC_CAST(qdisc), sid);
   nl_socket_free(my_sock);
   nl_cache_free(link_cache);
   nl_cache_free(all_qdiscs);
+  return rtn_stat;
+}
+
+uint64_t 
+Router::read_stats_class(int port, enum rtnl_tc_stat sid, int qid) throw(monitor_exception) //enum rtnl_tc_stat
+{  
+  struct nl_sock *my_sock = nl_socket_alloc();
+  struct nl_cache *link_cache, *all_classes;
+  struct rtnl_link *link_ptr;
+  struct rtnl_class *tcclass;
+  uint64_t rtn_stat = 0;
+  int rtn = 0;
+  std::string nic;
+
+  if (!portTable[port].configured) return 0;
+  nl_connect(my_sock, NETLINK_ROUTE);
+  if ((rtn = rtnl_link_alloc_cache(my_sock, AF_UNSPEC, &link_cache)) < 0)
+    {
+      nl_socket_free(my_sock);
+      throw monitor_exception("rtnl_link_alloc_cache failed");
+    }
+
+  if (virtual_ports)
+    nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+  else
+    nic = nicTable[portTable[port].nicIndex].nic;
+  if (!(link_ptr = rtnl_link_get_by_name(link_cache, nic.c_str())))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw monitor_exception("rtnl_link_get_by_name failed");
+    }
+
+  int ifindex = rtnl_link_get_ifindex(link_ptr);
+
+  if ((rtn = rtnl_class_alloc_cache(my_sock, ifindex, &all_classes)) < 0)
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      throw monitor_exception("rtnl_class_alloc_cache failed ");
+    }
+
+  if (!(tcclass = rtnl_class_get(all_classes, ifindex, TC_HANDLE((port + 1),qid))))
+    {
+      nl_socket_free(my_sock);
+      nl_cache_free(link_cache);
+      nl_cache_free(all_classes);
+      throw monitor_exception("rtnl_class_get failed");
+    }
+  
+  rtn_stat = rtnl_tc_get_stat(TC_CAST(tcclass), sid);
+  nl_socket_free(my_sock);
+  nl_cache_free(link_cache);
+  nl_cache_free(all_classes);
   return rtn_stat;
 }
 

@@ -42,6 +42,7 @@ namespace swr
     uint16_t    vlan;
     uint32_t    mark;
     uint32_t    rate; // in kbits/s
+    uint32_t    max_rate; //in kbits/s
   } port_info;
 
   typedef struct _filter_info
@@ -65,6 +66,7 @@ namespace swr
     int mark;
     std::string table;
     int rule_priority;
+    int qid;
   } filter_info;
 
   typedef boost::shared_ptr<filter_info> filter_ptr;
@@ -102,7 +104,7 @@ namespace swr
 */
 
       unsigned int get_port_rate(unsigned int) throw(configuration_exception); 
-      void set_port_rate(unsigned int, unsigned int) throw(configuration_exception); 
+      void set_port_rate(unsigned int, uint32_t rate) throw(configuration_exception); 
 
       void set_port_info(uint32_t portnum, std::string nic, uint16_t vlan, std::string ip, std::string netmask, uint32_t maxRate, uint32_t minRate );
 
@@ -129,17 +131,30 @@ namespace swr
       void add_filter(filter_ptr f) throw(configuration_exception);
       void del_filter(filter_ptr f) throw(configuration_exception);
 
+      //adds or changes queue parameters
+      void add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, 
+		     uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change=false) throw(configuration_exception);
+      void delete_queue(uint16_t port, uint32_t qid) throw(configuration_exception);
+      //adds or changes netem queue parameters for existing htb queue <port+1>:qid
+      void add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, 
+			   uint32_t corrupt, uint32_t duplicate, bool change=false) throw(configuration_exception);
+      void delete_netem_queue(uint16_t port, uint32_t qid) throw(configuration_exception);
+
+      //Add delay on port for outgoing traffic
+      void add_delay_port(uint16_t port, uint32_t dtime, uint32_t jitter) throw(configuration_exception);
+      //Delete delay on port for outgoing traffic
+      void delete_delay_port(uint16_t port) throw(configuration_exception);
 
 
       std::string addr_int2str(uint32_t addr);
 
 
       //MONITORING
-      uint64_t read_stats_pkts(int port) throw(monitor_exception);
-      uint64_t read_stats_bytes(int port) throw(monitor_exception);
-      uint64_t read_stats_qlength(int port) throw(monitor_exception);
-      uint64_t read_stats_drops(int port) throw(monitor_exception);
-      uint64_t read_stats_backlog(int port) throw(monitor_exception);
+      uint64_t read_stats_pkts(int port, int qid=0, bool use_class=false) throw(monitor_exception);
+      uint64_t read_stats_bytes(int port, int qid=0, bool use_class=false) throw(monitor_exception);
+      uint64_t read_stats_qlength(int port, int qid=0, bool use_class=false) throw(monitor_exception);
+      uint64_t read_stats_drops(int port, int qid=0, bool use_class=false) throw(monitor_exception);
+      uint64_t read_stats_backlog(int port, int qid=0, bool use_class=false) throw(monitor_exception);
       uint64_t read_link_stats_rxpkts(int port) throw(monitor_exception);
       uint64_t read_link_stats_txpkts(int port) throw(monitor_exception);
       uint64_t read_link_stats_rxbytes(int port) throw(monitor_exception);
@@ -153,6 +168,7 @@ namespace swr
     private:
       unsigned int control_address;
       std::string username;
+      unsigned int delay_index;
 
       pthread_mutex_t conf_lock;    // anything else
 
@@ -177,9 +193,11 @@ namespace swr
       void filter_command(filter_ptr f, bool isdel) throw(configuration_exception); //iptables and ip rule commands for filters
 
       int system_cmd(std::string cmd);
-      uint64_t read_stats(int port, enum rtnl_tc_stat sid) throw(monitor_exception);
+      uint64_t read_stats(int port, enum rtnl_tc_stat sid, int qid=0) throw(monitor_exception);
+      uint64_t read_stats_class(int port, enum rtnl_tc_stat sid, int qid=0) throw(monitor_exception);
       uint64_t read_link_stats(int port, rtnl_link_stat_id_t sid) throw(monitor_exception);
       filter_ptr get_filter(filter_ptr f);
+      filter_ptr get_filter(int port, int qid);
       int get_next_mark();
       int get_next_priority();
       int next_mark;

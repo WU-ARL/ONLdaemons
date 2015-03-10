@@ -175,19 +175,23 @@ int main(int argc, char** argv)
   register_req<add_route_port_req>(SWR_AddRoutePort);
   register_req<del_route_port_req>(SWR_DeleteRoutePort);
 
+  // per port add delay fot outgoing traffic
+  register_req<add_delay_req>(SWR_AddDelay);
+  register_req<delete_delay_req>(SWR_DeleteDelay);
+
   // manage filters
   register_req<filter_req>(SWR_AddFilter);
   register_req<filter_req>(SWR_DeleteFilter);
 
-  /*  
+  
   // configure queues 
-  register_req<add_queue_req>(SWR_AddQueue);
-  register_req<del_queue_req>(SWR_DeleteQueue);
-  register_req<set_queue_params_req>(SWR_SetQueueParams);
-*/
+  register_req<set_queue_params_req>(SWR_AddQueue);
+  register_req<set_queue_params_req>(SWR_ChangeQueue);
+  register_req<set_queue_params_req>(SWR_DeleteQueue);
+  register_req<set_queue_params_req>(SWR_AddNetemParams);
+  register_req<set_queue_params_req>(SWR_DeleteNetemParams);
 
   // configure ports
-  register_req<configure_node_req>(SWR_SetPortRate);
   register_req<set_port_rate_req>(SWR_SetPortRate);
 
   // Monitoring
@@ -211,8 +215,17 @@ int main(int argc, char** argv)
 
   // queue lengths
   register_req<get_queue_len_req>(SWR_GetQueueLength);
+  register_req<get_queue_len_req>(SWR_GetClassLength);
   register_req<get_drops_req>(SWR_GetDrops);
+  register_req<get_drops_req>(SWR_GetQueueDrops);
+  register_req<get_drops_req>(SWR_GetClassDrops);
   register_req<get_backlog_req>(SWR_GetBacklog);
+  register_req<get_backlog_req>(SWR_GetQueueBacklog);
+  register_req<get_backlog_req>(SWR_GetClassBacklog);
+  register_req<get_tx_pkt_req>(SWR_GetQueueTXPkt);
+  register_req<get_tx_pkt_req>(SWR_GetClassTXPkt);
+  register_req<get_tx_kbits_req>(SWR_GetQueueTXKBits);
+  register_req<get_tx_kbits_req>(SWR_GetClassTXKBits);
 
 
   rli_conn->receive_messages(true);

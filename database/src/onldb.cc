@@ -1479,7 +1479,7 @@ bool onldb::check_fixed_comps(std::list<node_resource_ptr>& fixed_comp, std::str
     return true;
 }
 
-onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string end) throw()
+onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string end, bool noreservations) throw()
 {
   struct timeval stime;
   gettimeofday(&stime, NULL);
@@ -1527,7 +1527,10 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       ++hwid;
       t->nodes.back()->node = it->cluster;
       t->nodes.back()->priority = (int)it->priority;
-      t->nodes.back()->marked = true;
+      if (noreservations)
+	t->nodes.back()->marked = false;
+      else
+	t->nodes.back()->marked = true;
     }
 
     mysqlpp::Query query2 = onl->query();
@@ -1602,18 +1605,23 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	      current_node->in = current_node->label;
 	    }
 	}
-      if (current_node->has_vmsupport)
+      if (noreservations)
+	current_node->marked = false;
+      else
 	{
-	  current_node->core_capacity -= (it2a->cores);
-	  current_node->mem_capacity -= (it2a->memory);
-	  current_node->marked = false;
+	  if (current_node->has_vmsupport)
+	    {
+	      current_node->core_capacity -= (it2a->cores);
+	      current_node->mem_capacity -= (it2a->memory);
+	      current_node->marked = false;
+	    }
+	  else 
+	    {
+	      current_node->core_capacity = 0;
+	      current_node->mem_capacity = 0;
+	      current_node->marked = true;
+	    }
 	}
-      else 
-	{
-	  current_node->core_capacity = 0;
-	  current_node->mem_capacity = 0;
-	  current_node->marked = true;
-	}	
     }
 
     mysqlpp::Query query3 = onl->query();
@@ -1630,23 +1638,26 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
       int rl = 0;
       int ll = 0;
       mysqlpp::Query query4 = onl->query();
-      query4 << "select capacity,rload,lload from connschedule where cid=" << mysqlpp::quote << it3->cid << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )";
-      vector<caploadinfo> ci;
-      ++db_count;
-      query4.storein(ci);
-      vector<caploadinfo>::iterator it4;
-      for(it4 = ci.begin(); it4 != ci.end(); ++it4)
+      if (!noreservations)
 	{
-	  //cap -= it4->capacity;
-	  if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
+	  query4 << "select capacity,rload,lload from connschedule where cid=" << mysqlpp::quote << it3->cid << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )";
+	  vector<caploadinfo> ci;
+	  ++db_count;
+	  query4.storein(ci);
+	  vector<caploadinfo>::iterator it4;
+	  for(it4 = ci.begin(); it4 != ci.end(); ++it4)
 	    {
-	      rl += (it4->rload * 1000);
-	      ll += (it4->lload * 1000);
-	    }
-	  else
-	    {
-	      rl += it4->rload;
-	      ll += it4->lload;
+	      //cap -= it4->capacity;
+	      if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
+		{
+		  rl += (it4->rload * 1000);
+		  ll += (it4->lload * 1000);
+		}
+	      else
+		{
+		  rl += it4->rload;
+		  ll += it4->lload;
+		}
 	    }
 	}
       
@@ -1848,7 +1859,7 @@ onldb_resp onldb::add_special_node(topology *t, std::string begin, std::string e
 
 //JP changed to set remapped reservation to "used" 3/29/2012
 //onldb_resp onldb::try_reservation(topology *t, std::string user, std::string begin, std::string end) throw()
-onldb_resp onldb::try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state) throw()
+onldb_resp onldb::try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state, bool noreservations) throw()
 {
   fnd_path = 0;
   //first create a list of the nodes separated by type
@@ -1901,7 +1912,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
 
   // next build the base topology
   topology base_top;
-  onldb_resp r = get_base_topology(&base_top, begin, end);
+  onldb_resp r = get_base_topology(&base_top, begin, end, noreservations);
   if(r.result() < 1) return onldb_resp(r.result(),r.msg());
 
   onldb_resp ra = is_admin(user);
@@ -2029,11 +2040,14 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
     (*lit)->conns.clear();
   }
 
-  if(find_embedding(t, &base_top, cluster_list))
+  if(find_embedding(t, &base_top, cluster_list, noreservations))
     {
       print_diff("onldb::try_reservation succeeded", stime);
-      onldb_resp r = add_reservation(t,user,begin,end,state);//JP changed 3/29/2012
-      if(r.result() < 1) return onldb_resp(r.result(),r.msg());
+      if (!noreservations)
+	{
+	  onldb_resp r = add_reservation(t,user,begin,end,state);//JP changed 3/29/2012
+	  if(r.result() < 1) return onldb_resp(r.result(),r.msg());
+	}
       std::string s = "success! reservation made from " + begin + " to " + end;
       cout << "onldb::try_reservation find_cheapest_path called " << fnd_path << " times." << endl;
       return onldb_resp(1,s);
@@ -2044,7 +2058,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
   return onldb_resp(0,(std::string)"topology doesn't fit during that time");
 }
 
-bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mapping_cluster_ptr> cl) throw()
+bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mapping_cluster_ptr> cl, bool noreservations) throw()
 {
   
   struct timeval stime;
@@ -2136,6 +2150,9 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mappin
 	  return false;
 	}
     }
+  //return if just checking for valid topology and not really mapping
+  if (noreservations) return true;
+
   //map assignments onto original request so database is updated properly
   //copy mapped_paths instead of conn ids
   std::list<link_resource_ptr>::iterator blit;
@@ -6341,6 +6358,16 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
     time_t cur_start, cur_end;
     unsigned int increment = (60/divisor)*60;
     bool changed = true;
+    //first check if this a valid topology
+    cur_start = (*tr)->b1_unix;
+    cur_end = (*tr)->e1_unix;
+    onldb_resp trr = try_reservation(t, username, time_unix2db(cur_start), time_unix2db(cur_end), "pending", true);
+    if(trr.result() != 1)
+      {
+	cout << username << ": unmappable topology" << endl;
+	unlock("reservation");
+	return onldb_resp(-1,"Unable to map topology. If this is a class, see your TA. Otherwise, contact ONL testbedops");
+      }
     //look at times starting at the first possible beginning time(b1) and incrementing by the time slot interval set by the policy
     //try to make a reservation for the first possible time and then each time we hit or pass a time of interest
     //return success if we successfully make a reservation

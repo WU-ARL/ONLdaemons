@@ -6,15 +6,14 @@ CXXFLAGS = ${DEBUG} -DPTHREADS -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wal
 
 INCLUDES = -I. -I../shared -I/usr/include/libnl3
 
-LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt -lnl-3 -lnl-route-3
+LIBS = -lrt -pthread -L../shared/${OBJDIR} -lONLshared -lrt -lnl-genl-3 -lnl-3 -lnl-route-3
 
 EXEC = $(OBJDIR)/swrd
 OBJS = $(OBJDIR)/swrd_router.o \
        $(OBJDIR)/swrd_requests.o \
        $(OBJDIR)/swrd_main.o # \
- #      $(OBJDIR)/swrd_monitor.o 
 
-all: ${OBJDIR} ${OBJS} ${EXEC}
+all: ${OBJDIR} ${OBJS} ${EXEC} 
 
 
 ${OBJDIR} :

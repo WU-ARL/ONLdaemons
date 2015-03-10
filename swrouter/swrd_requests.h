@@ -147,67 +147,15 @@ namespace swr
       bool unicast_drop;
       std::string output_port;
       uint32_t sampling;
+      uint32_t qid;
   }; // class filter_req
-  /*
-  class add_filter_req : public rli_request
-  {
-    public:
-      add_filter_req(uint8_t *mbuf, uint32_t size);
-      virtual ~add_filter_req();
- 
-      virtual void parse();
-      virtual bool handle();
 
-    protected:
-  //echo "Usage: $0 <portnum> <iface> <vlanNum> <filterId> <dstAddr> <dstMask> <srcAddr> <srcMask> <proto> <dport> <sport> <tcpSyn> <tcpAck> <tcpFin> <tcpRst> <tcpUrg> <tcpPsh> <drop> <outputPortNum> <outputDev>"
-      uint32_t dest_prefix;
-      uint32_t dest_mask;
-      uint32_t src_prefix;
-      uint32_t src_mask;
-      std::string protocol;
-      uint32_t dest_port;
-      uint32_t src_port;
-      uint32_t tcp_fin;
-      uint32_t tcp_syn;
-      uint32_t tcp_rst;
-      uint32_t tcp_psh;
-      uint32_t tcp_ack;
-      uint32_t tcp_urg;
-      bool unicast_drop;
-      std::string output_port;
-      uint32_t sampling;
-  }; // class add_filter_req
+  static const NCCP_OperationType SWR_AddQueue = 87;
+  static const NCCP_OperationType SWR_ChangeQueue = 88;
+  static const NCCP_OperationType SWR_DeleteQueue = 89;
+  static const NCCP_OperationType SWR_AddNetemParams = 90;
+  static const NCCP_OperationType SWR_DeleteNetemParams = 91;
 
-  class delete_filter_req : public rli_request
-  {
-    public:
-      delete_filter_req(uint8_t *mbuf, uint32_t size);
-      virtual ~delete_filter_req();
- 
-      virtual void parse();
-      virtual bool handle();
-
-    protected:
-      uint32_t dest_prefix;
-      uint32_t dest_mask;
-      uint32_t src_prefix;
-      uint32_t src_mask;
-      std::string protocol;
-      uint32_t dest_port;
-      uint32_t src_port;
-      uint32_t tcp_fin;
-      uint32_t tcp_syn;
-      uint32_t tcp_rst;
-      uint32_t tcp_psh;
-      uint32_t tcp_ack;
-      uint32_t tcp_urg;
-      bool unicast_drop;
-      std::string output_port;
-      uint32_t sampling;
-  }; // class delete_filter_req
-  */
-/*
-  static const NCCP_OperationType SWR_SetQueueParams = 78;
   class set_queue_params_req : public rli_request
   {
     public:
@@ -219,10 +167,22 @@ namespace swr
 
     protected:
       uint32_t qid;
-      uint32_t threshold;
-      uint32_t quantum;
+      uint32_t rate;
+      uint32_t burst;
+      uint32_t ceil_rate;
+      uint32_t cburst;
+      uint32_t mtu;
+      //netem params
+      //delay
+      uint32_t delay;
+      uint32_t jitter;
+      //loss
+      uint32_t loss_percent; //uses random
+      //corrupt
+      uint32_t corrupt_percent;
+      //duplicate
+      uint32_t duplicate_percent;
   }; // class set_queue_params_req
-*/
 
   static const NCCP_OperationType SWR_SetPortRate = 81;
   class set_port_rate_req : public rli_request
@@ -239,7 +199,93 @@ namespace swr
   }; // class set_port_rate_req
   
 
+  static const NCCP_OperationType SWR_AddDelay = 82;
+  static const NCCP_OperationType SWR_DeleteDelay = 83;
+  class add_delay_req : public rli_request
+  {
+    public:
+      add_delay_req(uint8_t *mbuf, uint32_t size);
+      virtual ~add_delay_req();
+ 
+      virtual void parse();
+      virtual bool handle();
 
+    protected:
+      uint32_t dtime;
+      uint32_t jitter;
+  }; // class add_delay_req
+
+
+  class delete_delay_req : public rli_request
+  {
+    public:
+      delete_delay_req(uint8_t *mbuf, uint32_t size);
+      virtual ~delete_delay_req();
+ 
+      virtual bool handle();
+  }; // class delete_delay_req
+  
+  /*
+  static const NCCP_OperationType SWR_AddLoss = 84;
+  static const NCCP_OperationType SWR_DeleteLoss = 85;
+  class set_loss_req : public rli_request
+  {
+    public:
+      set_loss_req(uint8_t *mbuf, uint32_t size);
+      virtual ~set_loss_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+      uint32_t percentage;
+  }; // class set_loss_req
+  
+
+  static const NCCP_OperationType SWR_SetCorrupt = 84;
+  class set_corrupt_req : public rli_request
+  {
+    public:
+      set_corrupt_req(uint8_t *mbuf, uint32_t size);
+      virtual ~set_corrupt_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+      uint32_t percentage;
+  }; // class set_corrupt_req
+  
+
+  static const NCCP_OperationType SWR_SetDuplicate = 85;
+  class set_duplicate_req : public rli_request
+  {
+    public:
+      set_duplicate_req(uint8_t *mbuf, uint32_t size);
+      virtual ~set_duplicate_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+      uint32_t percentage;
+  }; // class set_duplicate_req
+  
+
+  static const NCCP_OperationType SWR_SetReorder = 86;
+  class set_reorder_req : public rli_request
+  {
+    public:
+      set_reorder_req(uint8_t *mbuf, uint32_t size);
+      virtual ~set_reorder_req();
+ 
+      virtual void parse();
+      virtual bool handle();
+
+    protected:
+      uint32_t percentage;
+  }; // class set_reorder_req
+  */
   //MONITORING REQUESTS
   /*
   static const NCCP_OperationType SWR_GetRXPkt = 107;
@@ -269,6 +315,8 @@ namespace swr
   }; // class get_rx_byte_req
   */
   static const NCCP_OperationType SWR_GetTXPkt = 109;
+  static const NCCP_OperationType SWR_GetQueueTXPkt = 121;
+  static const NCCP_OperationType SWR_GetClassTXPkt = 125;
   class get_tx_pkt_req : public rli_request
   {
     public:
@@ -279,9 +327,13 @@ namespace swr
       virtual bool handle();
 
     protected:
+    protected:
+      uint32_t qid;
   }; // class get_tx_pkt_req
 
   static const NCCP_OperationType SWR_GetTXKBits = 110;
+  static const NCCP_OperationType SWR_GetQueueTXKBits = 122;
+  static const NCCP_OperationType SWR_GetClassTXKBits = 126;
   class get_tx_kbits_req : public rli_request
   {
     public:
@@ -292,9 +344,13 @@ namespace swr
       virtual bool handle();
 
     protected:
+    protected:
+      uint32_t qid;
   }; // class get_tx_kbits_req
 
-  static const NCCP_OperationType SWR_GetQueueLength = 68;
+  static const NCCP_OperationType SWR_GetDefQueueLength = 68;
+  static const NCCP_OperationType SWR_GetQueueLength = 92;
+  static const NCCP_OperationType SWR_GetClassLength = 129;
   class get_queue_len_req : public rli_request
   {
     public:
@@ -303,9 +359,14 @@ namespace swr
  
       virtual void parse();
       virtual bool handle();
+
+    protected:
+      uint32_t qid;
   }; // class get_queue_len_req
 
   static const NCCP_OperationType SWR_GetBacklog = 111;
+  static const NCCP_OperationType SWR_GetQueueBacklog = 123;
+  static const NCCP_OperationType SWR_GetClassBacklog = 127;
   class get_backlog_req : public rli_request
   {
     public:
@@ -315,9 +376,13 @@ namespace swr
       virtual void parse();
       virtual bool handle();
 
+    protected:
+      uint32_t qid;
   }; // class get_backlog_req
 
   static const NCCP_OperationType SWR_GetDrops = 112;
+  static const NCCP_OperationType SWR_GetQueueDrops = 124;
+  static const NCCP_OperationType SWR_GetClassDrops = 128;
   class get_drops_req : public rli_request
   {
     public:
@@ -326,6 +391,9 @@ namespace swr
  
       virtual void parse();
       virtual bool handle();
+
+    protected:
+      uint32_t qid;
   }; // class get_drops_req
 
   static const NCCP_OperationType SWR_GetLinkRXPkt = 113;

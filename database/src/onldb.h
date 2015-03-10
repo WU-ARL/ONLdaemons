@@ -62,11 +62,11 @@ namespace onl
 
 
       void merge_vswitches(topology* req) throw();
-      onldb_resp get_base_topology(topology *t, std::string begin, std::string end) throw();    
+      onldb_resp get_base_topology(topology *t, std::string begin, std::string end, bool noreservations = false) throw();    
       onldb_resp add_special_node(topology *t, std::string begin, std::string end, node_resource_ptr node) throw();
       //onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
-      onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
-      bool find_embedding(topology* req, topology* base, std::list<mapping_cluster_ptr> cl) throw();
+      onldb_resp try_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending", bool noreservations = false) throw();
+      bool find_embedding(topology* req, topology* base, std::list<mapping_cluster_ptr> cl, bool noreservations = false) throw();
       bool embed(node_resource_ptr user, node_resource_ptr testbed) throw();
       //onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end) throw();//JP changed 3/29/12
       onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
