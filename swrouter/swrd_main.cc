@@ -208,12 +208,9 @@ int main(int argc, char** argv)
   register_req<get_link_rx_drops_req>(SWR_GetLinkRXDrops);
   register_req<get_link_tx_errors_req>(SWR_GetLinkTXErrors);
   register_req<get_link_rx_errors_req>(SWR_GetLinkRXErrors);
-  /*
-  register_req<get_tx_pkt_req>(SWR_GetTXPkt);
-  register_req<get_tx_byte_req>(SWR_GetTXByte);
-*/
 
   // queue lengths
+  register_req<get_queue_len_req>(SWR_GetDefQueueLength);
   register_req<get_queue_len_req>(SWR_GetQueueLength);
   register_req<get_queue_len_req>(SWR_GetClassLength);
   register_req<get_drops_req>(SWR_GetDrops);

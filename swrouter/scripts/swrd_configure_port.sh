@@ -15,6 +15,12 @@ else
   ifaceDefRate=$7 # in kbit/s
   iptMark=$8 # perhaps same as vlan?
 
+  TABLE_PRIORITY=$((32766-$1))
+  PORT_TABLE=port$1Routes #((252-$(($1*2))))
+  #set up ip rule for port table
+  echo "ip rule add unicast priority $TABLE_PRIORITY iif $iface.$vlanNum table $PORT_TABLE"
+  ip rule add unicast priority $TABLE_PRIORITY iif $iface.$vlanNum table $PORT_TABLE
+
   # make sure that reverse path filtering is turned off
   echo  0 > /proc/sys/net/ipv4/conf/default/rp_filter 
 
@@ -41,7 +47,7 @@ else
   fi
 
   # Associate queueing discipline (qdisc) htb (Hierarchical Token Bucket) with interface $iface.$vlanNum and give it handle $portNum:
-  tc qdisc add dev $iface.$vlanNum root handle ${portNum}: htb default ${portNum}
+  tc qdisc add dev $iface.$vlanNum root handle ${portNum}: htb default 1 #${portNum}
   RTN=$?
   if [ $RTN -ne 0 ]
   then

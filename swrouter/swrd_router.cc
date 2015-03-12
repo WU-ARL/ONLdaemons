@@ -280,13 +280,27 @@ Router::configure_port(unsigned int port, unsigned int realPort, uint16_t vlan, 
     write_log("Router::configure_port system(" + std::string(shcmd) + ")");
     if(system_cmd(shcmd) != 0)
       {
-	throw configuration_exception("system (/usr/local/bin/swrd_configure_port failed");
+	throw configuration_exception("system (/usr/local/bin/swrd_configure_port) failed");
       }
     sprintf(shcmd, "/usr/local/bin/swrd_add_route.sh 192.168.0.0 16 %s %d %s port%dFilters", nicTable[realPort].nic.c_str(), vlan, nhip.c_str(), port);
     write_log("Router::configure_port system(" + std::string(shcmd) + ")");
     if(system_cmd(shcmd) != 0)
       {
-	throw configuration_exception("system (/usr/local/bin/swrd_add_route.sh failed");
+	throw configuration_exception("system (/usr/local/bin/swrd_add_route.sh) failed");
+      }
+    //add default netem queue to be consistent with any added queues
+
+    std::string nic;
+    if (virtual_ports)
+      nic = (nicTable[portTable[port].nicIndex].nic) + "." + int2str(portTable[port].vlan);
+    else
+      nic = nicTable[portTable[port].nicIndex].nic;
+    int p1 = port + 1;
+    sprintf(shcmd, "tc qdisc add dev %s parent %d:1 handle %d:0 netem delay 0ms", nic.c_str(), p1, (delay_index + 1));
+    write_log("Router::configure_port system(" + std::string(shcmd) + ")");
+    if(system_cmd(shcmd) != 0)
+      {
+	throw configuration_exception("system (tc qdisc add) failed");
       }
   }
   else {

@@ -61,7 +61,7 @@ else
   fi
 
   # Associate queueing discipline (qdisc) htb (Hierarchical Token Bucket) with interface $iface.$vlanNum and give it handle $portNum:
-  tc qdisc add dev $iface root handle ${portNum}: htb default ${portNum}
+  tc qdisc add dev $iface root handle ${portNum}: htb default 1 #${portNum}
   RTN=$?
   if [ $RTN -ne 0 ]
   then

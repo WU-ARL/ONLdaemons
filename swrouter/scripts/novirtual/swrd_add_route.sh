@@ -49,9 +49,9 @@ then
     ip route flush cache
   fi
 else
-  echo "Usage: $0 <prefix> <mask> <dev> <vlan> [<gw>] <table>"
-  echo "Example: $0 192.168.81.0 255.255.255.0 data0 241 main"
+  echo "Usage: $0 <prefix> <mask> <dev> <vlan> [<gw>]"
+  echo "Example: $0 192.168.81.0 255.255.255.0 data0 241"
   echo "  OR"
-  echo "Example: $0 192.168.81.0 255.255.255.0 data0 241 192.168.81.249 main"
+  echo "Example: $0 192.168.81.0 255.255.255.0 data0 241 192.168.81.249"
   exit 0
 fi
