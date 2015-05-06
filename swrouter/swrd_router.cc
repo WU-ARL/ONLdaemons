@@ -186,7 +186,7 @@ void Router::start_router() throw(configuration_exception)
   state = START;
   
   glock.unlock();
-  
+
   return;
 }
 
@@ -1314,7 +1314,7 @@ void Router::add_delay_port(uint16_t port, uint32_t dtime, uint32_t jitter) thro
     nic = nicTable[portTable[port].nicIndex].nic;
 
   int p1 = port + 1;
-  int delay_handle = port + delay_index;
+  int delay_handle = 1 + delay_index;
   sprintf(shcmd, "tc qdisc add dev %s parent %d:1 handle %d:0 netem delay %dms %d", nic.c_str(), p1, delay_handle, dtime, jitter); 
   write_log("Router::add_delay_port: (" + std::string(shcmd) + ")");
   if (system_cmd(shcmd) != 0)
