@@ -314,6 +314,7 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_re
 {
   std::list<node_resource_ptr>::iterator snnit;
   std::list<link_resource_ptr>::iterator snlit;
+  std::list<link_resource_ptr>::iterator pmlit;
   std::list<link_resource_ptr>::iterator lit;
   for (snnit = subnet->nodes.begin(); snnit != subnet->nodes.end(); ++snnit)
     {
@@ -348,10 +349,21 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_re
 	}
     }
 
-  for (snlit = potential_mappings.begin(); snlit != potential_mappings.end(); ++snlit)
+  for (pmlit = potential_mappings.begin(); pmlit != potential_mappings.end(); ++pmlit)
     {
       int n = 0;
-      for(lit = (*snlit)->mapped_path.begin(); lit != (*snlit)->mapped_path.end(); ++lit)
+      bool is_sn = false;
+      //double check that this link is actually in the subnet
+      for (snlit = subnet->links.begin(); snlit != subnet->links.end(); ++snlit)
+	{
+	  if ((*snlit)->label == (*pmlit)->label) 
+	    {
+	      is_sn = true;
+	      break;
+	    }
+	}
+      if (!is_sn) continue;
+      for(lit = (*pmlit)->mapped_path.begin(); lit != (*pmlit)->mapped_path.end(); ++lit)
 	{
 	  //if we see two links with an endpoint on the infrastructure node then there is a link on this subnet that is mapped to this
 	  //cluster
@@ -360,7 +372,7 @@ onldb::subnet_mapped(subnet_info_ptr subnet, unsigned int cin, std::list<link_re
 	    ++n;
 	  if (n > 1)
 	    {
-	      cout << "subnet_mapped cluster " << cin << " no mapping. link " << (*snlit)->label << " already potentially mapped here" << endl;
+	      cout << "subnet_mapped cluster " << cin << " no mapping. link " << (*pmlit)->label << " already potentially mapped here" << endl;
 		  return true;
 	    }
 	}
@@ -4496,8 +4508,12 @@ onldb_resp onldb::add_reservation(topology *t, std::string user, std::string beg
   return onldb_resp(1,(std::string)"success");
 }
 
-onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, std::string end) throw()
+onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, std::string end, unsigned int rid) throw()
 {
+
+  //JP: problem 4/22/15
+  //need to make sure the connections are interswitch and not just from endpoint to switch
+  //need to make sure of this in one mass db exchange
   std::list<link_resource_ptr>::iterator lit;
   std::list<int>::iterator cit;
 
@@ -4506,12 +4522,30 @@ onldb_resp onldb::check_interswitch_bandwidth(topology* t, std::string begin, st
   std::map<int, int> lls;
   std::map<int, int> conn_caps;
   std::map<int, int>::iterator mit;
+  
+  mysqlpp::Query query = onl->query();
+  query << "select cid from connections join connschedule using (cid) where (connschedule.rid=" << mysqlpp::quote << rid << " and (connections.node1 in (select node from nodes where tid in  (select tid from types where types.type='infrastructure'))) and (connections.node2 in (select node from nodes where tid in  (select tid from types where types.type='infrastructure')))) order by connections.cid";
+  vector<connid> interswitch_conns;
+  query.storein(interswitch_conns);
+  vector<connid>::iterator connit;
 
   for(lit = t->links.begin(); lit != t->links.end(); ++lit)
   {
     for(cit = (*lit)->conns.begin(); cit != (*lit)->conns.end(); ++cit) 
     {
       if(*cit == 0) { continue; }
+      //make sure this is an interswitch connections
+      bool is_interswitch = false;
+      for (connit = interswitch_conns.begin(); connit != interswitch_conns.end(); ++connit)
+	{
+	  if (connit->cid == *cit)
+	    {
+	      is_interswitch = true;
+	      break;
+	    }
+	}
+      if (!is_interswitch) continue;
+
       if(caps.find(*cit) == caps.end())
       {
         caps[*cit] = (*lit)->capacity;	
@@ -6513,6 +6547,11 @@ onldb_resp onldb::extend_current_reservation(std::string username, int min) thro
   list<node_resource_ptr>::iterator hw;
   list<link_resource_ptr>::iterator link;
 
+  mysqlpp::Query query_tp = onl->query();
+  query_tp << "select tid,hasvport,vmsupport,corecapacity,memcapacity,numinterfaces,interfacebw from types";
+  vector<typeinfo> typenfo;
+  query_tp.storein(typenfo);
+  
   // build a vector of type information for each type that is represented in the topology.
   for(hw = res_top.nodes.begin(); hw != res_top.nodes.end(); ++hw)
   {
@@ -6701,6 +6740,9 @@ onldb_resp onldb::extend_current_reservation(std::string username, int min) thro
     return onldb_resp(-1,er.what());
   }
 
+
+  std::map<std::string, node_resource_ptr> vm_nodes;
+
   for(hw = res_top.nodes.begin(); hw != res_top.nodes.end(); ++hw)
   {
     if((*hw)->parent) continue;
@@ -6708,46 +6750,89 @@ onldb_resp onldb::extend_current_reservation(std::string username, int min) thro
     
     try
     {
-      mysqlpp::Query query = onl->query();
-      if((*hw)->is_parent)
-      {
-        if(admin == true)
-        {
-          query << "select rid from hwclusterschedule where cluster=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='system' and user!='testing' and user!='repair' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
-        }
-        else
-        {
-          query << "select rid from hwclusterschedule where cluster=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
-        }
-      }
+      mysqlpp::Query query = onl->query();	//if a vm need to keep track of capacity used on an individual machine
+      if ((*hw)->vmid > 0)
+	{
+	  if (vm_nodes.find((*hw)->node) == vm_nodes.end())
+	    {
+	      //do a query to create a node for this node: TODO
+	      node_resource_ptr tmp_ndptr(new node_resource());
+	      tmp_ndptr->node = (*hw)->node;
+	      tmp_ndptr->type = (*hw)->type;
+	      fill_node_info(tmp_ndptr, typenfo); 
+	      vector<basenodevminfo>::iterator it2a;
+	      vector<basenodevminfo> bnia;
+	      if(admin == true)
+		{
+		  query << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster,nodeschedule.cores,nodeschedule.memory from nodeschedule join nodes using (node) left join hwclustercomps using (node) where ( node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='testing' and user!='repair' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << " ))";
+		}
+	      else
+		{
+		  query << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster,nodeschedule.cores,nodeschedule.memory from nodeschedule join nodes using (node) left join hwclustercomps using (node) where ( node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << " ))";
+		}
+	      query.storein(bnia);
+	      for(it2a = bnia.begin(); it2a != bnia.end(); ++it2a)
+		{
+		  tmp_ndptr->core_capacity -= (it2a->cores);
+		  tmp_ndptr->mem_capacity -= (it2a->memory);
+		}
+	      vm_nodes[(*hw)->node] = tmp_ndptr;
+	    }
+	  node_resource_ptr tmp_vmnd = vm_nodes[(*hw)->node];
+	  if (tmp_vmnd->core_capacity < (*hw)->core_capacity || tmp_vmnd->mem_capacity < (*hw)->mem_capacity)
+	    {
+	      unlock("reservation");
+	      return onldb_resp(0,(std::string)"resources used by others during that time");
+	    }
+	  else
+	    {
+	      tmp_vmnd->core_capacity -= (*hw)->core_capacity; 
+	      tmp_vmnd->mem_capacity -= (*hw)->mem_capacity;
+	    }
+	}
       else
-      {
-        if(admin == true)
-        {
-          query << "select rid from nodeschedule where node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='system' and user!='testing' and user!='repair' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
-        }
-        else
-        {
-          query << "select rid from nodeschedule where node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
-        }
-      }
-      mysqlpp::StoreQueryResult res = query.store();
-      if(!res.empty())
-      {
-        unlock("reservation");
-        return onldb_resp(0,(std::string)"resources used by others during that time");
-      }
+	{
+	  if((*hw)->is_parent)
+	    {
+	      if(admin == true)
+		{
+		  query << "select rid from hwclusterschedule where cluster=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='system' and user!='testing' and user!='repair' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
+		}
+	      else
+		{
+		  query << "select rid from hwclusterschedule where cluster=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
+		}
+	    }
+	  else
+	    {	  
+	      if(admin == true)
+		{
+		  query << "select rid from nodeschedule where node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and user!='system' and user!='testing' and user!='repair' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
+		}
+	      else
+		{
+		  query << "select rid from nodeschedule where node=" << mysqlpp::quote << (*hw)->node << " and rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db << ")";
+		}
+	    }
+	  mysqlpp::StoreQueryResult res = query.store();
+	  if(!res.empty())
+	    {
+	      unlock("reservation");
+	      return onldb_resp(0,(std::string)"resources used by others during that time");
+	    }
+	}
     }
     catch(const mysqlpp::Exception& er)
-    {
-      unlock("reservation");
-      return onldb_resp(-1,er.what());
-    }
+      {
+	unlock("reservation");
+	return onldb_resp(-1,er.what());
+      }
   }
   
   // check capacity along all switch->switch links to make sure there's enough capacity
   // to extend this res.  returns 1 if there is enough
-  onldb_resp bwr = check_interswitch_bandwidth(&res_top, end_db, new_end_db);
+  //JP:problem need to check vm capacity usage
+  onldb_resp bwr = check_interswitch_bandwidth(&res_top, end_db, new_end_db, rid);
   if(bwr.result() < 1)
   {
     unlock("reservation");

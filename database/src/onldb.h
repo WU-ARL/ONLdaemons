@@ -72,7 +72,7 @@ namespace onl
       onldb_resp add_reservation(topology *t, std::string user, std::string begin, std::string end, std::string state = "pending") throw();
       //bool has_reservation(std::string user, std::string begin, std::string end) throw();
  
-      onldb_resp check_interswitch_bandwidth(topology* t, std::string begin, std::string end) throw();
+      onldb_resp check_interswitch_bandwidth(topology* t, std::string begin, std::string end, unsigned int rid) throw();
 
       //new scheduling methods
       void calculate_node_costs(topology* req) throw();

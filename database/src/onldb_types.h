@@ -439,6 +439,5 @@ namespace onl
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_tinyint_unsigned, hasvport,
     mysqlpp::sql_tinyint_unsigned, rootonly)
-
 };
 #endif // _ONLDB_TYPES_H
