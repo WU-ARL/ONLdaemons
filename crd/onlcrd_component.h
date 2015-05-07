@@ -41,7 +41,7 @@ namespace onlcrd
       bool operator<(const crd_component& c) const;
       bool operator==(const crd_component& c);
 
-      virtual void set_vlan(switch_vlan) {}
+      virtual void set_vlan(vlan_ptr) {}
 
       void set_session(session_ptr s);
       void clear_session();
@@ -147,7 +147,7 @@ namespace onlcrd
       crd_virtual_switch(std::string n);
       virtual ~crd_virtual_switch();
   
-      virtual void set_vlan(switch_vlan v) { vlan = v; }
+      virtual void set_vlan(vlan_ptr v) { vlan = v; }
 
       virtual std::string get_type();
 
@@ -158,7 +158,7 @@ namespace onlcrd
     protected:
   
       virtual std::string get_state();
-      switch_vlan vlan;
+      vlan_ptr vlan;
   }; //class crd_virtual_switch
 
   class crd_virtual_machine : public crd_component
@@ -189,7 +189,7 @@ namespace onlcrd
       void set_component(component& c) { comp = c; }
       component& get_component() { return comp; }
 
-      void set_vlan(switch_vlan v) { link_vlan = v; alloc_vlan = false; }
+      void set_vlan(vlan_ptr v) { link_vlan = v; alloc_vlan = false; }
       bool allocate_vlan();
       void set_rports(unsigned short p1, unsigned short p2) { endpoint1_rport = p1; endpoint2_rport = p2;}
 
@@ -243,7 +243,7 @@ namespace onlcrd
       pthread_mutex_t done_lock;
       int num_comps_done;
 
-      switch_vlan link_vlan;
+      vlan_ptr link_vlan;
       bool alloc_vlan;
 
       bool mark; 

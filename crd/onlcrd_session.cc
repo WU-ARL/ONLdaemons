@@ -402,9 +402,9 @@ session::commit(session_ptr sess)
     if((*i)->marked()) { continue; }
     if((*i)->get_type() != "vgige") { continue; }
 
-    switch_vlan new_vlan = the_session_manager->add_vlan();
-    write_log("session::commit(): component " + (*i)->getName() + " adding vlan " + int2str(new_vlan));
-    if(new_vlan == 0)
+    vlan_ptr new_vlan = the_session_manager->add_vlan();
+    write_log("session::commit(): component " + (*i)->getName() + " adding vlan " + int2str(new_vlan->vlanid));
+    if(new_vlan->vlanid == 0)
     {
       write_log("session::commit(): warning: add_vlan failed");
       continue;
@@ -472,7 +472,7 @@ session::set_clusters()
 }
 
 void
-session::set_vlans(crd_component_ptr comp, switch_vlan vlan)
+session::set_vlans(crd_component_ptr comp, vlan_ptr vlan)
 {
   std::list<crd_link_ptr> clinks;
   std::list<crd_link_ptr>::iterator l;

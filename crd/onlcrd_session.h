@@ -34,6 +34,14 @@ namespace onlcrd
   static const int reservation_alert_time = 15; //minutes
   static const int rli_ping_period = 5; //minutes
 
+  typedef struct _crd_vlan
+  {
+    switch_vlan vlanid;
+    bool is_deleted;
+  } crd_vlan;
+
+  typedef boost::shared_ptr<crd_vlan> vlan_ptr;
+
   class session
   {
     public:
@@ -51,7 +59,7 @@ namespace onlcrd
       void add_cluster(session_add_cluster_req *req);
       void add_link(session_add_link_req *req);
       bool commit(boost::shared_ptr<session> sess);
-      void set_vlans(boost::shared_ptr<crd_component> comp, switch_vlan vlan);
+      void set_vlans(boost::shared_ptr<crd_component> comp, vlan_ptr vlan);
 
       void clear();
       bool is_cleared() { return cleared; }

@@ -23,8 +23,9 @@ namespace onlcrd
 {
   #define MIN_RLI_VERSION 0x54
 
+
   class session_manager
-  {
+  { 
     public:
       session_manager() throw();
       ~session_manager();
@@ -52,10 +53,10 @@ namespace onlcrd
       bool check_keeboot_param(std::string name);
       std::string get_keeboot_param(std::string name);
 
-      switch_vlan add_vlan();
-      bool add_port_to_vlan(switch_vlan vlan, switch_port port);
-      bool remove_port_from_vlan(switch_vlan vlan, switch_port port);
-      bool delete_vlan(switch_vlan vlan);
+      vlan_ptr add_vlan();
+      bool add_port_to_vlan(vlan_ptr vlan, switch_port port);
+      bool remove_port_from_vlan(vlan_ptr vlan, switch_port port);
+      bool delete_vlan(vlan_ptr vlan);
       bool add_port_to_outstanding_list(switch_port port);
       void remove_port_from_outstanding_list(switch_port port);
 

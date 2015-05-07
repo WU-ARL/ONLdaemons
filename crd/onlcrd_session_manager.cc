@@ -537,10 +537,13 @@ session_manager::get_keeboot_param(std::string name)
   return fs;
 }
 
-switch_vlan
+vlan_ptr
 session_manager::add_vlan()
 {
   switch_vlan vlan = 0;
+  vlan_ptr null_ptr(new crd_vlan());
+  null_ptr->vlanid = 0;;
+  null_ptr->is_deleted = true;
   if (!testing)
     {
       onld::add_vlan* addvlan = new onld::add_vlan();
@@ -549,7 +552,7 @@ session_manager::add_vlan()
       if(!addvlan->send_and_wait())
 	{
 	  delete addvlan;
-	  return 0;
+	  return null_ptr;
 	}
       
       add_vlan_response *addresp = (add_vlan_response*)addvlan->get_response();
@@ -557,7 +560,7 @@ session_manager::add_vlan()
 	{
 	  delete addresp;
 	  delete addvlan;
-	  return 0;
+	  return null_ptr;
 	}
       
       vlan = addresp->getVlan();
@@ -573,21 +576,24 @@ session_manager::add_vlan()
   autoLockDebug vlock(vlan_lock, "session_manager::add_vlan(): vlan_lock");
   num_ports_on_vlan[vlan] = 0;
   vlock.unlock();
+  vlan_ptr new_vlan(new crd_vlan());
+  new_vlan->vlanid = vlan;
+  new_vlan->is_deleted = false;
 
-  return vlan;
+  return new_vlan;
 }
 
 bool
-session_manager::add_port_to_vlan(switch_vlan vlan, switch_port port)
+session_manager::add_port_to_vlan(vlan_ptr vlan, switch_port port)
 {
   if (!testing)
     {
-      add_to_vlan* addtovlan = new add_to_vlan(vlan, port);
+      add_to_vlan* addtovlan = new add_to_vlan(vlan->vlanid, port);
       addtovlan->set_connection(the_gige_conn);
       
       if(!add_port_to_outstanding_list(port))
 	{
-	  write_log("session_manager::add_port_to_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
+	  write_log("session_manager::add_port_to_vlan(" + int2str(vlan->vlanid) + "): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
 	  delete addtovlan;
 	  return false;
 	}
@@ -617,30 +623,30 @@ session_manager::add_port_to_vlan(switch_vlan vlan, switch_port port)
 
 
   autoLockDebug vlock(vlan_lock, "session_manager::add_port_to_vlan(): vlan_lock");
-  num_ports_on_vlan[vlan] = num_ports_on_vlan[vlan] + 1;
+  num_ports_on_vlan[vlan->vlanid] = num_ports_on_vlan[vlan->vlanid] + 1;
   vlock.unlock();
 
   return true;
 }
 
 bool
-session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
+session_manager::remove_port_from_vlan(vlan_ptr vlan, switch_port port)
 {
   bool last_port = false;
 
   autoLockDebug vlock(vlan_lock, "session_manager::remove_port_from_vlan(): vlan_lock");
-  num_ports_on_vlan[vlan] = num_ports_on_vlan[vlan] - 1;
-  if(num_ports_on_vlan[vlan] == 0) { last_port = true; }
+  num_ports_on_vlan[vlan->vlanid] = num_ports_on_vlan[vlan->vlanid] - 1;
+  if(num_ports_on_vlan[vlan->vlanid] == 0) { last_port = true; }
   vlock.unlock();
 
   if (!testing)
     {
-      delete_from_vlan* delfromvlan = new delete_from_vlan(vlan, port);
+      delete_from_vlan* delfromvlan = new delete_from_vlan(vlan->vlanid, port);
       delfromvlan->set_connection(the_gige_conn);
       
       if(!add_port_to_outstanding_list(port))
 	{
-	  write_log("session_manager::remove_port_from_vlan(): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
+	  write_log("session_manager::remove_port_from_vlan(" + int2str(vlan->vlanid) + "): giving up after port was always in outstanding list: " + port.getSwitchId() + " port " + int2str(port.getPortNum()));
 	  delete delfromvlan;
 	  return false;
 	}
@@ -652,9 +658,9 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
 	  if(last_port)
 	    {
 	      if (delete_vlan(vlan))
-		write_log("session_manager::remove_port_from_vlan(): delete vlan " + int2str(vlan));
+		write_log("session_manager::remove_port_from_vlan(): delete vlan " + int2str(vlan->vlanid));
 	      else
-		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan->vlanid));
 	    }
 	  return false;
 	}
@@ -669,9 +675,9 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
 	  if(last_port)
 	    {
 	      if (delete_vlan(vlan))
-		write_log("session_manager::remove_port_from_vlan(): b delete vlan " + int2str(vlan));
+		write_log("session_manager::remove_port_from_vlan(): b delete vlan " + int2str(vlan->vlanid));
 	      else
-		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+		write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan->vlanid));
 	    }
 	  return false;
 	}
@@ -685,28 +691,37 @@ session_manager::remove_port_from_vlan(switch_vlan vlan, switch_port port)
   if(last_port)
   {
     if (delete_vlan(vlan))
-      write_log("session_manager::remove_port_from_vlan(): c delete vlan " + int2str(vlan));
+      write_log("session_manager::remove_port_from_vlan(): c delete vlan " + int2str(vlan->vlanid));
     else
-      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan));
+      write_log("session_manager::remove_port_from_vlan(): warning: delete vlan failed for vlan " + int2str(vlan->vlanid));
   }
   return true;
 }
 
 bool
-session_manager::delete_vlan(switch_vlan vlan)
+session_manager::delete_vlan(vlan_ptr vlan)
 {
   autoLockDebug vlock(vlan_lock, "session_manager::delete_vlan(): vlan_lock");
-  num_ports_on_vlan.erase(vlan);
+  num_ports_on_vlan.erase(vlan->vlanid);
+  if (vlan->is_deleted) 
+    {
+      write_log("session_manager::delete_vlan() vlan " + int2str(vlan->vlanid) + " already deleted");
+      return true;
+    }
+  vlan->is_deleted = true;
   vlock.unlock();
 
   if (!testing)
     {
-      onld::delete_vlan* delvlan = new onld::delete_vlan(vlan);
+      onld::delete_vlan* delvlan = new onld::delete_vlan(vlan->vlanid);
       delvlan->set_connection(the_gige_conn);
       
-      write_log("session_manager::delete_vlan() vlan " + int2str(vlan));
+      write_log("session_manager::delete_vlan() vlan " + int2str(vlan->vlanid));
       if(!delvlan->send_and_wait())
 	{
+	  vlock.lock();
+	  vlan->is_deleted = false;
+	  vlock.unlock();
 	  delete delvlan;
 	  return false;
 	}

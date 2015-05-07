@@ -1024,7 +1024,9 @@ crd_component::cleanup_links(bool do_init)
 crd_virtual_switch::crd_virtual_switch(std::string n): crd_component(n, "", 0, false)
 {
   internal_state = "free";
-  vlan = 0;
+  vlan_ptr null_vlan(new crd_vlan());
+  null_vlan->vlanid = 0;
+  vlan = null_vlan;
 }
 
 crd_virtual_switch::~crd_virtual_switch()
@@ -1050,7 +1052,7 @@ crd_virtual_switch::do_initialize()
 
   NCCP_StatusType status = NCCP_Status_Fine;
 
-  if(vlan == 0)
+  if(vlan->vlanid == 0)
   {
     status = NCCP_Status_Failed;
   }
@@ -1169,7 +1171,9 @@ crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e
   pthread_mutex_init(&done_lock, NULL);
   num_comps_done = 0;
 
-  link_vlan = 0;
+  vlan_ptr null_vlan(new crd_vlan());
+  null_vlan->vlanid = 0;
+  link_vlan = null_vlan;
   alloc_vlan = true;
 
   mark = false;
@@ -1205,10 +1209,13 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     return false;
   }
 
-  write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()));
+  if (link_vlan)
+    write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid));
+  else
+    write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()) + ", no vlan");
   experiment exp;
   exp.setExpInfo(info);
-    
+
   configure_node* cfgnode;
   
   if(c->getName() == endpoint1->getName() && !use2)
@@ -1225,7 +1232,7 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
       myip = linkreq->getFromIP();
     }
     node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP(), endpoint1_rport);
-    nodeinfo.setVLan(link_vlan);
+    nodeinfo.setVLan(link_vlan->vlanid);
     nodeinfo.setBandwidth(endpoint1_cap);
     cfgnode = new configure_node(exp, endpoint1->get_component(), nodeinfo);
     cfgnode->set_connection(endpoint1->get_connection());
@@ -1244,7 +1251,7 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
       myip = linkreq->getToIP();
     }
     node_info nodeinfo(myip, linkreq->getToSubnet(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP(), endpoint2_rport);
-    nodeinfo.setVLan(link_vlan);
+    nodeinfo.setVLan(link_vlan->vlanid);
     nodeinfo.setBandwidth(endpoint2_cap);
     cfgnode = new configure_node(exp, endpoint2->get_component(), nodeinfo);
     cfgnode->set_connection(endpoint2->get_connection());
@@ -1376,21 +1383,21 @@ crd_link::do_initialize()
 
   if(!testing)
   {
-    if(alloc_vlan && link_vlan == 0)
+    if(alloc_vlan && link_vlan->vlanid == 0)
     {
       link_vlan = the_session_manager->add_vlan();
-      write_log("crd_link::do_initialize(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan));
-      if(link_vlan == 0)
+      write_log("crd_link::do_initialize(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan->vlanid));
+      if(link_vlan->vlanid == 0)
       {
         status = NCCP_Status_Failed;
       }
     }
-    else if(link_vlan == 0)
+    else if(link_vlan->vlanid == 0)
     {
       status = NCCP_Status_Failed;
     }
 
-    if(link_vlan != 0)
+    if(link_vlan->vlanid != 0)
     {
       std::list<switch_port>::iterator port;
       for(port = switch_ports.begin(); port != switch_ports.end(); ++port)
@@ -1439,12 +1446,14 @@ crd_link::allocate_vlan()
 {
   //  NCCP_StatusType status = NCCP_Status_Fine;
 
-  if(!testing && alloc_vlan && link_vlan == 0)
+  if(!testing && alloc_vlan && link_vlan->vlanid == 0)
     {
+      vlan_ptr tmp_ptr = link_vlan;
       link_vlan = the_session_manager->add_vlan();
-      write_log("crd_link::allocate_vlan(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan));
-      if(link_vlan == 0)
+      write_log("crd_link::allocate_vlan(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan->vlanid));
+      if(!link_vlan)
 	{
+	  link_vlan = tmp_ptr;
 	  //	  status = NCCP_Status_Failed;
 	  return false;
 	}
@@ -1457,13 +1466,13 @@ crd_link::refresh()
 {
   autoLockDebug slock(state_lock, "crd_link::refresh(): state_lock");
   write_log("crd_link::refresh(): link " + int2str(comp.getID()) + " state = " + state);
-  if(state == "failed" && link_vlan == 0)
+  if(state == "failed" && link_vlan->vlanid == 0)
   {
     slock.unlock();
     clear_session();
     return;
   }
-  if(state == "new" && link_vlan == 0)
+  if(state == "new" && link_vlan->vlanid == 0)
   {
     state = "refreshing";
     slock.unlock();
@@ -1519,24 +1528,24 @@ crd_link::do_refresh()
 
   if(!testing)
   {
-    if(link_vlan != 0)
+    if(link_vlan->vlanid != 0)
     {
       std::list<switch_port>::iterator port;
       for(port = switch_ports.begin(); port != switch_ports.end(); ++port)
 	{
 	  if(!the_session_manager->remove_port_from_vlan(link_vlan, *port))
 	    {
-	      write_log("crd_link::do_refresh(): warning: delete from vlan failed for " + int2str(link_vlan));
+	      write_log("crd_link::do_refresh(): warning: delete from vlan failed for " + int2str(link_vlan->vlanid));
 	    }
 	}
     }
 
-    if(alloc_vlan && link_vlan != 0)
+    if(alloc_vlan && link_vlan->vlanid != 0)
     {
-      write_log("crd_link::do_refresh(): component " + comp.getLabel() + " delete vlan " + int2str(link_vlan));
+      write_log("crd_link::do_refresh(): component " + comp.getLabel() + " delete vlan " + int2str(link_vlan->vlanid));
       if(!the_session_manager->delete_vlan(link_vlan))
       {
-        write_log("crd_link::do_refresh(): warning: delete vlan failed for " + int2str(link_vlan));
+        write_log("crd_link::do_refresh(): warning: delete vlan failed for " + int2str(link_vlan->vlanid));
       }
     }
   }
