@@ -1,4 +1,20 @@
 #!/bin/bash
+# Copyright (c) 2015  Jason Barnes, Jyoti Parwatikar, and John DeHart
+# and Washington University in St. Louis
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
 if [ $# -ne 9 ]
 then
   echo "Usage: $0 <portnum> <iface> <vlanNum> <ifaceIP> <ifaceMask> <ifaceRate> <ifaceDefaultMin> <iptMark> <vmname>"
@@ -37,8 +53,8 @@ echo "tc qdisc add dev $vmvnet handle ffff: ingress"
 tc qdisc add dev $vmvnet handle ffff: ingress
 
 #add filter to restrict bandwidth leaving the vm and entering the host
-echo "tc filter add dev $vmvnet parent ffff: protocol ip u32 match u32 0 0 police rate ${ifaceRate}kbit burst 70M mtu 500k drop flowid :1"
-tc filter add dev $vmvnet parent ffff: protocol ip u32 match u32 0 0 police rate ${ifaceRate}kbit burst 70M mtu 500k drop flowid :1
+echo "tc filter add dev $vmvnet parent ffff: protocol ip u32 match u32 0 0 police rate ${ifaceRate}kbit burst 70M mtu 100k drop flowid :1"
+tc filter add dev $vmvnet parent ffff: protocol ip u32 match u32 0 0 police rate ${ifaceRate}kbit burst 70M mtu 100k drop flowid :1
   if [ $RTN -ne 0 ]
   then
     echo "Error:onl_cfgvlan failed $RTN"

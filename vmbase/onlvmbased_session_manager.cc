@@ -179,13 +179,13 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
     {
       uint32_t bw_kbits = (*vmi_it)->ninfo.getBandwidth() * 1000;//rates are given in Mbits/s need to convert to kbits/s
       //#define IFACE_DEFAULT_MIN 1000 //is 1000 arg given to script
-      cmd = "/KVM_Images/scripts/swrd_configure_port.sh " + int2str((*vmi_it)->ninfo.getPort()) + " data" + int2str((*vmi_it)->ninfo.getRealPort()) + " " + 
+      cmd = "/KVM_Images/scripts/vm_configure_port.sh " + int2str((*vmi_it)->ninfo.getPort()) + " data" + int2str((*vmi_it)->ninfo.getRealPort()) + " " + 
 	int2str((*vmi_it)->ninfo.getVLan()) + " " + (*vmi_it)->ninfo.getIPAddr() + " " + (*vmi_it)->ninfo.getSubnet() + " " + int2str(bw_kbits) + " 1000 "  + 
-	int2str((*vmi_it)->ninfo.getVLan());
+	int2str((*vmi_it)->ninfo.getVLan()) + " " + vmp->name ;
       write_log("session_manager::startVM: system(" + cmd + ")");
       if(system(cmd.c_str()) != 0)
       {
-        write_log("session_manager::startVM: swrd_configure_port.sh script failed");
+        write_log("session_manager::startVM: vm_configure_port.sh script failed");
       }
     }
 

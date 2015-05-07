@@ -1,13 +1,29 @@
 #!/bin/bash
+# Copyright (c) 2015  Jason Barnes, Jyoti Parwatikar, and John DeHart
+# and Washington University in St. Louis
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+#    limitations under the License.
+#
+
 if [ "$(id -u)" != "0" ]
 then
  echo "You must be root to run $0."
   exit 1
   fi
 
-  if [ $# -ne 8 ] 
+  if [ $# -ne 9 ] 
   then
-   echo "Usage: $0 <username> <template_path> <num cores> <memory> <number of data interfaces> <vlan list> <data ip list> <vm name>" 
+   echo "Usage: $0 <username> <template_path> <num cores> <memory> <number of data interfaces> <vlan list> <data ip list> <vm name> <password>" 
     exit 1
     fi
 
@@ -19,31 +35,23 @@ then
     network_confile=$6
     data_ip_list=$7
     vm_name=$8
+    password=$9
 
-    echo "Starting new VM for user $username, machine config $machine_confile, network config $network_confile, vm name $vm_name"
+    echo "Starting new VM for user $username, machine config $machine_confile, network config $network_confile, vm number $vm_name"
 
-cd "/KVM_Images/scripts"
-{
- flock -x -w 300 200 || exit 1
- ./setup_networking.sh $network_confile
- if [ $? -eq 1 ]
- then
-  echo "Error: setup_networking.sh failed"
-  exit 1
- fi
-} 200>/KVM_Images/var/setup_networking.lck
+cd /KVM_Images/scripts
 
+./setup_networking.sh $network_confile
+if [ $? -eq 1 ]
+then
+ echo "Error: setup_networking.sh failed"
+ exit 1
+fi
 mkdir -p /KVM_Images/var/users/$username/$vm_name
 
-{
- flock -x -w 300 202 || exit 1
-./create_blank_vm.sh $vm_name $template_dir $num_cores $memory $number_of_interfaces $network_confile $username $data_ip_list
-} 202>/KVM_Images/var/create_blank_vm.lck
+./create_blank_vm.sh $vm_name $template_dir $num_cores $memory $number_of_interfaces $network_confile $username $data_ip_list $password
 
-{
- flock -x -w 300 203 || exit 1
- virsh start $vm_name
-} 203>/KVM_Images/var/virst_start.lck
+virsh start $vm_name
 exit 0
 
 count=0
