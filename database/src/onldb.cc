@@ -2593,10 +2593,12 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 		    }
 		  if (rportit != n->port_capacities.end()) //node has enough interface bw
 		    {
-		      //here for vm check if there is already a vm from this reservation here if there is go on to the next keep track of node with the least number of vms from this reservation on it. 
 		      if (node->type == "vm")
 			{
 			  int tmp_num = 0;
+			  /*
+			  //here for vm check if there is already a vm from this reservation here if there is go on to 
+			  //the next keep track of node with the least number of vms from this reservation on it. 
 			  if (!n->user_nodes.empty())
 			    {
 			      tmp_num = num_in_subnet(subnet, n->user_nodes);
@@ -2616,7 +2618,7 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			    {
 			      rtn_num_vms = tmp_num;
 			      rtn = n;//keep this if this is the lowest utilized node we've seen but keep looking for one with no vms
-			    }
+			      }*/
 			  if (tmp_num == 0) return n;
 			}
 		      else
