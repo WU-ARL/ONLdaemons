@@ -16,6 +16,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cstdio>
 #include <cstdlib>
@@ -66,6 +67,8 @@ Router::Router(int rtr_type) throw(configuration_exception)
   struct ifreq ifr;
   char addr_str[INET_ADDRSTRLEN];
   struct sockaddr_in sa,*temp;
+
+  system_cmd("rm -f /tmp/swr_fstats*");
 
   int temp_sock;
   int temp_port=5555;
@@ -905,6 +908,46 @@ filter_ptr Router::get_filter(int port, int qid)
   return empty_ptr;
 }
 
+uint32_t Router::filter_stats(filter_ptr f, bool ispkts) throw(configuration_exception)
+{
+  filter_ptr rtn_f = get_filter(f);
+  //PROBLEM: do I need to lock for get_filter could an add or delete happen here
+  std::string shcmd = "/usr/local/bin/get_filter_stats.py -m " + int2str(rtn_f->mark);
+  std::string filenm = "/tmp/swr_fstats_";
+  if (ispkts) 
+    {
+      shcmd += " -p ";
+      filenm += "pkts." + int2str(rtn_f->mark);
+    }
+  else 
+    {
+      shcmd += " -b ";
+      filenm += "bytes." + int2str(rtn_f->mark);
+    }
+  shcmd += " > " + filenm;
+  if (system_cmd(shcmd) < 0)
+    {
+      write_log("Router::filter_stats failed:" + shcmd);
+      throw configuration_exception("get_filter_stats failed");
+    }
+  std::ifstream ifs(filenm.c_str());
+
+  int rtn = 0;
+  std::string line;
+  if (ifs.is_open())
+    {
+      getline(ifs, line);
+      rtn = atoi(line.c_str());
+      ifs.close();
+    }
+  else
+    {
+      write_log("Router::filter_stats failed: file " + filenm + " didn't open");
+      throw configuration_exception("get_filter_stats failed");
+    }
+  write_log("Router:filter_stats for mark:" + int2str(rtn_f->mark) + " " + int2str(rtn));
+  return (uint32_t)rtn;
+}
 
 void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_exception)
 {
@@ -1184,9 +1227,9 @@ void Router::delete_queue(uint16_t port, uint32_t qid) throw(configuration_excep
     {
       filter_ptr fptr = get_filter(port, qid);
       if (fptr)
-	{
-	  throw configuration_exception("filter attached to this queue. disable filter first.");
-	}
+  	{
+  	  throw configuration_exception("filter attached to this queue. disable filter first.");
+  	}
     }
 
   if (!portTable[port].configured) 
@@ -1246,9 +1289,9 @@ void Router::add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32
   else if (change) 
     shcmd += " delay 0ms";
 
-  if (loss > 0) shcmd += " loss random " + int2str(loss);
+  if (loss > 0) shcmd += " loss " + int2str(loss);
   else if (change) 
-    shcmd += " loss random 0";
+    shcmd += " loss 0";
   if (corrupt > 0) shcmd += " corrupt " + int2str(corrupt);
   else if (change) 
     shcmd += " corrupt 0";
@@ -1497,7 +1540,7 @@ Router::read_stats_pkts(int port, int qid, bool use_class) throw(monitor_excepti
       if (!use_class) pkts = read_stats(port, RTNL_TC_PACKETS, qid);
       else pkts = read_stats_class(port, RTNL_TC_PACKETS, qid);
     }
-  write_log("Router::read_stats_pkts for port(" + int2str(port) + ") packets(" + int2str(qid) + "): " + int2str(pkts));
+  //write_log("Router::read_stats_pkts for port(" + int2str(port) + ") packets(" + int2str(qid) + "): " + int2str(pkts));
   return pkts;
 }
 
@@ -1523,7 +1566,7 @@ Router::read_stats_bytes(int port, int qid, bool use_class) throw(monitor_except
       if (!use_class) bytes = read_stats(port, RTNL_TC_BYTES, qid);
       else bytes = read_stats_class(port, RTNL_TC_BYTES, qid);
     }
-  write_log("Router::read_stats_bytes for port(" + int2str(port) + ") bytes(" + int2str(qid) + "): " + int2str(bytes));
+  //write_log("Router::read_stats_bytes for port(" + int2str(port) + ") bytes(" + int2str(qid) + "): " + int2str(bytes));
   return bytes;
 }
 
@@ -1550,7 +1593,7 @@ Router::read_stats_qlength(int port, int qid, bool use_class) throw(monitor_exce
       if (!use_class) rtn = read_stats(port, RTNL_TC_QLEN, qid);
       else rtn = read_stats_class(port, RTNL_TC_QLEN, qid);
     }
-  write_log("Router::read_stats_qlength for port(" + int2str(port) + ") qlength(" + int2str(qid) + "): " + int2str(rtn));
+  //write_log("Router::read_stats_qlength for port(" + int2str(port) + ") qlength(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
@@ -1576,7 +1619,7 @@ Router::read_stats_drops(int port, int qid, bool use_class) throw(monitor_except
       if (!use_class) rtn = read_stats(port, RTNL_TC_DROPS, qid); 
       else rtn = read_stats_class(port, RTNL_TC_DROPS, qid);
     }
-  write_log("Router::read_stats_drops for port(" + int2str(port) + ") drops(" + int2str(qid) + "): " + int2str(rtn));
+  //write_log("Router::read_stats_drops for port(" + int2str(port) + ") drops(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
@@ -1586,7 +1629,7 @@ Router::read_stats_backlog(int port, int qid, bool use_class) throw(monitor_exce
   uint64_t rtn = 0;
   if (!use_class) rtn = read_stats(port, RTNL_TC_BACKLOG, qid);
   else rtn = read_stats_class(port, RTNL_TC_BACKLOG, qid);
-  write_log("Router::read_stats_backlog for port(" + int2str(port) + ") backlog(" + int2str(qid) + "): " + int2str(rtn));
+  //write_log("Router::read_stats_backlog for port(" + int2str(port) + ") backlog(" + int2str(qid) + "): " + int2str(rtn));
   return rtn;
 }
 
@@ -1767,7 +1810,7 @@ uint64_t
 Router::read_link_stats_rxpkts(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_RX_PACKETS);
-  write_log("Router::read_link_stats_rxpkts for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_rxpkts for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 
@@ -1776,7 +1819,7 @@ uint64_t
 Router::read_link_stats_txpkts(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_TX_PACKETS);
-  write_log("Router::read_link_stats_txpkts for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_txpkts for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 
@@ -1785,7 +1828,7 @@ uint64_t
 Router::read_link_stats_rxbytes(int port) throw(monitor_exception)
 {
   uint64_t bytes = read_link_stats(port, RTNL_LINK_RX_BYTES);
-  write_log("Router::read_link_stats_rxbytes for port(" + int2str(port) + ") bytes: " + int2str(bytes));
+  //write_log("Router::read_link_stats_rxbytes for port(" + int2str(port) + ") bytes: " + int2str(bytes));
   return bytes;
 }
 
@@ -1794,7 +1837,7 @@ uint64_t
 Router::read_link_stats_txbytes(int port) throw(monitor_exception)
 {
   uint64_t bytes = read_link_stats(port, RTNL_LINK_TX_BYTES);
-  write_log("Router::read_link_stats_txbytes for port(" + int2str(port) + ") bytes: " + int2str(bytes));
+  //write_log("Router::read_link_stats_txbytes for port(" + int2str(port) + ") bytes: " + int2str(bytes));
   return bytes;
 }
 
@@ -1802,7 +1845,7 @@ uint64_t
 Router::read_link_stats_rxerrors(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_RX_ERRORS);
-  write_log("Router::read_link_stats_rxerrors for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_rxerrors for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 
@@ -1810,7 +1853,7 @@ uint64_t
 Router::read_link_stats_txerrors(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_TX_ERRORS);
-  write_log("Router::read_link_stats_txerrors for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_txerrors for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 
@@ -1818,7 +1861,7 @@ uint64_t
 Router::read_link_stats_rxdrops(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_RX_DROPPED);
-  write_log("Router::read_link_stats_rxdrops for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_rxdrops for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 
@@ -1826,7 +1869,7 @@ uint64_t
 Router::read_link_stats_txdrops(int port) throw(monitor_exception)
 {
   uint64_t pkts = read_link_stats(port, RTNL_LINK_TX_DROPPED);
-  write_log("Router::read_link_stats_txdrops for port(" + int2str(port) + ") packets: " + int2str(pkts));
+  //write_log("Router::read_link_stats_txdrops for port(" + int2str(port) + ") packets: " + int2str(pkts));
   return pkts;
 }
 

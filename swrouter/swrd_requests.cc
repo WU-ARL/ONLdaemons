@@ -267,181 +267,6 @@ del_route_port_req::parse()
   nexthop_ip = params[3].getInt();
 }
  
-/*
-
-add_filter_req::add_filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-add_filter_req::~add_filter_req()
-{
-}
-
-bool
-add_filter_req::handle()
-{
-  rli_response* rliresp;
-  try
-  {
-    filter_ptr filter(new filter_info());
-    filter->dest_prefix = dest_prefix;
-    filter->dest_mask = dest_mask;
-    filter->src_prefix = src_prefix;
-    filter->src_mask = src_mask;
-    filter->protocol = protocol;
-    filter->dest_port = dest_port;
-    filter->src_port = src_port;
-    filter->tcp_fin = tcp_fin;
-    filter->tcp_syn = tcp_syn;
-    filter->tcp_rst = tcp_rst;
-    filter->tcp_psh = tcp_psh;
-    filter->tcp_ack = tcp_ack;
-    filter->tcp_urg = tcp_urg;
-    filter->unicast_drop = unicast_drop;
-    filter->output_port = output_port;
-    filter->sampling = sampling;
-
-    router->add_filter(filter);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("add_filter_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    rliresp->send();
-    delete rliresp;
-    return true;
-  }
-  
-  write_log("add_filter_req::handle(): primary filter pkey(daddr,saddr,ptag,port,proto,dport,sport,exceptions,tcp_flags)=(" + int2str(pkey.daddr) + "," + int2str(pkey.saddr) + "," + int2str(pkey.ptag) + "," + int2str(pkey.port) + "," + int2str(pkey.proto) + "," + int2str(pkey.dport) + "," + int2str(pkey.sport) + "," + int2str(pkey.exceptions) + "," + int2str(pkey.tcp_flags) + ")");
-  
-   
-  rliresp = new rli_response(this, NCCP_Status_Fine);
-  rliresp->send();
-  delete rliresp;
-  
-  return true;
-}
-
-void
-add_filter_req::parse()
-{
-  rli_request::parse();
-
-  dest_prefix = params[1].getString();
-  dest_mask = params[2].getInt();
-  src_prefix = params[3].getString();
-  src_mask = params[4].getInt();
-  protocol = params[5].getString();
-  dest_port = params[7].getInt();
-  src_port = params[8].getInt();
-  tcp_fin = params[9].getInt();
-  tcp_syn = params[10].getInt();
-  tcp_rst = params[11].getInt();
-  tcp_psh = params[12].getInt();
-  tcp_ack = params[13].getInt();
-  tcp_urg = params[14].getInt();
-  unicast_drop = params[15].getBool();
-  output_port = params[16].getString();
-  sampling = params[17].getInt();
-  //qid = params[18].getInt();
-  //priority = params[19].getInt(); 
-}
- 
-delete_filter_req::delete_filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
-{
-}
-
-delete_filter_req::~delete_filter_req()
-{
-}
-
-bool
-delete_filter_req::handle()
-{
-  rli_response* rliresp;
-
-  unsigned int protocol_val;
-  unsigned int tcp_flags;
-  unsigned int exceptions;
-  try
-  {
-    protocol_val = router->get_proto(protocol);
-    tcp_flags = router->get_tcpflags(tcp_fin, tcp_syn, tcp_rst, tcp_psh, tcp_ack, tcp_urg);
-    exceptions = router->get_exceptions(exception_nonip, exception_arp, exception_ipopt, exception_ttl);
-  }
-  catch(std::exception& e)
-  {
-    std::string msg = e.what();
-    write_log("delete_filter_req::handle(): got exception: " + msg);
-    rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    rliresp->send();
-    delete rliresp;
-    return true;
-  }
-
-  pfilter_key pkey;
-  
-  pkey.daddr = dest_prefix;
-  pkey.saddr = src_prefix;
-  pkey.ptag = plugin_tag;
-  pkey.port = port;
-  pkey.proto = protocol_val;
-  pkey.dport = dest_port;
-  pkey.sport = src_port;
-  pkey.exceptions = exceptions;
-  pkey.tcp_flags = tcp_flags;
-  pkey.res = 0;
-  
-  write_log("delete_filter_req::handle(): primary filter pkey(daddr,saddr,ptag,port,proto,dport,sport,exceptions,tcp_flags)=(" + int2str(pkey.daddr) + "," + int2str(pkey.saddr) + "," + int2str(pkey.ptag) + "," + int2str(pkey.port) + "," + int2str(pkey.proto) + "," + int2str(pkey.dport) + "," + int2str(pkey.sport) + "," + int2str(pkey.exceptions) + "," + int2str(pkey.tcp_flags) + ")");
-  
-  try
-    {
-      router->del_pfilter(&pkey);
-      
-      rliresp = new rli_response(this, NCCP_Status_Fine);
-    }
-  catch(std::exception& e)
-    {
-      std::string msg = e.what();
-      write_log("delete_filter_req::handle(): got exception: " + msg);
-      rliresp = new rli_response(this, NCCP_Status_Failed, msg);
-    }
-
-  rliresp->send();
-  delete rliresp;
-
-  return true;
-}
-
-void
-delete_filter_req::parse()
-{
-  rli_request::parse();
-
-  dest_prefix = params[1].getString();
-  dest_mask = params[2].getInt();
-  src_prefix = params[3].getString();
-  src_mask = params[4].getInt();
-  protocol = params[5].getString();
-  dest_port = params[7].getInt();
-  src_port = params[8].getInt();
-  tcp_fin = params[9].getInt();
-  tcp_syn = params[10].getInt();
-  tcp_rst = params[11].getInt();
-  tcp_psh = params[12].getInt();
-  tcp_ack = params[13].getInt();
-  tcp_urg = params[14].getInt();
-  unicast_drop = params[15].getBool();
-  output_port = params[16].getString();
-  sampling = params[17].getInt();
-}
- 
-*/
-
-
- 
-
 filter_req::filter_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 {
 }
@@ -489,10 +314,25 @@ filter_req::handle()
     filter->sampling = sampling;
     filter->qid = qid;
 
-    if (get_op() == SWR_AddFilter)
-      router->add_filter(filter);
-    else 
-      router->del_filter(filter);
+    bool ispkts = false;
+    uint32_t val = 0;
+    switch (get_op())
+      {
+      case SWR_AddFilter:
+	router->add_filter(filter);
+	break;
+      case SWR_GetFilterPkts:
+	ispkts = true;
+      case SWR_GetFilterBytes:
+	val = router->filter_stats(filter, ispkts);
+	rliresp = new rli_response(this, NCCP_Status_Fine, val);
+	rliresp->send();
+	delete rliresp;
+	return true;
+      default://delete filter
+	router->del_filter(filter);
+	break;
+      }
   }
   catch(std::exception& e)
   {
@@ -507,7 +347,7 @@ filter_req::handle()
   int drop = 0;
   if (unicast_drop) drop = 1;
   
-  write_log(req_name + "::handle(): filter(daddr,saddr,proto,dport,sport,tcp_flags,sampling,oport,drop,qid)=(" + dest_prefix + "/" + int2str(dest_mask) + "," + src_prefix + "/" + int2str(src_mask) + "," + protocol + "," + int2str(dest_port) + "," + int2str(src_port) + "," + int2str(tcp_fin) + int2str(tcp_syn) + int2str(tcp_rst) + int2str(tcp_psh) + int2str(tcp_ack) + int2str(tcp_urg) + "," + int2str(sampling) + "," + output_port + "," + int2str(drop) + "," + int2str(qid) + ")");
+  write_log(req_name + "::handle(): filter(daddr,saddr,proto,dport,sport,tcp_flags,sampling,oport,drop,qid)=(" + dest_prefix + "/" + int2str(dest_mask) + "," + src_prefix + "/" + int2str(src_mask) + "," + protocol + "," + int2str(dest_port) + "," + int2str(src_port) + "," + int2str(tcp_fin) + " " + int2str(tcp_syn) + " " + int2str(tcp_rst) + " " + int2str(tcp_psh) + " " + int2str(tcp_ack) + " " + int2str(tcp_urg) + "," + int2str(sampling) + "," + output_port + "," + int2str(drop) + "," + int2str(qid) + ")");
   
    
   rliresp = new rli_response(this, NCCP_Status_Fine);

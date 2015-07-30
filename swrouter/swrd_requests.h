@@ -120,6 +120,8 @@ namespace swr
 
   static const NCCP_OperationType SWR_AddFilter = 77;
   static const NCCP_OperationType SWR_DeleteFilter = 78;
+  static const NCCP_OperationType SWR_GetFilterBytes = 121;
+  static const NCCP_OperationType SWR_GetFilterPkts = 122;
   class filter_req : public rli_request
   {
     public:

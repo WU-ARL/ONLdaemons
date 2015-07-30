@@ -182,6 +182,8 @@ int main(int argc, char** argv)
   // manage filters
   register_req<filter_req>(SWR_AddFilter);
   register_req<filter_req>(SWR_DeleteFilter);
+  register_req<filter_req>(SWR_GetFilterBytes);
+  register_req<filter_req>(SWR_GetFilterPkts);
 
   
   // configure queues 

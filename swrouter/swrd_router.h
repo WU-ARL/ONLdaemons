@@ -130,6 +130,7 @@ namespace swr
 
       void add_filter(filter_ptr f) throw(configuration_exception);
       void del_filter(filter_ptr f) throw(configuration_exception);
+      uint32_t filter_stats(filter_ptr f, bool ispkts) throw(configuration_exception);
 
       //adds or changes queue parameters
       void add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, 
