@@ -22,11 +22,39 @@
 namespace onld
 {
   static const NCCP_OperationType NCCP_Operation_AddVlan = 62;
-  class add_vlan : public request
+  class switch_request : public request
+  {
+  public:
+    switch_request(uint8_t *mbuf, uint32_t size);
+    switch_request(std::string sid);
+    switch_request();
+    ~switch_request();
+    std::string getSessionID() { return sessionID.getString(); }
+
+    virtual void parse();
+    virtual void write();
+
+  protected:
+    nccp_string sessionID;
+  };
+
+  static const NCCP_OperationType NCCP_Operation_StartSession = 55;//same as NCCP_Operation_StartExperiment
+  class start_session : public switch_request
+  {
+    public:
+      start_session(uint8_t *mbuf, uint32_t size);
+      start_session(std::string sid);
+      virtual ~start_session();
+
+      virtual void parse();
+      virtual void write();  
+  };
+
+  class add_vlan : public switch_request
   {
     public:
       add_vlan(uint8_t *mbuf, uint32_t size);
-      add_vlan();
+      add_vlan(std::string sid);
       virtual ~add_vlan();
 
       virtual void parse();
@@ -36,11 +64,11 @@ namespace onld
   }; // class add_vlan
 
   static const NCCP_OperationType NCCP_Operation_DeleteVlan = 63;
-  class delete_vlan : public request
+  class delete_vlan : public switch_request
   {
     public:
       delete_vlan(uint8_t *mbuf, uint32_t size);
-      delete_vlan(switch_vlan vlan);
+      delete_vlan(switch_vlan vlan, std::string sid);
       virtual ~delete_vlan();
 
       virtual void parse();
@@ -51,11 +79,11 @@ namespace onld
   }; // class delete_vlan
 
   static const NCCP_OperationType NCCP_Operation_AddToVlan = 64;
-  class add_to_vlan : public request
+  class add_to_vlan : public switch_request
   {
     public:
       add_to_vlan(uint8_t *mbuf, uint32_t size);
-      add_to_vlan(switch_vlan vlan, switch_port& p);
+      add_to_vlan(switch_vlan vlan, switch_port& p, std::string sid);
       virtual ~add_to_vlan();
 
       virtual void parse();
@@ -67,11 +95,11 @@ namespace onld
   }; // class add_to_vlan
 
   static const NCCP_OperationType NCCP_Operation_DeleteFromVlan = 65;
-  class delete_from_vlan : public request
+  class delete_from_vlan : public switch_request
   {
     public:
       delete_from_vlan(uint8_t *mbuf, uint32_t size);
-      delete_from_vlan(switch_vlan vlan, switch_port& p);
+      delete_from_vlan(switch_vlan vlan, switch_port& p, std::string sid);
       virtual ~delete_from_vlan();
 
       virtual void parse();

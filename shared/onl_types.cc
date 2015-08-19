@@ -97,6 +97,12 @@ nccp_string::operator=(const char* c)
   return *this;
 }
 
+nccp_string &
+nccp_string::operator=(const std::string& s)
+{
+  return (operator=(s.c_str()));
+}
+
 bool
 nccp_string::operator==(const nccp_string& s)
 {

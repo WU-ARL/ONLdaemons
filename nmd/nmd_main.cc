@@ -18,6 +18,7 @@
 
 // Network Management Daemon (NMD)
 // Mart Haitjema - April, 2010
+#include <boost/shared_ptr.hpp>
 #include "nmd_includes.h"
 
 namespace nmd
@@ -55,6 +56,7 @@ int main()
   register_req<add_to_vlan_req>(NCCP_Operation_AddToVlan);
   register_req<delete_from_vlan_req>(NCCP_Operation_DeleteFromVlan);
   register_req<initialize_req>(NCCP_Operation_Initialize);
+  register_req<start_session_req>(NCCP_Operation_StartSession);
 
   rli_conn->receive_messages(false);
 

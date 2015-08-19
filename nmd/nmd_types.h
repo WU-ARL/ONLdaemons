@@ -32,21 +32,57 @@ class vlan {
 
     void set_vlan_id(switch_vlan vlan_id);
     switch_vlan vlan_id() {return vlanId;}
-    void set_in_use(bool in_use) {inUse = in_use;}
+    bool set_in_use(bool in_use, std::string sid); //{inUse = in_use;}
     bool is_in_use() {return inUse;}
     bool add_port(switch_port p);
     bool delete_port(switch_port p);
     bool clear_vlan();
     void print_ports();
     void initialize();
+    //void set_session_id(std::string sid) { sessionID = sid;}
+    std::string get_session_id() { return sessionID;}
+
+    bool get_add_ports_cmd(string switch_id, ostringstream& cmd);
+    //generates clear vlan cmd for the given switch and returns number of ports
+    //removed from the vlan
+    int get_clear_vlan_cmd(string switch_id, ostringstream& cmd);
 
   private:
     port_list get_switch_ports(string switch_id);
+    pthread_mutex_t& get_switch_lock(string switch_id);
     bool inUse;
     switch_vlan vlanId;
     port_list ports;
     pthread_mutex_t lock;
+    std::string sessionID;
+    std::map<std::string, pthread_mutex_t> switch_locks;
 };
+
+class session {
+ public:
+  session(std::string str);
+  ~session();
+
+  //bool add_request(nmd::add_to_vlan_req* req);//adds request to switch list
+  bool add_switch(std::string swid);
+  bool create_vlans();//sends vlan requests for all vlans
+  void add_vlan(switch_vlan vlan_id);//adds id to active list
+  bool remove_vlan(switch_vlan vlan_id); //removes vlan from active to removal when the active list is empty it clears the session.
+  bool is_cleared() { return cleared;} //called to check if it should be removed
+  std::string get_session_id() { return sessionID;}
+  bool clear_session(); //called when last vlan is cleared sends vlan clears at once 
+
+ private:
+  std::string sessionID;
+  //std::map< std::string, int > switch_commands;
+  std::list<std::string> switches;
+  pthread_mutex_t lock; 
+  std::list<switch_vlan> active_vlans;
+  std::list<switch_vlan> removed_vlans;
+  bool cleared;
+};
+
+typedef boost::shared_ptr<session> session_ptr;
 
 class vlan_set {
   public:
@@ -58,14 +94,21 @@ class vlan_set {
     vlan * get_vlan_by_index(uint32_t index);
     uint32_t get_num_vlans() {return num_vlans;} 
 
-    bool add_vlan(switch_vlan &vlan_id);
-    bool delete_vlan(switch_vlan vlan_id);
-    bool add_to_vlan(switch_vlan vlan_id, switch_port port);
-    bool delete_from_vlan(switch_vlan vlan_id, switch_port port);
+    bool add_vlan(switch_vlan &vlan_id, std::string sid);
+    bool delete_vlan(switch_vlan vlan_id, std::string sid);
+    bool add_to_vlan(switch_vlan vlan_id, switch_port port, std::string sid);
+    //bool add_to_vlan(nmd::add_to_vlan_req* req, std::string sid);
+    bool delete_from_vlan(switch_vlan vlan_id, switch_port port, std::string sid);
     void initialize_vlans();
+    bool create_session_vlans(std::string sid);
 
   private:
-    switch_vlan alloc_vlan();
+    switch_vlan alloc_vlan(std::string sid);
+
+    std::list<session_ptr> sessions;
+
+    session_ptr get_session(std::string sid);
+    void remove_session(session_ptr sptr);
 
     uint32_t num_vlans;
     vlan *vlans;
@@ -73,8 +116,8 @@ class vlan_set {
 };
 
 
-// the set of switches
-class switch_info_set {
+ // the set of switches
+ class switch_info_set {
   public:
     switch_info_set();
     ~switch_info_set();
@@ -90,7 +133,8 @@ class switch_info_set {
 
   private:
     list<switch_info> switches;
-};
+ };
+
 
 #endif
 

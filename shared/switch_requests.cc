@@ -48,12 +48,71 @@
 using namespace onld;
 using std::list;
 
-add_vlan::add_vlan(uint8_t *mbuf, uint32_t size): request(mbuf, size)
+switch_request::switch_request(uint8_t *mbuf, uint32_t size): request(mbuf, size)
+{
+}
+
+switch_request::switch_request(std::string str): request()
+{
+  sessionID = str;
+}
+
+switch_request::switch_request(): request()
+{
+}
+
+switch_request::~switch_request()
+{
+}
+
+void
+switch_request::parse()
+{
+  request::parse();
+  buf >> sessionID;
+}
+
+void
+switch_request::write()
+{
+  request::write();
+  buf << sessionID;
+}
+
+start_session::start_session(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
 {
   timeout = 360;
 }
 
-add_vlan::add_vlan(): request()
+start_session::start_session(std::string sid): switch_request(sid)
+{
+  op = NCCP_Operation_StartSession;
+  periodic_message = false;
+  timeout = 360;
+}
+
+start_session::~start_session()
+{
+}
+
+void
+start_session::parse()
+{
+  switch_request::parse();
+}
+
+void
+start_session::write()
+{
+  switch_request::write();
+}
+
+add_vlan::add_vlan(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
+{
+  timeout = 360;
+}
+
+add_vlan::add_vlan(std::string sid): switch_request(sid)
 {
   op = NCCP_Operation_AddVlan;
   periodic_message = false;
@@ -67,20 +126,20 @@ add_vlan::~add_vlan()
 void
 add_vlan::parse()
 {
-  request::parse();
+  switch_request::parse();
 }
 
 void
 add_vlan::write()
 {
-  request::write();
+  switch_request::write();
 }
 
-delete_vlan::delete_vlan(uint8_t *mbuf, uint32_t size): request(mbuf, size) 
+delete_vlan::delete_vlan(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size) 
 {
 }
 
-delete_vlan::delete_vlan(switch_vlan vlan): request()
+delete_vlan::delete_vlan(switch_vlan vlan, std::string sid): switch_request(sid)
 {
   op = NCCP_Operation_DeleteVlan;
   periodic_message = false;
@@ -94,24 +153,22 @@ delete_vlan::~delete_vlan()
 void
 delete_vlan::parse()
 {
-  request::parse();
-
+  switch_request::parse();
   buf >> vlanid;
 }
 
 void
 delete_vlan::write()
 {
-  request::write();
-
+  switch_request::write();
   buf << vlanid;
 }
 
-add_to_vlan::add_to_vlan(uint8_t *mbuf, uint32_t size): request(mbuf, size)
+add_to_vlan::add_to_vlan(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
 {
 }
 
-add_to_vlan::add_to_vlan(switch_vlan vlan, switch_port& p): request()
+add_to_vlan::add_to_vlan(switch_vlan vlan, switch_port& p, std::string sid): switch_request(sid)
 {
   op = NCCP_Operation_AddToVlan;
   periodic_message = false;
@@ -127,7 +184,7 @@ add_to_vlan::~add_to_vlan()
 void
 add_to_vlan::parse()
 {
-  request::parse();
+  switch_request::parse();
 
   buf >> vlanid;
   buf >> port;
@@ -136,17 +193,17 @@ add_to_vlan::parse()
 void
 add_to_vlan::write()
 {
-  request::write();
+  switch_request::write();
 
   buf << vlanid;
   buf << port;
 }
 
-delete_from_vlan::delete_from_vlan(uint8_t *mbuf, uint32_t size): request(mbuf, size)
+delete_from_vlan::delete_from_vlan(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
 {
 }
 
-delete_from_vlan::delete_from_vlan(switch_vlan vlan, switch_port& p): request()
+delete_from_vlan::delete_from_vlan(switch_vlan vlan, switch_port& p, std::string sid): switch_request(sid)
 {
   op = NCCP_Operation_DeleteFromVlan;
   periodic_message = false;
@@ -162,7 +219,7 @@ delete_from_vlan::~delete_from_vlan()
 void
 delete_from_vlan::parse()
 {
-  request::parse();
+  switch_request::parse();
 
   buf >> vlanid;
   buf >> port;
@@ -171,7 +228,7 @@ delete_from_vlan::parse()
 void
 delete_from_vlan::write()
 {
-  request::write();
+  switch_request::write();
 
   buf << vlanid;
   buf << port;

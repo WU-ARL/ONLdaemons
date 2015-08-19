@@ -50,6 +50,8 @@ namespace nmd
       ~add_to_vlan_req();
 
       bool handle();
+      switch_port get_port() { return port;}
+      void send_response(bool fine);
   };
 
   class delete_from_vlan_req : public delete_from_vlan
@@ -58,6 +60,16 @@ namespace nmd
       delete_from_vlan_req(uint8_t *mbuf, uint32_t size);
       delete_from_vlan_req(switch_vlan vlan, switch_port& p);
       ~delete_from_vlan_req();
+
+      bool handle();
+  };
+
+  class start_session_req : public start_session
+  {
+    public:
+      start_session_req(uint8_t *mbuf, uint32_t size);
+      start_session_req();
+      ~start_session_req();
 
       bool handle();
   };

@@ -16,13 +16,14 @@
 //
 //
 
+#include <boost/shared_ptr.hpp>
 #include "nmd_includes.h"
 
 add_vlan_req::add_vlan_req(uint8_t *mbuf, uint32_t size) : add_vlan(mbuf, size)
 {
 }
 
-add_vlan_req::add_vlan_req() : add_vlan()
+add_vlan_req::add_vlan_req() : add_vlan("")
 {
 }
 
@@ -37,9 +38,9 @@ bool add_vlan_req::handle()
 
   switch_vlan vlan;
 
-  if (!vlans->add_vlan(vlan)) status = NCCP_Status_Failed;
+  if (!vlans->add_vlan(vlan, getSessionID())) status = NCCP_Status_Failed;
   
-  msg << "add_vlan_req::handle() allocated vlan " << vlan;
+  msg << "add_vlan_req::handle() allocated vlan " << vlan << " for session " << getSessionID();
   write_log(msg.str());
 
   add_vlan_response* resp = new add_vlan_response(this, status, vlan); 
@@ -53,7 +54,7 @@ delete_vlan_req::delete_vlan_req(uint8_t *mbuf, uint32_t size) : delete_vlan(mbu
 {
 }
 
-delete_vlan_req::delete_vlan_req(switch_vlan vlan_id) : delete_vlan(vlan_id)
+delete_vlan_req::delete_vlan_req(switch_vlan vlan_id) : delete_vlan(vlan_id, "")
 {
 }
 
@@ -66,10 +67,10 @@ bool delete_vlan_req::handle()
   ostringstream msg;
   NCCP_StatusType status = NCCP_Status_Fine;
 
-  msg << "delete_vlan_req::handle() deleting vlan " << vlanid;
+  msg << "delete_vlan_req::handle() deleting vlan " << vlanid << " for session: " << getSessionID();
   write_log(msg.str());
 
-  if (!vlans->delete_vlan(vlanid)) status = NCCP_Status_Failed;
+  if (!vlans->delete_vlan(vlanid, getSessionID())) status = NCCP_Status_Failed;
 
   // SNMP message to delete VLAN
 
@@ -84,7 +85,7 @@ add_to_vlan_req::add_to_vlan_req(uint8_t *mbuf, uint32_t size) : add_to_vlan(mbu
 {
 }
 
-add_to_vlan_req::add_to_vlan_req(switch_vlan vlan_id, switch_port &p) : add_to_vlan(vlan_id, p)
+add_to_vlan_req::add_to_vlan_req(switch_vlan vlan_id, switch_port &p) : add_to_vlan(vlan_id, p, "")
 {
 }
 
@@ -98,24 +99,50 @@ bool add_to_vlan_req::handle()
   NCCP_StatusType status = NCCP_Status_Fine;
 
   msg << "add_to_vlan_req::handle() adding " << port
-      << " to vlan " << vlanid;
+      << " to vlan " << vlanid << " for session: " << getSessionID() ;
   write_log(msg.str());
 
-  if (!vlans->add_to_vlan(vlanid, port)) status = NCCP_Status_Failed;
-  // SNMP message to add port to VLAN
-
+  if (!vlans->add_to_vlan(vlanid, port, getSessionID())) 
+  //if (!vlans->add_to_vlan(this, getSessionID())) 
+    {
+      status = NCCP_Status_Failed;
+      // SNMP message to add port to VLAN
+    }
+     
   switch_response* resp = new switch_response(this, status); 
   resp->send(); 
   delete resp;
-
+  
   return true;
+  //return false; //don't delete request since it will be handled later by the session
+}
+
+
+void add_to_vlan_req::send_response(bool fine)
+{
+  ostringstream msg;
+  NCCP_StatusType status = NCCP_Status_Fine;
+  msg << "add_to_vlan_req::send_response(";
+  if (!fine) 
+    {
+      msg << "failed";
+      status = NCCP_Status_Failed;
+    }
+  else msg << "succeeded";
+  msg << ") adding " << port
+      << " to vlan " << vlanid << " for session: " << getSessionID() ;
+  write_log(msg.str());
+  
+  switch_response* resp = new switch_response(this, status); 
+  resp->send(); 
+  delete resp;
 }
 
 delete_from_vlan_req::delete_from_vlan_req(uint8_t *mbuf, uint32_t size) : delete_from_vlan(mbuf, size)
 {
 }
 
-delete_from_vlan_req::delete_from_vlan_req(switch_vlan vlan, switch_port &p) : delete_from_vlan(vlan, p)
+delete_from_vlan_req::delete_from_vlan_req(switch_vlan vlan, switch_port &p) : delete_from_vlan(vlan, p, "")
 {
 }
 
@@ -129,14 +156,47 @@ bool delete_from_vlan_req::handle()
   NCCP_StatusType status = NCCP_Status_Fine;
 
   msg << "delete_from_vlan_req::handle() removing " << port
-      << " from vlan " << vlanid;
+      << " from vlan " << vlanid << " for session: " << getSessionID();
   write_log(msg.str());
   // SNMP message to remove port from VLAN
 
-  if (!vlans->delete_from_vlan(vlanid, port)) status = NCCP_Status_Failed;
-
+  // if (!vlans->delete_from_vlan(vlanid, port, getSessionID())) status = NCCP_Status_Failed;
+  //just wait for vlan removal to clear whole vlan
   switch_response* resp = new switch_response(this, status); 
   resp->send(); 
+  delete resp;
+
+  return true;
+}
+
+start_session_req::start_session_req(uint8_t *mbuf, uint32_t size) : start_session(mbuf, size)
+{
+}
+
+start_session_req::start_session_req() : start_session("")
+{
+}
+
+start_session_req::~start_session_req()
+{
+}
+
+bool start_session_req::handle()
+{
+  ostringstream msg;
+  NCCP_StatusType status = NCCP_Status_Fine;
+
+  if (!vlans->create_session_vlans(getSessionID())) 
+    {
+      status = NCCP_Status_Failed;
+      msg << "start_session_req::handle() failed creating vlans for session " << getSessionID();
+    }
+  else
+    msg << "start_session_req::handle() created vlans for session " << getSessionID();
+  write_log(msg.str());
+
+  switch_response* resp = new switch_response(this, status); 
+  resp->send();
   delete resp;
 
   return true;

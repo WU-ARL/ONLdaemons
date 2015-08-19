@@ -16,6 +16,7 @@
 //
 //
 
+#include <boost/shared_ptr.hpp>
 #include "nmd_includes.h"
 
 using std::cout;
@@ -35,7 +36,7 @@ switch_vlan send_add_vlan()
 {
     add_vlan_response *vresp;
     switch_vlan retVlan;
-    add_vlan *add_vlan_cmd = new add_vlan();
+    add_vlan *add_vlan_cmd = new add_vlan("client");
     add_vlan_cmd->set_connection(the_nmd_conn);
    
     if (!add_vlan_cmd->send_and_wait())
@@ -56,7 +57,7 @@ switch_vlan send_add_vlan()
 
 void send_delete_vlan(switch_vlan vlan)
 {
-    delete_vlan *delete_vlan_cmd = new delete_vlan(vlan);
+  delete_vlan *delete_vlan_cmd = new delete_vlan(vlan, "client");
     delete_vlan_cmd->set_connection(the_nmd_conn);
     switch_response *resp;
 
@@ -73,7 +74,7 @@ void send_delete_vlan(switch_vlan vlan)
 
 void send_add_to_vlan(switch_vlan vlan, switch_port port)
 {
-    add_to_vlan *add_to_vlan_cmd = new add_to_vlan(vlan, port);
+  add_to_vlan *add_to_vlan_cmd = new add_to_vlan(vlan, port, "client");
     add_to_vlan_cmd->set_connection(the_nmd_conn);
     switch_response *resp;
 
@@ -90,7 +91,7 @@ void send_add_to_vlan(switch_vlan vlan, switch_port port)
 
 void send_delete_from_vlan(switch_vlan vlan, switch_port port)
 {
-    delete_from_vlan *delete_from_vlan_cmd = new delete_from_vlan(vlan, port);
+  delete_from_vlan *delete_from_vlan_cmd = new delete_from_vlan(vlan, port, "client");
     delete_from_vlan_cmd->set_connection(the_nmd_conn);
     switch_response *resp;
 

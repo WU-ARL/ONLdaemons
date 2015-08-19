@@ -45,8 +45,8 @@ using std::ostringstream;
 using std::list;
 
 
-#include "nmd_types.h"
 #include "nmd_requests.h"
+#include "nmd_types.h"
 #include "nmd_switch.h"
 #include "nmd_globals.h"
 

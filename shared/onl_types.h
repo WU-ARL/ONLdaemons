@@ -32,6 +32,7 @@ namespace onld
 
       nccp_string& operator=(const nccp_string& s);
       nccp_string& operator=(const char* c);
+      nccp_string& operator=(const std::string& s);
       bool operator==(const nccp_string& s);
       bool operator<(const nccp_string& s) const;
       bool operator>(const nccp_string& s) const;
