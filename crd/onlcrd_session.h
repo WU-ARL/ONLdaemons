@@ -74,6 +74,7 @@ namespace onlcrd
       bool observable_by(std::string username); 
       bool observe(observe_session_req* req);
       void grant_observe(grant_observe_req* req);
+      void link_vlanports_added(uint32_t lid);//called by link request when vlan ports have been added
 
     private: 
       std::string id;
@@ -95,6 +96,9 @@ namespace onlcrd
       onl::topology topology;
       std::list< boost::shared_ptr<crd_component> > components;
       std::list< boost::shared_ptr<crd_link> > links;
+      std::list<uint32_t> links_unreported; //for setting vlans
+      bool vlans_created;//marks when nmd create session req is sent so no duplicate
+      std::list<uint32_t> unreported_links;//links that haven't sent vlan requests
 
       pthread_mutex_t share_lock;
       std::list<std::string> allowed_observers;

@@ -62,6 +62,8 @@ session::session(uint32_t sid, std::string username, nccp_connection* nc)
   nccpconn = nc;
 
   cleared = false;
+  
+  vlans_created = false;
 
   pthread_mutex_init(&req_lock, NULL);
   begin_req = NULL;
@@ -387,6 +389,7 @@ session::commit(session_ptr sess)
     fromcomp->add_link(link);
     tocomp->add_link(link);
     links.push_back(link);
+    unreported_links.push_back(req->getComponent().getID());
   }
 
   // this only removes any sessions that are still running past their end time 
@@ -402,7 +405,7 @@ session::commit(session_ptr sess)
     if((*i)->marked()) { continue; }
     if((*i)->get_type() != "vgige") { continue; }
 
-    vlan_ptr new_vlan = the_session_manager->add_vlan();
+    vlan_ptr new_vlan = the_session_manager->add_vlan(sess->getID());
     write_log("session::commit(): component " + (*i)->getName() + " adding vlan " + int2str(new_vlan->vlanid));
     if(new_vlan->vlanid == 0)
     {
@@ -444,6 +447,32 @@ session::commit(session_ptr sess)
   write_usage_log(usage);
   write_mapping();
   return true;
+}
+
+void
+session::link_vlanports_added(uint32_t lid)
+{
+//lock links? may have to be careful vlan_status may change as checking
+  autoLock slock(share_lock);
+  if (std::find(unreported_links.begin(), unreported_links.end(), lid) != unreported_links.end())
+    unreported_links.remove(lid);
+//if all links have reported
+//send start session to nmd
+//have all links return response;
+  if (unreported_links.empty() && !vlans_created)
+    {
+      vlans_created = true;
+      slock.unlock();
+      NCCP_StatusType status = NCCP_Status_Fine;
+      if (!the_session_manager->start_session_vlans(id))
+	status = NCCP_Status_Failed;
+      //have links send response
+      std::list<crd_link_ptr>::iterator li;
+      for(li=links.begin(); li!=links.end(); ++li)
+	{
+	  (*li)->complete_initialization(status);
+	}
+    }
 }
 
 void

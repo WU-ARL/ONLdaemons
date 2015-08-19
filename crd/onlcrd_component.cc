@@ -1177,7 +1177,7 @@ crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e
   alloc_vlan = true;
 
   mark = false;
-
+  vlan_status = NCCP_Status_OperationIncomplete;
   write_log("crd_link::crd_link: adding link");
 }
 
@@ -1385,9 +1385,10 @@ crd_link::do_initialize()
   {
     if(alloc_vlan && link_vlan->vlanid == 0)
     {
-      link_vlan = the_session_manager->add_vlan();
+      if (sess)
+	link_vlan = the_session_manager->add_vlan(sess->getID());
       write_log("crd_link::do_initialize(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan->vlanid));
-      if(link_vlan->vlanid == 0)
+      if(sess == NULL || link_vlan->vlanid == 0)
       {
         status = NCCP_Status_Failed;
       }
@@ -1402,7 +1403,7 @@ crd_link::do_initialize()
       std::list<switch_port>::iterator port;
       for(port = switch_ports.begin(); port != switch_ports.end(); ++port)
       {
-        if(!the_session_manager->add_port_to_vlan(link_vlan, *port))
+        if(!the_session_manager->add_port_to_vlan(link_vlan, *port, sess->getID()))
         {
           status = NCCP_Status_Failed;
           break;
@@ -1418,13 +1419,30 @@ crd_link::do_initialize()
     }
   }
 
+  vlan_status = status;
+  if(needs_refresh) //if session is closed complete the initialization
+    complete_initialization(vlan_status);
+  else //else inform session and wait until all vlans are created by nmd
+    sess->link_vlanports_added(comp.getID());
+}
+
+
+//called after nmd initializes all vlans for session at once.
+void
+crd_link::complete_initialization(NCCP_StatusType sess_st)
+{
+  NCCP_StatusType status = NCCP_Status_Fine;
+  if (sess_st != NCCP_Status_Fine || vlan_status != NCCP_Status_Fine)
+    status = NCCP_Status_Failed;
   rlicrd_response* resp = new rlicrd_response(linkreq, status);
   resp->send();
   delete resp;
   delete linkreq;
   linkreq = NULL;
 
-  autoLockDebug slock(state_lock, "crd_link::do_initialize(): state_lock");
+  vlan_status = status;
+
+  autoLockDebug slock(state_lock, "crd_link::complete_initialization(): state_lock");
   if(status == NCCP_Status_Fine)
   {
     state = "active";
@@ -1449,9 +1467,10 @@ crd_link::allocate_vlan()
   if(!testing && alloc_vlan && link_vlan->vlanid == 0)
     {
       vlan_ptr tmp_ptr = link_vlan;
-      link_vlan = the_session_manager->add_vlan();
+      if (sess)
+	link_vlan = the_session_manager->add_vlan(sess->getID());
       write_log("crd_link::allocate_vlan(): link " + int2str(comp.getID()) + " adding vlan " + int2str(link_vlan->vlanid));
-      if(!link_vlan)
+      if(!link_vlan || !sess)
 	{
 	  link_vlan = tmp_ptr;
 	  //	  status = NCCP_Status_Failed;
@@ -1528,7 +1547,7 @@ crd_link::do_refresh()
 
   if(!testing)
   {
-    if(link_vlan->vlanid != 0)
+    /*  if(link_vlan->vlanid != 0)
     {
       std::list<switch_port>::iterator port;
       for(port = switch_ports.begin(); port != switch_ports.end(); ++port)
@@ -1538,14 +1557,16 @@ crd_link::do_refresh()
 	      write_log("crd_link::do_refresh(): warning: delete from vlan failed for " + int2str(link_vlan->vlanid));
 	    }
 	}
-    }
+	}*/
 
     if(alloc_vlan && link_vlan->vlanid != 0)
     {
       write_log("crd_link::do_refresh(): component " + comp.getLabel() + " delete vlan " + int2str(link_vlan->vlanid));
-      if(!the_session_manager->delete_vlan(link_vlan))
+      std::string sid;
+      if (sess) sid = sess->getID();
+      if(!the_session_manager->delete_vlan(link_vlan, sid))
       {
-        write_log("crd_link::do_refresh(): warning: delete vlan failed for " + int2str(link_vlan->vlanid));
+        write_log("crd_link::do_refresh(): warning: delete vlan failed for " + int2str(link_vlan->vlanid) + " for experiment " + sid);
       }
     }
   }

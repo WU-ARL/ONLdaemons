@@ -53,10 +53,10 @@ namespace onlcrd
       bool check_keeboot_param(std::string name);
       std::string get_keeboot_param(std::string name);
 
-      vlan_ptr add_vlan();
-      bool add_port_to_vlan(vlan_ptr vlan, switch_port port);
-      bool remove_port_from_vlan(vlan_ptr vlan, switch_port port);
-      bool delete_vlan(vlan_ptr vlan);
+      vlan_ptr add_vlan(std::string sid);
+      bool add_port_to_vlan(vlan_ptr vlan, switch_port port, std::string sid);
+      bool remove_port_from_vlan(vlan_ptr vlan, switch_port port, std::string sid);
+      bool delete_vlan(vlan_ptr vlan, std::string sid);
       bool add_port_to_outstanding_list(switch_port port);
       void remove_port_from_outstanding_list(switch_port port);
 
@@ -79,6 +79,8 @@ namespace onlcrd
       void get_observable_sessions(std::string username, std::list<session_ptr>& list);
 
       bool is_initializing() { return initializing;}
+
+      bool start_session_vlans(std::string sid);
 
     private: 
       pthread_mutex_t vlan_lock;

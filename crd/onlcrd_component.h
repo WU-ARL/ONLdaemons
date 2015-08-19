@@ -220,6 +220,8 @@ namespace onlcrd
       void set_marked(bool m) { mark = m; }
       bool is_loopback(); //ADDED 9/2/2010 jp
 
+      void complete_initialization(NCCP_StatusType sess_st);//called after nmd initializes session vlans
+
     protected:
       crd_component_ptr endpoint1;
       unsigned short endpoint1_port;
@@ -242,11 +244,13 @@ namespace onlcrd
       session_add_link_req* linkreq;
       pthread_mutex_t done_lock;
       int num_comps_done;
-
+      
       vlan_ptr link_vlan;
       bool alloc_vlan;
 
-      bool mark; 
+      bool mark;
+
+      NCCP_StatusType vlan_status;
 
       void cleanup_reqs();
       bool failed;
