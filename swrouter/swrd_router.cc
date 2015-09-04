@@ -1876,6 +1876,7 @@ Router::read_link_stats_txdrops(int port) throw(monitor_exception)
 int
 Router::get_next_mark()
 {
+  autoLock cfglock(conf_lock);
   return next_mark++;
 }
 
