@@ -1546,7 +1546,7 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
     }
 
     mysqlpp::Query query2 = onl->query();
-    query2 << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster from nodes left join hwclustercomps using (node) where node not in (select node from nodeschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " )) order by nodes.node";//rand()";
+    query2 << "select nodes.node,nodes.priority,nodes.tid,hwclustercomps.cluster from nodes left join hwclustercomps using (node) where (nodes.state!='testing' and nodes.state!='repair' and node not in (select node from nodeschedule where rid in (select rid from reservations where state!='cancelled' and state!='timedout' and state!='testing' and state!='repair' and begin<" << mysqlpp::quote << end << " and end>" << mysqlpp::quote << begin << " ))) order by nodes.node";//rand()";
     vector<basenodeinfo> bni;
     ++db_count;
     query2.storein(bni);
