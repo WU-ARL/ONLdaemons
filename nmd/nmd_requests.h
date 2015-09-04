@@ -74,6 +74,16 @@ namespace nmd
       bool handle();
   };
 
+  class end_session_req : public end_session
+  {
+    public:
+      end_session_req(uint8_t *mbuf, uint32_t size);
+      end_session_req();
+      ~end_session_req();
+
+      bool handle();
+  };
+
   class initialize_req : public initialize
   {
     public:

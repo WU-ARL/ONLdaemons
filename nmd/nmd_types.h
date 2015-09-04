@@ -58,6 +58,14 @@ class vlan {
     std::map<std::string, pthread_mutex_t> switch_locks;
 };
 
+typedef struct _switch_cmd
+{
+  string switch_id;
+  ostringstream cmd;
+  int state;
+  string debug_name;
+} switch_cmd;//struct switch_cmd
+
 class session {
  public:
   session(std::string str);
@@ -73,8 +81,12 @@ class session {
   bool clear_session(); //called when last vlan is cleared sends vlan clears at once 
 
  private:
+  bool create_vlans_unthreaded();//sends vlan requests for all vlans
+  bool create_vlans_threaded();//sends vlan requests for all vlans
+  bool clear_session_unthreaded(); //called when last vlan is cleared sends vlan clears at once 
+  bool clear_session_threaded(); //called when last vlan is cleared sends vlan clears at once 
   std::string sessionID;
-  //std::map< std::string, int > switch_commands;
+  std::list<switch_cmd* > switch_commands;
   std::list<std::string> switches;
   pthread_mutex_t lock; 
   std::list<switch_vlan> active_vlans;
@@ -101,6 +113,7 @@ class vlan_set {
     bool delete_from_vlan(switch_vlan vlan_id, switch_port port, std::string sid);
     void initialize_vlans();
     bool create_session_vlans(std::string sid);
+    bool clear_session(std::string sid);
 
   private:
     switch_vlan alloc_vlan(std::string sid);

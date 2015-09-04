@@ -86,7 +86,7 @@ namespace onlcrd
       void setCluster(std::string str);// { cluster_name = str;}
       std::string getCluster() { return cluster_name;}
 
-
+      virtual void set_vlan_allocated() {}//place holder for virtual switch and components that have vlan
     protected:
       std::string dependent_comp;
       std::string cluster_name;
@@ -148,6 +148,7 @@ namespace onlcrd
       virtual ~crd_virtual_switch();
   
       virtual void set_vlan(vlan_ptr v) { vlan = v; }
+      virtual void set_vlan_allocated() { alloc_vlan = true;}
 
       virtual std::string get_type();
 
@@ -159,6 +160,7 @@ namespace onlcrd
   
       virtual std::string get_state();
       vlan_ptr vlan;
+      bool alloc_vlan;
   }; //class crd_virtual_switch
 
   class crd_virtual_machine : public crd_component

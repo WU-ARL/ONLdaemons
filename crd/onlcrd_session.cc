@@ -412,7 +412,7 @@ session::commit(session_ptr sess)
       write_log("session::commit(): warning: add_vlan failed");
       continue;
     }
-
+    (*i)->set_vlan_allocated();//this will make sure this is deleted when vgige is destroyed
     set_vlans(*i, new_vlan);
   }
 
@@ -583,6 +583,10 @@ session::clear()
 
   // clear out the topology
   the_session_manager->return_resources(user, &topology);
+
+  // clear vlans
+  if (!the_session_manager->clear_session_vlans(id))
+    write_log("session(" + id + ")::clear() session_manager clear vlans failed");
 
   // remove all active links
   std::list<crd_link_ptr>::iterator li;

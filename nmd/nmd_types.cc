@@ -20,6 +20,13 @@
 #include <boost/shared_ptr.hpp>
 #include "nmd_includes.h"
 
+#define CMD_NULL 0
+#define CMD_SENT 1
+#define CMD_FAILED 2
+#define CMD_FINE 3
+
+void* send_command_wrapper(void* obj);//wrapper for calling send_command from within a pthread
+
 vlan::vlan()
 {
   // initialize lock
@@ -347,6 +354,21 @@ bool vlan_set::delete_vlan(switch_vlan vlan_id, std::string sid)
   //vlans[vlan_index].clear_vlan(); 
   return rtn;
 }
+
+bool vlan_set::clear_session(std::string sid)
+{
+  //autoLock slock(lock);
+  session_ptr sptr = get_session(sid);
+  bool rtn = true;
+  if (sptr)
+    {
+      rtn = sptr->clear_session();
+      if (sptr->is_cleared()) remove_session(sptr);
+    }
+  //uint32_t vlan_index = get_vlan_index(vlan_id);
+  //vlans[vlan_index].clear_vlan(); 
+  return rtn;
+}
 /*
 bool vlan_set::add_to_vlan(switch_vlan vlan_id, switch_port p, std::string sid)//add_to_vlan_req* const req, std::string sid)
 {
@@ -541,21 +563,22 @@ bool session::add_switch(std::string swid)
   autoLock slock(lock);
   if (cleared) return false;
   if (find(switches.begin(), switches.end(), swid) == switches.end())
-    switches.push_back(swid);
-  write_log("session(" + sessionID + ")::add_switch " + swid);
+    {
+      switches.push_back(swid);
+      write_log("session(" + sessionID + ")::add_switch " + swid + " adding new entry");
+    }
+  else 
+      write_log("session(" + sessionID + ")::add_switch " + swid + " entry found");
   return true;
 }
 
-/*
-bool session::add_request(nmd::add_to_vlan_req* const req)
-{
-  autoLock slock(lock);
-  if (cleared) return false;
-  switch_requests[req->get_port().getSwitchId()].push_back(req);
-  return true;
-}
-*/
+
 bool session::create_vlans()
+{
+  return create_vlans_threaded();
+}
+
+bool session::create_vlans_unthreaded()
 {
   autoLock slock(lock);
   if (cleared) 
@@ -590,30 +613,16 @@ bool session::create_vlans()
 	  write_log("session(" + sessionID +"):create_vlans failed to send cmd for switch(" + *sw_iter + ") " + cmd.str());
 	}
       else 
-	write_log("session(" + sessionID +"):create_vlans sent cmd for switch(" + *sw_iter + ") " + cmd.str());
+	{
+	  write_log("session(" + sessionID +"):create_vlans sent cmd for switch(" + *sw_iter + ") " + cmd.str());
+	}
     }
-  /*
-  //while loop to wait until all commands had returned
-  bool finished = false;
-  while(!finished)
-  {
-    finished = true;
-    std::map<std::string, int>::iterator cmd_it;
-    for (cmd_it = switch_commands.begin(); cmd_it != switch_commands.end(); ++cmd_it)
-      {
-	if (cmd_it->second == CMD_SENT)
-	  {
-	    finished = false;
-	    break;
-	  }
-      }
-      }*/
+  
   return rtn;
 }
 
 
-/*
-bool session::create_vlans()
+bool session::create_vlans_threaded()
 {
   autoLock slock(lock);
   if (cleared) 
@@ -621,35 +630,111 @@ bool session::create_vlans()
       write_log("session(" + sessionID + ")::create_vlans failed session was cleared");
       return false; //this session has already be closed
     }
-  std::map<std::string, std::list<nmd::add_to_vlan_req *> >::iterator sw_iter;
+  std::list<std::string>::iterator sw_iter;
   std::list<switch_vlan>::iterator viter;
   bool rtn = true;
 
-  for (sw_iter = switch_requests.begin(); sw_iter != switch_requests.end(); ++sw_iter)
+  write_log("session(" + sessionID + "):create_vlans");
+  for (viter = active_vlans.begin(); viter != active_vlans.end(); ++viter)
     {
-      ostringstream cmd;
-      start_command(sw_iter->first, cmd);
+      vlan* v = vlans->get_vlan(*viter);
+      v->print_ports();
+    }
+
+  for (sw_iter = switches.begin(); sw_iter != switches.end(); ++sw_iter)
+    {
+      //ostringstream cmd;
+      switch_cmd* sw_cmd = new switch_cmd();
+      sw_cmd->switch_id = *sw_iter;
+      switch_commands.push_back(sw_cmd);
+      start_command(*sw_iter, sw_cmd->cmd);
       for (viter = active_vlans.begin(); viter != active_vlans.end(); ++viter)
 	{
 	  vlan* v = vlans->get_vlan(*viter);
-	  v->get_add_ports_cmd(sw_iter->first, cmd);
+	  v->get_add_ports_cmd(*sw_iter, sw_cmd->cmd);
 	}
-      bool r = send_command(sw_iter->first, cmd);
-      if (!r) 
+      sw_cmd->state = CMD_SENT;
+      sw_cmd->debug_name = "session(" + sessionID + "):create_vlans";
+
+      pthread_t tid;
+      pthread_attr_t tattr;
+      bool thread_fail = false;
+      if(pthread_attr_init(&tattr) != 0)
 	{
-	  rtn = false;
+	  write_log("session::create_vlans: pthread_attr_init failed");
+	  thread_fail = true;
 	}
-      add_to_vlan_req* req_ptr;
-      while (!sw_iter->second.empty())//clear list requests deleting requests and sending responses
+      else 
 	{
-	  req_ptr = sw_iter->second.front();
-	  sw_iter->second.pop_front();
-	  req_ptr->send_response(r);
-	  delete req_ptr;
+	  if(pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED) != 0)
+	    {
+	      write_log("session::create_vlans: pthread_attr_setdetachstate failed");
+	      thread_fail = true;
+	    }
+	  else
+	    {
+	      if(pthread_create(&tid, &tattr, send_command_wrapper, (void *)sw_cmd) != 0)
+		{
+		  write_log("session::create_vlans: pthread_create failed");
+		  thread_fail = true;
+		}
+	    }
+	}
+      //since we couldn't make a thread go ahead and send this normally
+      if (thread_fail)
+	{
+	  bool r = send_command(sw_cmd->switch_id, sw_cmd->cmd);
+	  if (!r) 
+	    {
+	      sw_cmd->state = CMD_FAILED;
+	      write_log("session(" + sessionID +"):create_vlans failed to send cmd for switch(" + sw_cmd->switch_id + ") " );//+ sw_cmd->cmd.str());
+	    }
+	  else 
+	    {
+	      sw_cmd->state = CMD_FINE;
+	      write_log("session(" + sessionID +"):create_vlans sent cmd for switch(" + sw_cmd->switch_id + ") " );//+ sw_cmd->cmd.str());
+	    }
 	}
     }
+  
+  //while loop to wait until all commands had returned
+  bool finished = false;
+  while(!finished)
+  {
+    finished = true;
+    std::list< switch_cmd* >::iterator cmd_it;
+    for (cmd_it = switch_commands.begin(); cmd_it != switch_commands.end(); ++cmd_it)
+      {
+	if ((*cmd_it)->state == CMD_SENT)
+	  {
+	    finished = false;
+	    break;
+	  }
+	if ((*cmd_it)->state == CMD_FAILED)  rtn = false;
+      }
+  }
+  write_log("session(" + sessionID +"):create_vlans finished");
+  switch_commands.clear();
   return rtn;
-}*/
+}
+
+
+void* send_command_wrapper(void* obj)
+{
+  switch_cmd* sw_cmd = (switch_cmd*) obj;
+  bool r = send_command(sw_cmd->switch_id, sw_cmd->cmd);
+  if (!r) 
+    {
+      sw_cmd->state = CMD_FAILED;
+      write_log(sw_cmd->debug_name + ":send_command_wrapper: failed to send cmd for switch(" + sw_cmd->switch_id + ") " + sw_cmd->cmd.str());
+    }
+  else 
+    {
+      sw_cmd->state = CMD_FINE;
+      write_log(sw_cmd->debug_name + ":send_command_wrapper:create_vlans sent cmd for switch(" + sw_cmd->switch_id + ") ");// + sw_cmd->cmd.str());
+    }
+  return NULL;
+}
 
 void session::add_vlan(switch_vlan vlan_id)//adds id to active list
 {  
@@ -667,6 +752,7 @@ bool session::remove_vlan(switch_vlan vlan_id) //removes vlan from active to rem
       active_vlans.remove(vlan_id);
       removed_vlans.push_back(vlan_id);
     }
+  write_log("session(" + sessionID + ")::remove_vlan " + int2str(vlan_id) + " active_vlans " + int2str(active_vlans.size()));
   if (active_vlans.empty()) 
     {
       slock.unlock();
@@ -677,6 +763,12 @@ bool session::remove_vlan(switch_vlan vlan_id) //removes vlan from active to rem
 
 
 bool session::clear_session() //called when last vlan is cleared sends vlan clears at once 
+{
+  return clear_session_threaded();
+}
+
+
+bool session::clear_session_unthreaded() //called when last vlan is cleared sends vlan clears at once 
 { 
   autoLock slock(lock);
   if (cleared) return true;
@@ -712,6 +804,102 @@ bool session::clear_session() //called when last vlan is cleared sends vlan clea
 	    {
 	      write_log("session("  + sessionID + ")::clear_session cleared vlans for switch " + *sw_iter);
 	    }
+	}
+    }
+  return rtn;
+}
+
+
+
+
+
+bool session::clear_session_threaded() //called when last vlan is cleared sends vlan clears at once 
+{ 
+  autoLock slock(lock);
+  if (cleared) return true;
+  bool rtn = true;
+  cleared = true;
+  //first clear any requests that may not have been taken care of
+  //now clear any vlans
+  //remove any active_vlans
+  std::list<switch_vlan>::iterator viter;
+  for (viter = active_vlans.begin(); viter != active_vlans.end(); ++viter)
+    {
+      if (find(removed_vlans.begin(), removed_vlans.end(), *viter) == removed_vlans.end()) removed_vlans.push_back(*viter);
+    }
+  //std::map<std::string, std::list<nmd::add_to_vlan_req *> >::iterator sw_iter;
+  std::list<std::string >::iterator sw_iter;
+  for (sw_iter = switches.begin(); sw_iter != switches.end(); ++sw_iter)
+    {
+      switch_cmd* sw_cmd = new switch_cmd();
+      sw_cmd->switch_id = *sw_iter;
+      switch_commands.push_back(sw_cmd);
+      int num_rm = 0;
+      start_command(*sw_iter, sw_cmd->cmd);
+      for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
+	{
+	  num_rm += vlans->get_vlan(*viter)->get_clear_vlan_cmd(*sw_iter, sw_cmd->cmd);
+	}
+      sw_cmd->state = CMD_SENT;
+      sw_cmd->debug_name = "session(" + sessionID + "):clear_session";
+      if (num_rm > 0) 
+	{
+	  pthread_t tid;
+	  pthread_attr_t tattr;
+	  bool thread_fail = false;
+	  if(pthread_attr_init(&tattr) != 0)
+	    {
+	      write_log("session::clear_session: pthread_attr_init failed");
+	      thread_fail = true;
+	    }
+	  else 
+	    {
+	      if(pthread_attr_setdetachstate(&tattr,PTHREAD_CREATE_DETACHED) != 0)
+		{
+		  write_log("session::clear_session: pthread_attr_setdetachstate failed");
+		  thread_fail = true;
+		}
+	      else
+		{
+		  if(pthread_create(&tid, &tattr, send_command_wrapper, (void *)sw_cmd) != 0)
+		    {
+		      write_log("session::clear_session: pthread_create failed");
+		      thread_fail = true;
+		    }
+		}
+	    }
+	  //since we couldn't make a thread go ahead and send this normally
+	  if (thread_fail)
+	    {
+	      if (!send_command(*sw_iter, sw_cmd->cmd))
+		{
+		  write_log("session("  + sessionID + ")::clear_session failed to clear vlans for switch " + *sw_iter);
+		  sw_cmd->state = CMD_FAILED;
+		}
+	      else
+		{
+		  write_log("session("  + sessionID + ")::clear_session cleared vlans for switch " + *sw_iter);
+		  sw_cmd->state = CMD_FINE;
+		}
+	    }
+	}
+      else sw_cmd->state = CMD_FINE;
+    }
+
+  //while loop to wait until all commands had returned
+  bool finished = false;
+  while(!finished)
+    {
+      finished = true;
+      std::list<switch_cmd*>::iterator cmd_it;
+      for (cmd_it = switch_commands.begin(); cmd_it != switch_commands.end(); ++cmd_it)
+	{
+	  if ((*cmd_it)->state == CMD_SENT)
+	    {
+	      finished = false;
+	      break;
+	    }
+	  if ((*cmd_it)->state == CMD_FAILED)  rtn = false;
 	}
     }
   return rtn;

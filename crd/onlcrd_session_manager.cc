@@ -565,6 +565,34 @@ session_manager::start_session_vlans(std::string sid)
   return true;
 }
 
+
+bool
+session_manager::clear_session_vlans(std::string sid)
+{
+  if (!testing)
+    {
+      onld::end_session* endsession = new onld::end_session(sid);
+      endsession->set_connection(the_gige_conn);
+      if (!endsession->send_and_wait())
+	{
+	  delete endsession;
+	  return false;
+	}
+     
+      switch_response *swresp = (switch_response*)endsession->get_response();
+      if(swresp->getStatus() != NCCP_Status_Fine)
+	{
+	  delete swresp;
+	  delete endsession;
+	  return false;
+	}
+
+      delete swresp;
+      delete endsession;
+    }
+  return true;
+}
+
 vlan_ptr
 session_manager::add_vlan(std::string sid)
 {

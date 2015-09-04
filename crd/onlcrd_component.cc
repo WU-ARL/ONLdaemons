@@ -1027,6 +1027,7 @@ crd_virtual_switch::crd_virtual_switch(std::string n): crd_component(n, "", 0, f
   vlan_ptr null_vlan(new crd_vlan());
   null_vlan->vlanid = 0;
   vlan = null_vlan;
+  alloc_vlan = false;
 }
 
 crd_virtual_switch::~crd_virtual_switch()
@@ -1119,6 +1120,16 @@ crd_virtual_switch::do_refresh()
   write_log("crd_virtual_switch::do_refresh(): node " + name);
 
   internal_state = "free";
+    if(alloc_vlan && vlan->vlanid != 0)
+    {
+      write_log("crd_virtual_switch::do_refresh(): component " + comp.getLabel() + " delete vlan " + int2str(vlan->vlanid));
+      std::string sid;
+      if (sess) sid = sess->getID();
+      if(!the_session_manager->delete_vlan(vlan, sid))
+      {
+        write_log("crd_virtual_switch::do_refresh(): warning: delete vlan failed for " + int2str(vlan->vlanid) + " for experiment " + sid);
+      }
+    }
 }
 
 crd_virtual_machine::crd_virtual_machine(unsigned int vm, std::string n, std::string c, unsigned short p, bool do_k, bool is_d): crd_component(n, c, p, do_k, is_d)

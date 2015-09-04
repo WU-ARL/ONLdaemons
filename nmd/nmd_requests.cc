@@ -202,6 +202,39 @@ bool start_session_req::handle()
   return true;
 }
 
+end_session_req::end_session_req(uint8_t *mbuf, uint32_t size) : end_session(mbuf, size)
+{
+}
+
+end_session_req::end_session_req() : end_session("")
+{
+}
+
+end_session_req::~end_session_req()
+{
+}
+
+bool end_session_req::handle()
+{
+  ostringstream msg;
+  NCCP_StatusType status = NCCP_Status_Fine;
+
+  if (!vlans->clear_session(getSessionID())) 
+    {
+      status = NCCP_Status_Failed;
+      msg << "end_session_req::handle() failed for session " << getSessionID();
+    }
+  else
+    msg << "end_session_req::handle() cleared session " << getSessionID();
+  write_log(msg.str());
+
+  switch_response* resp = new switch_response(this, status); 
+  resp->send();
+  delete resp;
+
+  return true;
+}
+
 initialize_req::initialize_req(uint8_t *mbuf, uint32_t size) : initialize(mbuf, size)
 {
 }

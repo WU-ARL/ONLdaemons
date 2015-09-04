@@ -50,6 +50,18 @@ namespace onld
       virtual void write();  
   };
 
+  static const NCCP_OperationType NCCP_Operation_ClearVlans = 43;//same as NCCP_Operation_EndExperiment
+  class end_session : public switch_request
+  {
+    public:
+      end_session(uint8_t *mbuf, uint32_t size);
+      end_session(std::string sid);
+      virtual ~end_session();
+
+      virtual void parse();
+      virtual void write();  
+  };
+
   class add_vlan : public switch_request
   {
     public:

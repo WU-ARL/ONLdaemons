@@ -81,6 +81,7 @@ namespace onlcrd
       bool is_initializing() { return initializing;}
 
       bool start_session_vlans(std::string sid);
+      bool clear_session_vlans(std::string sid);
 
     private: 
       pthread_mutex_t vlan_lock;

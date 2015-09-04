@@ -57,6 +57,7 @@ int main()
   register_req<delete_from_vlan_req>(NCCP_Operation_DeleteFromVlan);
   register_req<initialize_req>(NCCP_Operation_Initialize);
   register_req<start_session_req>(NCCP_Operation_StartSession);
+  register_req<end_session_req>(NCCP_Operation_ClearVlans);
 
   rli_conn->receive_messages(false);
 

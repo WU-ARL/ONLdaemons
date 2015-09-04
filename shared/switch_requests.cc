@@ -107,6 +107,34 @@ start_session::write()
   switch_request::write();
 }
 
+end_session::end_session(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
+{
+  timeout = 360;
+}
+
+end_session::end_session(std::string sid): switch_request(sid)
+{
+  op = NCCP_Operation_ClearVlans;
+  periodic_message = false;
+  timeout = 360;
+}
+
+end_session::~end_session()
+{
+}
+
+void
+end_session::parse()
+{
+  switch_request::parse();
+}
+
+void
+end_session::write()
+{
+  switch_request::write();
+}
+
 add_vlan::add_vlan(uint8_t *mbuf, uint32_t size): switch_request(mbuf, size)
 {
   timeout = 360;
