@@ -1079,17 +1079,43 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
   
   shcmd += " -j MARK --set-mark " + int2str(f->mark);
   
-  write_log("Router::" + command_type + ": " + cmdprefix1 + shcmd);
-  if (system_cmd(cmdprefix1 + shcmd) < 0)
+  int rtn = system_cmd(cmdprefix1 + shcmd);
+  write_log("Router::" + command_type + ": returned("+ int2str(rtn) + "):" + cmdprefix1 + shcmd);
+  if (rtn != 0)
     {
-      write_log("Router::" + command_type + ": iptables failed -- " + cmdprefix1);
-      throw configuration_exception("iptables1 failed");
+      write_log("Router::" + command_type + ": iptables1 trying again:" + cmdprefix1 + shcmd);
+      sleep(1);
+      rtn = system_cmd(cmdprefix1 + shcmd);
+      if (rtn != 0)
+	{
+	  write_log("Router::" + command_type + ": iptables1 trying again2:" + cmdprefix1 + shcmd);
+	  sleep(1);
+	  rtn = system_cmd(cmdprefix1 + shcmd);
+	  if (rtn != 0)
+	    {
+	      write_log("Router::" + command_type + ": iptables failed returned(" + int2str(rtn) + ") -- " + cmdprefix1);
+	      throw configuration_exception("iptables1 failed");
+	    }
+	}
     }
-  write_log("Router::" + command_type + ": " + cmdprefix2 + shcmd);
-  if (system_cmd(cmdprefix2 + shcmd) < 0)
+  rtn = system_cmd(cmdprefix2 + shcmd);
+  write_log("Router::" + command_type + ": returned("+ int2str(rtn) + "):" + cmdprefix2 + shcmd);
+  if (rtn != 0)
     {
-      write_log("Router::" + command_type + ": iptables failed -- " + cmdprefix2);
-      throw configuration_exception("iptables2 failed");
+      write_log("Router::" + command_type + ": iptables2 trying again:" + cmdprefix2 + shcmd);
+      sleep(1);
+      rtn = system_cmd(cmdprefix2 + shcmd);
+      if (rtn != 0)
+	{
+	  write_log("Router::" + command_type + ": iptables2 trying again2:" + cmdprefix2 + shcmd);
+	  sleep(1);
+	  rtn = system_cmd(cmdprefix2 + shcmd);
+	  if (rtn != 0)
+	    {
+	      write_log("Router::" + command_type + ": iptables failed returned(" + int2str(rtn) + ") -- " + cmdprefix2);
+	      throw configuration_exception("iptables2 failed");
+	    }
+	}
     }
   
   //set up tc filter for qid if set
@@ -1137,8 +1163,9 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
   shcmd += " priority " + int2str(f->rule_priority);
   
   
-  write_log("Router::" + command_type + ": " + shcmd);
-  if (system_cmd(shcmd) < 0)
+  rtn = system_cmd(shcmd);
+  write_log("Router::" + command_type + ": returned("+ int2str(rtn) + ":" + shcmd);
+  if (rtn < 0)
     {
       write_log("Router::" + command_type + ": ip rule failed");
       throw configuration_exception("ip rule failed");
