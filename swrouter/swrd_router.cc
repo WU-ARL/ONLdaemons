@@ -58,7 +58,7 @@
 #include "swrd_types.h"
 #include "swrd_router.h"
 #include "swrd_requests.h"
-
+#define START_PRIORITY 255
 
 using namespace swr;
 
@@ -794,6 +794,13 @@ void Router::set_port_rate(unsigned int port, uint32_t rate) throw(configuration
       write_log("Router::set_port_rate: tc class change failed");
       throw configuration_exception("tc class change failed");
     }
+  sprintf(shcmd, "tc class change dev %s parent %d:0 classid %d:1 htb rate %dkbit ceil %dkbit mtu 1500", nic.c_str(), p1, p1, rate, rate); 
+  write_log("Router::set_port_rate for netem queue: (" + std::string(shcmd) + ")");
+  if (system_cmd(shcmd) != 0)
+    {
+      write_log("Router::set_port_rate: tc class change failed for netem queue");
+      throw configuration_exception("tc class change failed");
+    }
 
   /*
   nl_connect(my_sock, NETLINK_ROUTE);
@@ -844,8 +851,8 @@ void Router::set_port_rate(unsigned int port, uint32_t rate) throw(configuration
 
 void Router::add_filter(filter_ptr f) throw(configuration_exception)
 { 
-  f->mark = get_next_mark();
-  f->rule_priority = get_next_priority();
+  if (f->mark < 1) f->mark = get_next_mark();
+  f->rule_priority = f->mark + START_PRIORITY;//get_next_priority();
   if (f->rule_priority < 0)
     {
       write_log("Router::add_filter: rule priority maxed out");
@@ -1075,22 +1082,28 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
       shcmd += on_flags;
     }
   if (f->sampling > 1)
-    shcmd += " --mode nth --every " + int2str(f->sampling);
+    shcmd += " -m statistic --mode nth --every " + int2str(f->sampling) + " --packet 0";
   
   shcmd += " -j MARK --set-mark " + int2str(f->mark);
   
+  autoLock iptlock(iptable_lock);
   int rtn = system_cmd(cmdprefix1 + shcmd);
+  iptlock.unlock();
   write_log("Router::" + command_type + ": returned("+ int2str(rtn) + "):" + cmdprefix1 + shcmd);
   if (rtn != 0)
     {
       write_log("Router::" + command_type + ": iptables1 trying again:" + cmdprefix1 + shcmd);
       sleep(1);
+      iptlock.lock();
       rtn = system_cmd(cmdprefix1 + shcmd);
+      iptlock.unlock();
       if (rtn != 0)
 	{
 	  write_log("Router::" + command_type + ": iptables1 trying again2:" + cmdprefix1 + shcmd);
 	  sleep(1);
+	  iptlock.lock();
 	  rtn = system_cmd(cmdprefix1 + shcmd);
+	  iptlock.unlock();
 	  if (rtn != 0)
 	    {
 	      write_log("Router::" + command_type + ": iptables failed returned(" + int2str(rtn) + ") -- " + cmdprefix1);
@@ -1098,18 +1111,24 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
 	    }
 	}
     }
+  iptlock.lock();
   rtn = system_cmd(cmdprefix2 + shcmd);
+  iptlock.unlock();
   write_log("Router::" + command_type + ": returned("+ int2str(rtn) + "):" + cmdprefix2 + shcmd);
   if (rtn != 0)
     {
       write_log("Router::" + command_type + ": iptables2 trying again:" + cmdprefix2 + shcmd);
       sleep(1);
+      iptlock.lock();
       rtn = system_cmd(cmdprefix2 + shcmd);
+      iptlock.unlock();
       if (rtn != 0)
 	{
 	  write_log("Router::" + command_type + ": iptables2 trying again2:" + cmdprefix2 + shcmd);
 	  sleep(1);
+	  iptlock.lock();
 	  rtn = system_cmd(cmdprefix2 + shcmd);
+	  iptlock.unlock();
 	  if (rtn != 0)
 	    {
 	      write_log("Router::" + command_type + ": iptables failed returned(" + int2str(rtn) + ") -- " + cmdprefix2);
@@ -1701,6 +1720,7 @@ Router::read_stats(int port, enum rtnl_tc_stat sid, int qid) throw(monitor_excep
 
   if (qid == 0)
     {
+      
       if (!(qdisc = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),0))))
 	{
 	  //sleep and retry
@@ -1718,23 +1738,44 @@ Router::read_stats(int port, enum rtnl_tc_stat sid, int qid) throw(monitor_excep
     }
   else
     {
-      if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
+	/* Iterate on all_qdiscs cache */
+      uint32_t tc_handle = TC_HANDLE((port + 1),qid);
+      if (port > 8) tc_handle = TC_HANDLE((port + 7),qid); //this is to work around a bug in libnl 7/12/17 this may change again
+      
+      if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, tc_handle)))
+	//if (!(qdisc  = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
 	{
 	  //sleep and retry
 	  //write_log("rtnl_qdisc_get_by_parent failed: sleep and retry");
 	  //sleep(5);
 	  //if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
-	  //{
-	      write_log("rtnl_qdisc_get_by_parent failed");
-	      nl_socket_free(my_sock);
-	      nl_cache_free(link_cache);
-	      nl_cache_free(all_qdiscs);
-	      throw monitor_exception("rtnl_qdisc_get_by_parent failed");
-	      //}
+	  //{	qdisc = (struct rtnl_qdisc *)nl_cache_get_first(all_qdiscs);
+	  write_log("rtnl_qdisc_get_by_parent failed");
+	  write_log("Router::read_stats qdiscs for port " + int2str(port) + " looking for parent:" + int2str(tc_handle) + " ifindex:" + int2str(ifindex));
+	  while ((qdisc != NULL)) {
+	    std::string msg = "qdisc: ";
+	    uint32_t tmp_param = rtnl_tc_get_handle(TC_CAST(qdisc));
+	    msg = msg + "handle(" + int2str(tmp_param) + ") ";
+	    tmp_param = rtnl_tc_get_parent(TC_CAST(qdisc));
+	    msg = msg + "parent(" + int2str(tmp_param) + ") ";
+	    tmp_param = rtnl_tc_get_ifindex(TC_CAST(qdisc));
+	    msg = msg + "ifindex(" + int2str(tmp_param) + ") ";
+	    rtn_stat = rtnl_tc_get_stat(TC_CAST(qdisc), sid);
+	    msg = msg + "stat(" + int2str(rtn_stat) + ") ";
+	    write_log(msg);
+	    /* Next link */
+	    qdisc = (struct rtnl_qdisc *)nl_cache_get_next((struct nl_object *)qdisc);
+	  }
+	  nl_socket_free(my_sock);
+	  nl_cache_free(link_cache);
+	  nl_cache_free(all_qdiscs);
+	  throw monitor_exception("rtnl_qdisc_get_by_parent failed");
+	  //}
 	}
     }
 
   rtn_stat = rtnl_tc_get_stat(TC_CAST(qdisc), sid);
+  rtnl_qdisc_put(qdisc);
   nl_socket_free(my_sock);
   nl_cache_free(link_cache);
   nl_cache_free(all_qdiscs);
@@ -1919,8 +1960,9 @@ Router::get_next_priority()
 int
 Router::system_cmd(std::string cmd)
 {
-  //write_log("Router::system_cmd(): cmd = " + cmd);
   int rtn = system(cmd.c_str());
-  if(rtn == -1) return rtn;
-  return WEXITSTATUS(rtn);
+  if(rtn != -1)
+    rtn = WEXITSTATUS(rtn);
+  write_log("Router::system_cmd(" + int2str(rtn) + "): cmd = " + cmd);
+  return rtn;
 }
