@@ -232,6 +232,10 @@ session_manager::reservation_time_left(std::string username)
   autoLockDebug dlock(db_lock, "session_manager::reservation_time_left(): db_lock");
 
   onl::onldb_resp res = database->has_reservation(username);
+  if (res.result() < -1)//database error try again later
+    {
+      return -1;
+    }
   if(res.result() < 1)
   {
     return 0;
@@ -407,37 +411,54 @@ session_manager::received_up_msg(std::string hostname)
 
   autoLockDebug clock(comp_lock, "session_manager::received_up_msg(): comp_lock");
 
-  crd_component_ptr comp;
+  //NOTE: repair bug 10/10/17 - change to give up msg to all existing components -1 line
+  bool found_comp = false;
+  //rm next 1 line
+  //crd_component_ptr comp;
   std::list<crd_component_ptr>::iterator i;
   for(i=refreshing_components.begin(); i!=refreshing_components.end(); ++i)
   {
     if((*i)->getCP() == hostname)
     {
-      comp = *i;
-      break;
+      //NOTE: repair bug 10/10/17 - 2 line
+      (*i)->got_up_msg();
+      found_comp = true;
+      //rm next 2 lines
+      //comp = *i;
+      //break;
     }
   }
 
-  if(!comp)
-  {
-    for(i=active_components.begin(); i!=active_components.end(); ++i)
+  //NOTE: repair bug 10/10/17- rm 2 line
+  //if(!comp)
+  //{
+  for(i=active_components.begin(); i!=active_components.end(); ++i)
     {
       if((*i)->getCP() == hostname)
-      {
-        comp = *i;
-        break;
-      }
+	{
+	  //NOTE: repair bug 10/10/17- 2 line
+	  (*i)->got_up_msg();
+	  found_comp = true;
+	  //rm next 2 lines
+	  //comp = *i;
+	  //break;
+	}
     }
-  }
+  //NOTE: repair bug 10/10/17- rm 1 line
+  //}
   clock.unlock();
 
   // if comp was in the list, then let the refresher finish
-  if(comp)
-  {
-    comp->got_up_msg();
-    return;
-  }
+  //NOTE: repair bug 10/10/17 - 1 line
+  if (found_comp) return;
+  //rm next 5 lines
+  //if(comp)
+  //{
+  //comp->got_up_msg();
+  //return;
+  //}
 
+  write_log("session_manager::received_up_msg(): host " + hostname + " component not in refresh or active list");
   // if comp wasn't in the list, then it must have been in an unknown state
   // but is now back up
   autoLockDebug dlock(db_lock, "session_manager::received_up_msg(): db_lock");
@@ -949,7 +970,18 @@ session_manager::clear_component(crd_component* comp)
       return;
     }
   }
-
+  //NOTE: repair bug 10/10/17 - 10 lines
+  //also check active components
+  for(i=active_components.begin(); i!=active_components.end(); ++i)
+    {
+      if((*i).get() == comp)
+	{
+	  comp->clear_session();
+	  active_components.erase(i);
+	  return;
+	}
+    }
+  
   // really should never get here..
   write_log("session_manager::clear_component: warning: calling clear on node " + comp->getName() + " which is not in the refreshing list");
   comp->clear_session();

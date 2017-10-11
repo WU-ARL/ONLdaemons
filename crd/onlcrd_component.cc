@@ -203,6 +203,9 @@ crd_component::set_state(std::string s)
   if(s == "repair")
   {
     needs_refresh = false;
+    //NOTE: repair bug 10/10/17
+    //need to fix this so that the power cycle is only called once for each time the node goes into repair
+    //this might be okay as is 
     if (!is_dependent && !testing)
       {
 	std::string cmd = "/root/scripts/power_cycle_node.pl " + name;
@@ -444,12 +447,17 @@ crd_component::do_initialize()
   
   if(cur_state == "repair")
     {
-      if(local_state != "repair")
+      if(local_state != "repair") //check to see if we've already cleaned the component up and set its local_state to "repair"
 	{
 	  local_state = "repair";
+	  //NOTE: repair bug 10/10/17 - 1 line
+	  bool do_refresh = needs_refresh; //cleanup_reqs may change this so need to save 
 	  slock.unlock();
 	  cleanup_links(true);
 	  cleanup_reqs(true);
+	  //NOTE: repair bug 10/10/17 - 2 lines
+	  if (!do_refresh)
+	    the_session_manager->clear_component(this);
 	  return;
 	}
       slock.unlock();
@@ -474,9 +482,9 @@ crd_component::do_initialize()
       //set_state("refreshing");
       //slock.unlock();
       write_log("crd_component::initialize(): node " + name + " dependent_state:" + dependent_state + " refresh called due to dependent failure");
-      keebooting_now = true; //refresh won't change the state
+      keebooting_now = true; //refresh won't change the state of the component to "free" if successful
       do_refresh();
-      keebooting_now = false;
+      keebooting_now = false; 
       slock.lock();
       cur_state = get_state();
       slock.unlock();
@@ -995,7 +1003,7 @@ crd_component::cleanup_reqs(bool failed)
   if(failed)
   {
     autoLockDebug slock(state_lock, "crd_component::cleanup_reqs(): state_lock");
-    bool do_refresh = needs_refresh;
+    bool do_refresh = needs_refresh;//set_state changes needs_refresh so save it here
     set_state("repair");
     local_state = "repair";
     slock.unlock();
