@@ -120,8 +120,8 @@ namespace swr
 
   static const NCCP_OperationType SWR_AddFilter = 77;
   static const NCCP_OperationType SWR_DeleteFilter = 78;
-  static const NCCP_OperationType SWR_GetFilterBytes = 121;
-  static const NCCP_OperationType SWR_GetFilterPkts = 122;
+  static const NCCP_OperationType SWR_GetFilterBytes = 130;
+  static const NCCP_OperationType SWR_GetFilterPkts = 131;
   class filter_req : public rli_request
   {
     public:
@@ -150,6 +150,7 @@ namespace swr
       std::string output_port;
       uint32_t sampling;
       uint32_t qid;
+      uint32_t mark;
   }; // class filter_req
 
   static const NCCP_OperationType SWR_AddQueue = 87;

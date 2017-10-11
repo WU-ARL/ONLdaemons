@@ -172,6 +172,7 @@ namespace swr
       unsigned int delay_index;
 
       pthread_mutex_t conf_lock;    // anything else
+      pthread_mutex_t iptable_lock;    // anything else
 
       std::list<filter_ptr> filters;
 

@@ -313,6 +313,7 @@ filter_req::handle()
     filter->output_port = output_port;
     filter->sampling = sampling;
     filter->qid = qid;
+    filter->mark = mark;
 
     bool ispkts = false;
     uint32_t val = 0;
@@ -381,6 +382,11 @@ filter_req::parse()
       output_port = params[14].getString();
       sampling = params[15].getInt();
       qid = params[16].getInt();
+      if (params.size() > 17)
+	{
+	  mark = params[17].getInt();//+10 depending on if RLI allows specification of auto assignment start
+	}
+      else mark = 0;
     }
   else sampling = 1;
   //priority = params[19].getInt(); 
