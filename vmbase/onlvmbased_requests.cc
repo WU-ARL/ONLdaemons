@@ -62,7 +62,7 @@ start_experiment_req::~start_experiment_req()
 bool
 start_experiment_req::handle()
 {
-  write_log("start_experiment_req::handle()");
+  write_log("start_experiment_req::handle() session:" + exp.getExpInfo().getID());
   NCCP_StatusType status = NCCP_Status_Fine;
 
   session_ptr sess_ptr = the_session_manager->addSession(exp.getExpInfo());
@@ -96,6 +96,7 @@ start_experiment_req::handle()
   crd_response* resp = new crd_response(this, status);
   resp->send();
   delete resp;
+  write_log("start_experiment_req::handle() response sent resession:" + exp.getExpInfo().getID());
 
   return true;
 }
@@ -205,6 +206,7 @@ configure_node_req::handle()
   resp->send();
   delete resp;
 
+  write_log("configure_node_req::handle() response sent interface " + int2str(node_conf.getPort()) + " with ipaddr:" + node_conf.getIPAddr() + " to physical port:" + int2str(node_conf.getRealPort()) + " vlan:" + int2str(node_conf.getVLan()));
   return true;
 }
 
@@ -219,7 +221,7 @@ end_configure_node_req::~end_configure_node_req()
 bool
 end_configure_node_req::handle()
 {
-  write_log("end_configure_node_req::handle()");
+  write_log("end_configure_node_req::handle() session:" + exp.getExpInfo().getID() + " vm:" + comp.getLabel());
 
   session_ptr sess_ptr = the_session_manager->getSession(exp.getExpInfo());
 
@@ -243,6 +245,7 @@ end_configure_node_req::handle()
   resp->send();
   delete resp;
 
+  write_log("end_configure_node_req::handle() response sent session:" + exp.getExpInfo().getID() + " vm:" + comp.getLabel());
   return true;
 }
 

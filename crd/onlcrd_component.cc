@@ -77,6 +77,8 @@ crd_component::crd_component(std::string n, std::string c, unsigned short p, boo
 
   mark = false;
 
+  init_timeout = 120;
+
   //pthread_mutex_init(&db_lock, NULL);
   pthread_mutex_init(&state_lock, NULL);
   pthread_mutex_init(&up_msg_mutex, NULL);
@@ -552,6 +554,7 @@ crd_component::do_initialize()
     startexp->set_connection(nccpconn);
     startexp->set_cores(cores);
     startexp->set_memory(memory);
+    startexp->set_timeout(init_timeout);
 
     if(!startexp->send_and_wait())
     {
@@ -589,7 +592,7 @@ crd_component::do_initialize()
 
     end_configure_node* endconfig = new end_configure_node(exp, comp);
     endconfig->set_connection(nccpconn);
-    endconfig->set_timeout(300);//mainly to give vms time to come up
+    endconfig->set_timeout(420);//mainly to give vms time to come up
     //bool no_endconfig = true;
     if (!endconfig->send_and_wait())
     {
@@ -1136,6 +1139,7 @@ crd_virtual_machine::crd_virtual_machine(unsigned int vm, std::string n, std::st
 {
   internal_state = "free";
   vmid = vm;
+  init_timeout = 300;
 }
 
 crd_virtual_machine::~crd_virtual_machine()
@@ -1221,15 +1225,15 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
   }
 
   if (link_vlan)
-    write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid));
+    write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid) + " endpoint1(" + endpoint1->getName() + "," + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + "," + int2str(endpoint2->get_component().getID()) + ")");
   else
-    write_log("crd_link::send_port_configuration(): comp " + c->getName() + ", link " + int2str(comp.getID()) + ", no vlan");
+    write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", no vlan endpoint1(" + endpoint1->getName() + "," + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + "," + int2str(endpoint2->get_component().getID()) + ")");
   experiment exp;
   exp.setExpInfo(info);
 
   configure_node* cfgnode;
-  
-  if(c->getName() == endpoint1->getName() && !use2)
+  //compare component ideas could be 2 different vms on same machine
+  if(c->getName() == endpoint1->getName() && !use2 && c->get_component().getID() == endpoint1->get_component().getID())
   {
     //cgw, this doesn't work they way i think it should, but i'll change it for now
     //node_info nodeinfo(linkreq->getFromIP(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP());
@@ -1248,7 +1252,8 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     cfgnode = new configure_node(exp, endpoint1->get_component(), nodeinfo);
     cfgnode->set_connection(endpoint1->get_connection());
   }
-  else if(c->getName() == endpoint2->getName())
+  //compare component ideas could be 2 different vms on same machine
+  else if(c->getName() == endpoint2->getName() && c->get_component().getID() == endpoint2->get_component().getID())
   { 
     //cgw, this doesn't work they way i think it should, but i'll change it for now
     //node_info nodeinfo(linkreq->getToIP(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP());
@@ -1295,7 +1300,17 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
 bool
 crd_link::is_loopback()
 {
-   return (endpoint1->getName() == endpoint2->getName());
+  //added JP 10_5_15 fix returning loopback for different VMs on same machine
+
+  if (endpoint1->getName() == endpoint2->getName() && endpoint1->get_component().getID() == endpoint2->get_component().getID())
+    {
+      write_log("crd_link::is_loopback loopback detected comp:" + int2str(comp.getID()) + " endpoint1(" + endpoint1->getName() + ", " + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + ", " + int2str(endpoint2->get_component().getID()) + ")");
+      return true;
+    }
+
+  return false;
+
+  //return (endpoint1->getName() == endpoint2->getName());
 }
 
 bool

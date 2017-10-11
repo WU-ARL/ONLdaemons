@@ -85,8 +85,9 @@ namespace onlcrd
       std::string getDependentComp() { return dependent_comp;}
       void setCluster(std::string str);// { cluster_name = str;}
       std::string getCluster() { return cluster_name;}
-
       virtual void set_vlan_allocated() {}//place holder for virtual switch and components that have vlan
+      void setInitTimeout(uint32_t t) { init_timeout = t;} //sets initialization timeout in seconds
+
     protected:
       std::string dependent_comp;
       std::string cluster_name;
@@ -134,6 +135,8 @@ namespace onlcrd
       void cleanup_links(bool do_init);
       virtual std::string get_state();
       virtual std::string get_dependent_state();
+
+      uint32_t init_timeout;
   }; //class crd_component
 
   typedef boost::shared_ptr<crd_component> crd_component_ptr;

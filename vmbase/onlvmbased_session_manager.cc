@@ -191,9 +191,9 @@ session_manager::startVM(session_ptr sptr, vm_ptr vmp)
 
   //make sure we can ping the new vm
   cmd = "ping -c 1 " + vmp->name;
-  for (int i = 0; i < 10 ; ++i)
+  for (int i = 0; i < 15 ; ++i)
     {
-      sleep(15);
+      sleep(20);
       if (system(cmd.c_str()) == 0)
 	{
 	  write_log("session_manager::startVM: system(" + cmd + ") succeeded");

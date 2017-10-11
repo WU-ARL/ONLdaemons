@@ -1623,8 +1623,20 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	{
 	  if (current_node->has_vmsupport)
 	    {
-	      current_node->core_capacity -= (it2a->cores);
-	      current_node->mem_capacity -= (it2a->memory);
+	      if (it2a->cores > current_node->core_capacity)
+		{
+		  cout << "onldb::get_base_topology over allocated cores node " << it2a->node << endl;
+		  current_node->core_capacity = 0;
+		}
+	      else
+		current_node->core_capacity -= (it2a->cores);
+	      if (it2a->memory > current_node->mem_capacity)
+		{
+		  cout << "onldb::get_base_topology over allocated memory node " << it2a->node << endl;
+		  current_node->mem_capacity = 0;
+		}
+	      else
+		current_node->mem_capacity -= (it2a->memory);
 	      current_node->marked = false;
 	    }
 	  else 
@@ -2596,7 +2608,7 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 		      if (node->type == "vm")
 			{
 			  int tmp_num = 0;
-			  /*
+			  /*//start of VM STRIPING
 			  //here for vm check if there is already a vm from this reservation here if there is go on to 
 			  //the next keep track of node with the least number of vms from this reservation on it. 
 			  if (!n->user_nodes.empty())
@@ -2618,7 +2630,7 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			    {
 			      rtn_num_vms = tmp_num;
 			      rtn = n;//keep this if this is the lowest utilized node we've seen but keep looking for one with no vms
-			      }*/
+			    }*///END OF VM STRIPING
 			  if (tmp_num == 0) return n;
 			}
 		      else
@@ -2897,6 +2909,12 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
   reset_cluster(mcluster);
   mcluster->rnodes_used.push_back(n);
   mcluster->nodes_used.push_back(nlnode);
+  //adjust core_capacities and memory capacities for vms
+  if (nlnode->node->type == "vm")
+    {
+      n->potential_corecap -= nlnode->node->core_capacity;
+      n->potential_memcap -= nlnode->node->mem_capacity;
+    }
 
   
   

@@ -230,9 +230,25 @@ int vlan::get_clear_vlan_cmd(string switch_id, ostringstream& cmd)
       
       inUse = false;
       sessionID = "";
+      vlans->free_vlan(vlanId);
     }
 
   return pvidPorts.size();
+}
+
+void vlan::clear_if_empty()
+{
+  if (inUse && ports.empty())
+    {
+      switch_locks.clear();
+      
+      ostringstream msg;
+      msg << "vlan(" << vlanId << ")::clear_if_empty for session: " << sessionID << endl;
+      inUse = false;
+      sessionID = "";
+      write_log(msg.str());
+      vlans->free_vlan(vlanId);
+    }
 }
 
 void vlan::print_ports()
@@ -256,10 +272,12 @@ vlan_set::vlan_set(uint32_t num_vlans_) : num_vlans(num_vlans_)
   for (i = 0; i < num_vlans; i++) {
     vlans[i].set_vlan_id(vlan_num + i);
     vlans[i].set_in_use(false, "");   
+    free_vlans.push_back((vlan_num + i));
   }
 
-  // initialize lock
+  // initialize locks
   pthread_mutex_init(&lock, NULL);
+  pthread_mutex_init(&free_vlanslock, NULL);
 }
 
 vlan_set::~vlan_set()
@@ -287,6 +305,12 @@ vlan *vlan_set::get_vlan(switch_vlan vlan_id)
     }
   }
   return NULL;
+}
+
+void vlan_set::free_vlan(switch_vlan vlan_id)
+{
+  autoLock vlock(free_vlanslock);
+  if (find(free_vlans.begin(), free_vlans.end(), vlan_id) == free_vlans.end()) free_vlans.push_back(vlan_id);
 }
 
 uint32_t vlan_set::get_vlan_index(switch_vlan vlan_id)
@@ -465,7 +489,30 @@ bool vlan_set::delete_from_vlan(switch_vlan vlan_id, switch_port port, std::stri
 
 switch_vlan vlan_set::alloc_vlan(std::string sid)
 {
-  //autoLock slock(lock);
+  autoLock slock(free_vlanslock);
+  if (free_vlans.empty())
+    return NO_FREE_VLANS;
+  switch_vlan vlanid = free_vlans.front();
+  free_vlans.pop_front();
+  slock.unlock();
+  vlan* v = get_vlan(vlanid);
+  if (v != NULL && v->set_in_use(true, sid))
+      {
+	session_ptr sptr = get_session(sid);
+	if (!sptr)//create the session if it hasn't already been
+	  {
+	    session_ptr new_sptr(new session(sid));
+	    sptr = new_sptr;
+	    autoLock slock(lock);//lock to add new session
+	    sessions.push_back(sptr);
+	    slock.unlock();
+	  }
+	sptr->add_vlan(v->vlan_id());
+	return v->vlan_id();
+      }
+  return NO_FREE_VLANS;
+}
+/*
   uint32_t i = 0;
   for (i = 0; i < num_vlans; i++) {
     if (vlans[i].set_in_use(true, sid))
@@ -484,7 +531,7 @@ switch_vlan vlan_set::alloc_vlan(std::string sid)
       }
   }
   return NO_FREE_VLANS;
-}
+  }*/
 
 
 switch_info_set::switch_info_set()
@@ -778,14 +825,14 @@ bool session::clear_session_unthreaded() //called when last vlan is cleared send
   //std::map<std::string, std::list<nmd::add_to_vlan_req *> >::iterator sw_iter;
   std::list<std::string >::iterator sw_iter;
   std::list<switch_vlan>::iterator viter;
+  //remove any active_vlans
+  for (viter = active_vlans.begin(); viter != active_vlans.end(); ++viter)
+    {
+      if (find(removed_vlans.begin(), removed_vlans.end(), *viter) == removed_vlans.end()) removed_vlans.push_back(*viter);  
+    }
   for (sw_iter = switches.begin(); sw_iter != switches.end(); ++sw_iter)
     {
       //now clear any vlans
-      //remove any active_vlans
-      for (viter = active_vlans.begin(); viter != active_vlans.end(); ++viter)
-	{
-	  if (find(removed_vlans.begin(), removed_vlans.end(), *viter) == removed_vlans.end()) removed_vlans.push_back(*viter);
-	}
       ostringstream cmd;
       int num_rm = 0;
       start_command(*sw_iter, cmd);
@@ -805,6 +852,11 @@ bool session::clear_session_unthreaded() //called when last vlan is cleared send
 	      write_log("session("  + sessionID + ")::clear_session cleared vlans for switch " + *sw_iter);
 	    }
 	}
+    }
+  //make sure all vlans are cleared even those that never had ports added namely internal vms
+  for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
+    {
+      vlans->get_vlan(*viter)->clear_if_empty();
     }
   return rtn;
 }
@@ -834,14 +886,14 @@ bool session::clear_session_threaded() //called when last vlan is cleared sends 
       switch_cmd* sw_cmd = new switch_cmd();
       sw_cmd->switch_id = *sw_iter;
       switch_commands.push_back(sw_cmd);
-      int num_rm = 0;
       start_command(*sw_iter, sw_cmd->cmd);
+      sw_cmd->state = CMD_SENT;
+      sw_cmd->debug_name = "session(" + sessionID + "):clear_session";
+      int num_rm = 0;
       for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
 	{
 	  num_rm += vlans->get_vlan(*viter)->get_clear_vlan_cmd(*sw_iter, sw_cmd->cmd);
 	}
-      sw_cmd->state = CMD_SENT;
-      sw_cmd->debug_name = "session(" + sessionID + "):clear_session";
       if (num_rm > 0) 
 	{
 	  pthread_t tid;
@@ -901,6 +953,12 @@ bool session::clear_session_threaded() //called when last vlan is cleared sends 
 	    }
 	  if ((*cmd_it)->state == CMD_FAILED)  rtn = false;
 	}
+    }
+
+  //make sure all vlans are cleared even those that never had ports added namely internal vms
+  for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
+    {
+      vlans->get_vlan(*viter)->clear_if_empty();
     }
   return rtn;
 }

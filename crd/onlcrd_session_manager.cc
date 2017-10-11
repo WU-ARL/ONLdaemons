@@ -97,6 +97,7 @@ session_manager::~session_manager()
 void
 session_manager::initialize()
 {
+  if (testing) return;
   int ret;
   if(!testing)
   {

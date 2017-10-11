@@ -37,6 +37,7 @@ class vlan {
     bool add_port(switch_port p);
     bool delete_port(switch_port p);
     bool clear_vlan();
+    void clear_if_empty();//resets state if no ports
     void print_ports();
     void initialize();
     //void set_session_id(std::string sid) { sessionID = sid;}
@@ -102,6 +103,7 @@ class vlan_set {
     ~vlan_set();
 
     vlan *get_vlan(switch_vlan vlan_id);
+    void free_vlan(switch_vlan vlanid);
     uint32_t get_vlan_index(switch_vlan vlan_id);
     vlan * get_vlan_by_index(uint32_t index);
     uint32_t get_num_vlans() {return num_vlans;} 
@@ -125,7 +127,9 @@ class vlan_set {
 
     uint32_t num_vlans;
     vlan *vlans;
+    std::list<switch_vlan> free_vlans;
     pthread_mutex_t lock; 
+    pthread_mutex_t free_vlanslock; 
 };
 
 
