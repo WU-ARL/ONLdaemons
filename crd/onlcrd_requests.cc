@@ -156,10 +156,15 @@ begin_session_req::handle()
     delete resp;
     return true;
   }
+  int rt_left = the_session_manager->reservation_time_left(username);
 
-  if(the_session_manager->reservation_time_left(username) <= 0)
+  //if(the_session_manager->reservation_time_left(username) <= 0)
+  if(rt_left <= 0)
   {
-    session_response* resp = new session_response(this, "Reservation not found.", Session_No_Res_Err);
+    std::string msg = "Reservation not found.";
+    if (rt_left < -1) msg = "Database error: try again later";
+    //session_response* resp = new session_response(this, "Reservation not found.", Session_No_Res_Err);
+    session_response* resp = new session_response(this, msg, Session_No_Res_Err);
     resp->send();
     delete resp;
     return true;
@@ -685,9 +690,14 @@ extend_reservation_req::handle()
     return true;
   }
   
-  if(the_session_manager->reservation_time_left(username.getString()) <= 0)
+  int rt_left = the_session_manager->reservation_time_left(username.getString());
+  //if(the_session_manager->reservation_time_left(username.getString()) <= 0)
+  if (rt_left <= 0)
   {
-    reservation_response* resp = new reservation_response(this, "You don't have a reservation now to extend.", Session_No_Res_Err);
+    std::string msg = "You don't have a reservation now to extend.";
+    if (rt_left < -1) msg = "Database error, please try again in few minutes.";
+    //reservation_response* resp = new reservation_response(this, "You don't have a reservation now to extend.", Session_No_Res_Err);
+    reservation_response* resp = new reservation_response(this, msg, Session_No_Res_Err);
     resp->send();
     delete resp; 
     return true;
