@@ -63,6 +63,7 @@ namespace onlcrd
 
       void clear();
       bool is_cleared() { return cleared; }
+      bool are_resources_returned()  { return resources_returned;}
       void expired();
 
       void write_mapping();
@@ -76,6 +77,8 @@ namespace onlcrd
       void grant_observe(grant_observe_req* req);
       void link_vlanports_added(uint32_t lid);//called by link request when vlan ports have been added
 
+      bool return_resources(); 
+
     private: 
       std::string id;
       std::string user;
@@ -83,6 +86,7 @@ namespace onlcrd
       std::string errmsg;
 
       bool cleared;
+      bool resources_returned;
       bool mapping_written;
 
       std::string user_session_file;

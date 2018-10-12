@@ -364,14 +364,20 @@ session_manager::assign_resources(session_ptr sess, std::string username, onl::t
   return true;
 }
 
-void
+bool
 session_manager::return_resources(std::string username, onl::topology* top)
 {
   write_log("session_manager::return_resources(): user " + username);
   //write_usage_log("USAGE_LOG: CLOSE user " + username);
   autoLockDebug dlock(db_lock, "session_manager::return_resources(): db_lock");
-
-  database->return_resources(username, top);
+  
+  onl::onldb_resp res = database->return_resources(username, top);
+  if(res.result() < 1)
+  {
+    write_log("session_manager::return_resources(): user " + username + " database error: session state may not be cleared " + res.msg());
+    return false;
+  }
+  return true;
 }
 
 void
@@ -906,6 +912,12 @@ session_manager::add_component(crd_component_ptr comp, session_ptr sess)
     //TODO VM there may be more than one active session with a valid active VM using
     //the same node
     //remove if user is same and session is different
+    //NOTE: repair bug 10/18/17 - 5 lines
+    if ((*i) == comp) 
+      {
+	write_log("session_manager::add_component: comp(" + int2str((unsigned long) comp.get()) + ") " + comp->getName() + " already in active list");
+	return;
+      }
     if((*i)->getName() == comp->getName()) 
     {
       clock.unlock();
@@ -953,9 +965,10 @@ session_manager::clear_component(crd_component* comp)
     return;
   }
 
-  write_log("session_manager::clear_component: comp(" + int2str((unsigned long) comp) + ") " + comp->getName());
   autoLockDebug clock(comp_lock, "session_manager::clear_component(): comp_lock");
   std::list<crd_component_ptr>::iterator i;
+  int found_refreshing = 0;
+  int found_active = 0;
   for(i=refreshing_components.begin(); i!=refreshing_components.end(); ++i)
   {
     if((*i).get() == comp)
@@ -967,7 +980,9 @@ session_manager::clear_component(crd_component* comp)
 	  initializing = false;
 	  write_log("session_manager::clear_component: all components processed. initializing phase of crd is over.");
 	}
-      return;
+      //NOTE: repair bug 10/18/17 - 2 lines
+      ++found_refreshing;
+      //return;
     }
   }
   //NOTE: repair bug 10/10/17 - 10 lines
@@ -978,13 +993,22 @@ session_manager::clear_component(crd_component* comp)
 	{
 	  comp->clear_session();
 	  active_components.erase(i);
-	  return;
+	  //NOTE: repair bug 10/18/17 - 2 lines
+	  ++found_active;
+	  //return;
 	}
     }
   
-  // really should never get here..
-  write_log("session_manager::clear_component: warning: calling clear on node " + comp->getName() + " which is not in the refreshing list");
-  comp->clear_session();
+  if ( found_refreshing > 0 || found_active > 0 )
+    {
+      write_log("session_manager::clear_component: comp(" + int2str((unsigned long) comp) + ") " + comp->getName() + " " + int2str(found_refreshing) + " refreshing " + int2str(found_active) + " active");
+    }
+  else
+    {
+      // really should never get here..
+      write_log("session_manager::clear_component: warning: calling clear on node comp(" + int2str((unsigned long) comp) + ") " + comp->getName() + " which is not in the refreshing or active list");
+      comp->clear_session();
+    }
 }
 
 session_ptr
@@ -1044,7 +1068,10 @@ session_manager::remove_session(session* sess)
   {
     if((*it)->getID() == sess->getID())
     {
-      write_log("session_manager::remove_session: removing session " + (*it)->getID() + " with ref count " + int2str((*it).use_count()));
+      if (!sess->return_resources())
+	write_log("session_manager::remove_session: removing session " + (*it)->getID() + " with ref count " + int2str((*it).use_count()) + " return resources failed");
+      else
+	write_log("session_manager::remove_session: removing session " + (*it)->getID() + " with ref count " + int2str((*it).use_count()));
       active_sessions.erase(it);
       break;
     }

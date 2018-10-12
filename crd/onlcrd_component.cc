@@ -692,14 +692,19 @@ crd_component::refresh()
     the_session_manager->clear_component(this);
     return;
   }
+
   if(local_state == "new" && cur_state != "free") //JP is this a BUG? should it be cur_state == "free"
     //this is what happens if we're refreshing someone commits and then closes before the initial refresh ends
   {
     local_state = "done";
     slock.unlock();
+    //NOTE: repair bug 10/18/17 - 2 lines
+    cleanup_links(false);
+    cleanup_reqs(false);
     the_session_manager->clear_component(this);
     return;
   }
+
   if(cur_state == "initializing")
   {
     needs_refresh = true;

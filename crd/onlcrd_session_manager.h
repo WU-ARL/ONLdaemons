@@ -45,7 +45,7 @@ namespace onlcrd
       void fix_component(onl::topology* top, uint32_t id, std::string cp);
       bool make_reservation(reservation* res, std::string username, std::string early_start, std::string late_start, uint32_t duration, onl::topology* top);
       bool assign_resources(session_ptr sess, std::string username, onl::topology* top);
-      void return_resources(std::string username, onl::topology* top);
+      bool return_resources(std::string username, onl::topology* top);
       void check_for_expired_sessions();
 
       void received_up_msg(std::string name);
