@@ -723,7 +723,7 @@ session::send_alerts()
   while(!cleared)
   {
     int min_left = the_session_manager->reservation_time_left(user);
-    if((!sent_reservation_alert) && (min_left <= reservation_alert_time) && (min_left >= 0))
+    if((!sent_reservation_alert) && (min_left <= reservation_alert_time))
     {
       session_response* alert = new session_response(begin_req, "Reservation Alert - less than " + int2str(min_left) + " minutes left", Session_Alert);
       alert->send();
