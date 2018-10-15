@@ -6949,7 +6949,7 @@ onldb_resp onldb::cancel_current_reservation(std::string username) throw()
 
 onldb_resp onldb::has_reservation(std::string username) throw()
 {
-  if(lock("reservation") == false) return onldb_resp(0,"database locking problem.. try again later");
+  if(lock("reservation") == false) return onldb_resp(-2,"database locking problem.. try again later");
   try
   {
     std::string current_time = time_unix2db(time(NULL));
@@ -7128,7 +7128,7 @@ onldb_resp onldb::return_resources(std::string username, topology *t) throw()
   catch(const mysqlpp::Exception& er)
   {
     unlock("reservation");
-    return onldb_resp(-2,er.what());
+    return onldb_resp(-1,er.what());
   }
   unlock("reservation");
 
@@ -7140,17 +7140,17 @@ onldb_resp onldb::return_resources(std::string username, topology *t) throw()
   use_exportfs = true;
   #endif
 
-  //if (username.compare("jdd") == 0)
-  //  {
-  //    for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
-  // 	{
-  // 	  if ((*nit)->node.compare("pc48core01") == 0)
-  // 	    {
-  // 	      use_exportfs = true;
-  // 	      break;
-  // 	    }
-  // 	}
-  // }
+  if (username.compare("jdd") == 0)
+    {
+      for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
+	{
+	  if ((*nit)->node.compare("pc48core01") == 0)
+	    {
+	      use_exportfs = true;
+	      break;
+	    }
+	}
+    }
   //#ifdef USE_EXPORTFS
   std::string exportList;
   //#endif

@@ -74,8 +74,6 @@ session::session(uint32_t sid, std::string username, nccp_connection* nc)
 
   mapping_written = false;
 
-  resources_returned = false;
-
   write_log("session::session: added session " + id + " for user " + user);
 }
 
@@ -398,8 +396,7 @@ session::commit(session_ptr sess)
   // if there is not enough interswitch bandwidth to support the new session
   // and the sessions that have run over
   the_session_manager->check_for_expired_sessions();
-  
-  write_log("session(" + sess->getID() + ")::commit(): checked for expired sessions");
+
   // have to allocate vlans for all virtual switch sets before we start to ensure that
   // everything on one set of connected vswitches gets the same vlan
   std::list<crd_component_ptr>::iterator i;
@@ -585,7 +582,7 @@ session::clear()
   } 
 
   // clear out the topology
-  return_resources();
+  the_session_manager->return_resources(user, &topology);
 
   // clear vlans
   if (!the_session_manager->clear_session_vlans(id))
@@ -600,8 +597,7 @@ session::clear()
     unsigned int id = lnk->get_component().getID();
     lnk->refresh();
     //need to make sure vlans get deleted here VLAN PROBLEM
-    //if (resources_returned) //BUG FIX removed
-      topology.remove_link(id);
+    topology.remove_link(id);
   }
 
   // remove all active components
@@ -617,8 +613,7 @@ session::clear()
     {
       comp->refresh();
     }
-    // if (resources_returned) //BUG FIX removed
-      topology.remove_node(id);
+    topology.remove_node(id);
   }
 
   // remove pending observation requests
@@ -640,19 +635,6 @@ session::clear()
 
   if(begin_req != NULL) { delete begin_req; }
   begin_req = NULL;
-}
-
-bool
-session::return_resources()
-{
-  if (!resources_returned)
-    {
-      resources_returned = the_session_manager->return_resources(user, &topology);
-      if (!resources_returned)
-	write_log("session(" + id + ")::return_resources() session_manager return_resources failed");
-      //might want to loop until returns yes
-    }
-  return resources_returned;
 }
 
 void

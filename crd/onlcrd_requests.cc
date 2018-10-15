@@ -162,7 +162,8 @@ begin_session_req::handle()
   if(rt_left <= 0)
   {
     std::string msg = "Reservation not found.";
-    //if (rt_left < -1) msg = "Database error: try again later";
+    if (rt_left < -1) msg = "Database error: try again later";
+    //session_response* resp = new session_response(this, "Reservation not found.", Session_No_Res_Err);
     session_response* resp = new session_response(this, msg, Session_No_Res_Err);
     resp->send();
     delete resp;
