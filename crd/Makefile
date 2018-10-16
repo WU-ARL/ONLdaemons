@@ -24,7 +24,7 @@ INCLUDES = -I. -I../shared -I/usr/include/mysql -I../database/include -I/opt/gur
 #LIBS = -lrt -lpthread -L../shared/${OBJDIR} -lONLshared -L../database/lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp -L/opt/gurobi300/linux64/lib -lgurobi_c++ -lgurobi30 -lssl
 #LIBS = -lrt -lpthread -L../shared/${OBJDIR} -lONLshared -L../database/lib/${OBJDIR} -lonldb /usr/lib64/mysql/libmysqlclient_r.so /usr/lib64/libmysqlpp.so -L/opt/gurobi300/linux64/lib -lgurobi_c++ -lgurobi30 -lssl
 #LIBS = /usr/lib64/librt.a -lpthread -L../shared/${OBJDIR} -lONLshared -L../database/lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp -L/opt/gurobi300/linux64/lib -lgurobi_c++ -lgurobi30 /usr/lib64/libssl.a /usr/lib64/libcrypto.a -lz -lkrb5 -lk5crypto -ldl
-LIBS = -lrt -lpthread -L../shared/${OBJDIR} -lONLshared -L../database/lib/${OBJDIR} -lonldb -lmysqlclient_r -lmysqlpp -lssl -lz -lkrb5 -lk5crypto -ldl
+LIBS = -lrt -lpthread -L../shared/${OBJDIR} -lONLshared -L../database/lib/${OBJDIR} -lonldb -lmysqlclient_r -lmysqlpp -lz -lkrb5 -lk5crypto -ldl #-lssl -lz -lkrb5 -lk5crypto -ldl
 
 EXEC = $(OBJDIR)/onlcrd
 OBJS = $(OBJDIR)/onlcrd_component.o \

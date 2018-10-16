@@ -54,7 +54,7 @@ int main(int argc, char **argv)
   struct rtnl_link *link_ptr;
   struct rtnl_qdisc *qdisc;
   std::string nic;
-  
+  int rtn = 0; 
 
   nl_connect(my_sock, NETLINK_ROUTE);
   if (rtnl_link_alloc_cache(my_sock, AF_UNSPEC, &link_cache) < 0)
@@ -66,7 +66,7 @@ int main(int argc, char **argv)
   char tmp_str[256];
   sprintf(tmp_str, "data%d", port);
   nic = tmp_str;
-  if (!(link_ptr = rtnl_link_get_by_name(link_cache, nic.c_str())))
+  if (!(link_ptr = rtnl_link_get_by_name(link_cache, "data1")))//nic.c_str())))
     {
       nl_socket_free(my_sock);
       nl_cache_free(link_cache);
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
       return -1;
     }
   
-  //int ifindex = rtnl_link_get_ifindex(link_ptr);  
+  int ifindex = rtnl_link_get_ifindex(link_ptr);  
   /*
     if ((rtnl_qdisc_alloc_cache(my_sock, &all_qdiscs)) < 0)
     {
@@ -89,16 +89,25 @@ int main(int argc, char **argv)
   rtnl_tc_set_link(TC_CAST(qdisc), link_ptr);
   //rtnl_tc_set_parent(TC_CAST(qdisc), TC_HANDLE((port + 1),1));
   //rtnl_tc_set_handle(TC_CAST(qdisc), TC_HANDLE((port + 7),0));
-  rtnl_tc_set_parent(TC_CAST(qdisc), TC_HANDLE(5,1));
-  rtnl_tc_set_handle(TC_CAST(qdisc), TC_HANDLE(39,0));
-  rtnl_tc_set_kind(TC_CAST(qdisc), "netem"); 
-  rtnl_netem_set_delay(qdisc, dtime);
-  rtnl_netem_set_loss(qdisc, 0);
+  rtnl_tc_set_parent(TC_CAST(qdisc), TC_H_ROOT);
+  rtnl_tc_set_handle(TC_CAST(qdisc), TC_HANDLE(2,0));
+  //rtnl_tc_set_kind(TC_CAST(qdisc), "htb");
+  //rtnl_htb_set_defcls(qdisc, 2); 
+  rtn = rtnl_tc_set_kind(TC_CAST(qdisc), "netem"); 
+  if (rtn < 0)
+    {
+      cout << "rtnl_tc_set_kind failed error code:" << nl_geterror(rtn) << endl;
+     return -1;
+    }
+  //rtnl_netem_set_delay(qdisc, dtime);
+  //rtn = 
+rtnl_netem_set_delay(qdisc, 200);
+  //rtnl_netem_set_loss(qdisc, 0);
   //if (jitter > 0)
   //rtnl_netem_set_jitter(qdisc, jitter);
 
-  //nl_object_dump(OBJ_CAST(qdisc), NULL);
-  int rtn = rtnl_qdisc_add(my_sock, qdisc, NLM_F_CREATE);
+  nl_object_dump(OBJ_CAST(qdisc), NULL);
+  rtn = rtnl_qdisc_add(my_sock, qdisc, NLM_F_CREATE);
   if (rtn < 0)
     {
       cout << "rtnl_qdisc_add failed error code:" << nl_geterror(rtn) << endl;

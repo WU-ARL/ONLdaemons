@@ -314,6 +314,7 @@ filter_req::handle()
     filter->sampling = sampling;
     filter->qid = qid;
     filter->mark = mark;
+    std::cout << " mark is " << mark << std::endl;
 
     bool ispkts = false;
     uint32_t val = 0;
@@ -377,6 +378,7 @@ filter_req::parse()
   tcp_ack = params[11].getInt();
   tcp_urg = params[12].getInt();
   unicast_drop = params[13].getBool();
+  mark = 0;
   if (get_op() == SWR_AddFilter) 
     {
       output_port = params[14].getString();
@@ -386,7 +388,6 @@ filter_req::parse()
 	{
 	  mark = params[17].getInt();//+10 depending on if RLI allows specification of auto assignment start
 	}
-      else mark = 0;
     }
   else sampling = 1;
   //priority = params[19].getInt(); 
