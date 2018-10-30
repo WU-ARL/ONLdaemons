@@ -5561,6 +5561,37 @@ onldb_resp onldb::is_admin(std::string username) throw()
  return onldb_resp(0,(std::string)"not admin");
 }
 
+onldb_resp onldb::is_sysadmin(std::string username) throw()
+{
+  try
+  {
+    mysqlpp::Query query = onl->query();
+    query << "select priv from users where user=" << mysqlpp::quote << username;
+    ++db_count;
+    mysqlpp::StoreQueryResult res = query.store();
+    if(res.empty())
+    {
+      std::string errmsg;
+      errmsg = "user " + username + " not in the database";
+      return onldb_resp(-1,errmsg);
+    }
+    privileges p = res[0];
+    if(((int)p.priv) > 2)
+    {
+      return onldb_resp(1,(std::string)"user is admin");
+    }
+    else
+    {
+      return onldb_resp(0,(std::string)"not admin");
+    }
+  }
+  catch(const mysqlpp::Exception& er)
+  {
+    return onldb_resp(-1,er.what());
+  }
+ return onldb_resp(0,(std::string)"not admin");
+}
+
 onldb_resp onldb::reserve_all(std::string begin, unsigned int len) throw()
 {
   unsigned int horizon;
@@ -5674,6 +5705,8 @@ onldb_resp onldb::reserve_all(std::string begin, unsigned int len) throw()
     mysqlpp::SimpleResult sr = ins.execute();
     unsigned int rid = sr.insert_id();
 
+    //just set reservation but don't effect  nodeschedule or cluster schedule. this will allow admins to make normal reservations during system reservations
+    /*
     query = onl->query();
     query << "select cluster from hwclusters join types using(tid) where type='hwcluster' and cluster not in (select cluster from hwclusterschedule where rid in (select rid from reservations where begin<" << mysqlpp::quote << end_db << " and end>" << mysqlpp::quote << begin_db << " and state!='cancelled' and state!='testing'))";
     vector<clusternames> clusterlist;
@@ -5699,6 +5732,7 @@ onldb_resp onldb::reserve_all(std::string begin, unsigned int len) throw()
       ins.insert(ns);
       ins.execute();
     }
+    */
   }
   catch(const mysqlpp::Exception& er)
   {
@@ -6050,7 +6084,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
       return onldb_resp(0,errmsg);
     }
 
-    //check if request violates the maximum number a user can request of this time at one time
+    //check if request violates the maximum number a user can request of this type at one time
     if((*ti)->num > tpv.usermaxnum)
     {
       std::string errmsg;
@@ -6224,6 +6258,12 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
   if (username == JDD || username == JP) {
     cout << "Warning: Making reservation for " << username << ": testing for overlap" << endl;
   }
+
+
+  onldb_resp ra = is_sysadmin(username);
+  bool admin = false;
+  if(ra.result() == 1) admin = true;
+
   // now go through each time frame and remove any time where the user already has a reservation
   for(tr = possible_times.begin(); tr != possible_times.end(); ++tr)
   {
@@ -6236,7 +6276,11 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
       mysqlpp::Query query = onl->query();
       std::string b1_db = time_unix2db((*tr)->b1_unix);
       std::string e2_db = time_unix2db((*tr)->e2_unix);
-      query << "select begin,end from reservations where user=" << mysqlpp::quote << username << " and state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << e2_db << " and end>" << mysqlpp::quote << b1_db << " order by begin";
+      if (admin)
+	query << "select begin,end from reservations where user=" << mysqlpp::quote << username << " and state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << e2_db << " and end>" << mysqlpp::quote << b1_db << " order by begin";
+      else
+	query << "select begin,end from reservations where (user=" << mysqlpp::quote << username << " or user='system') and state!='cancelled' and state!='timedout' and begin<" << mysqlpp::quote << e2_db << " and end>" << mysqlpp::quote << b1_db << " order by begin";
+
       vector<restimes> rts;
       ++db_count;
       query.storein(rts);
@@ -6373,7 +6417,7 @@ onldb_resp onldb::make_reservation(std::string username, std::string begin1, std
   if(possible_times.size() == 0)
   {
     unlock("reservation");
-    return onldb_resp(0,(std::string)"you already have reservations during that time period");
+    return onldb_resp(0,(std::string)"either you already have reservations or there is system maintenance during that time period");
   }
 
   // don't forget to check grpmaxnum from typepolicy..
@@ -6747,26 +6791,40 @@ onldb_resp onldb::extend_current_reservation(std::string username, int min) thro
     }
   }
 
-  onldb_resp ra = is_admin(username);
-  if(ra.result() < 0)
-  {
-    unlock("reservation");
-    return onldb_resp(ra.result(),ra.msg());
-  }
   bool admin = false;
-  if(ra.result() == 1) admin = true;
+  bool sysadmin = false;
+  onldb_resp ra = is_sysadmin(username);  
+  if(ra.result() == 1) 
+    {
+      admin = true;
+      sysadmin = true;
+    }
+  else
+    {
+      ra = is_admin(username); 
+      if(ra.result() < 0)
+	{
+	  unlock("reservation");
+	  return onldb_resp(ra.result(),ra.msg());
+	}
+      if(ra.result() == 1) admin = true;
+    }
 
   try
   {
     mysqlpp::Query query = onl->query();
-    query << "select begin,end from reservations where user=" << mysqlpp::quote << username << " and state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db;
+    if (sysadmin)
+      query << "select begin,end from reservations where user=" << mysqlpp::quote << username << " and state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db;
+    else
+      query << "select begin,end from reservations where (user=" << mysqlpp::quote << username << " or user='system') and state!='cancelled' and state!='timedout' and begin<=" << mysqlpp::quote << new_end_db << " and end>" << mysqlpp::quote << end_db;
+
     vector<restimes> rts;
     query.storein(rts);
   
     if(!rts.empty())
     {
       unlock("reservation");
-      return onldb_resp(0,(std::string)"you already have a reservation during that time period");
+      return onldb_resp(0,(std::string)"you either already have a reservation or system maintenace is during that time period");
     }
   }
   catch(const mysqlpp::Exception& er)
