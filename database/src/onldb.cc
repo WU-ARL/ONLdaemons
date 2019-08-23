@@ -31,6 +31,7 @@
 
 #include <mysql++/mysql++.h>
 #include <mysql++/ssqls.h>
+#include <mysql/service_locking.h>
 #include <boost/shared_ptr.hpp>
 
 //#include <gurobi_c++.h>
@@ -402,6 +403,43 @@ onldb::report_metrics(topology* topo, std::string username, time_t res_start, ti
   make_res_time = 0;
 }
 
+/*
+bool onldb::new_lock(std::string l, bool isread) throw()
+{
+  try
+  {
+    enum enum_locking_service_lock_type lock_type = LOCKING_SERVICE_WRITE;
+    if (isread) lock_type = LOCKING_SERVICE_READ;
+    char* tmp[1];
+    tmp[0] = "lock";
+    int res = mysql_acquire_locking_service_locks(NULL,
+						  l.c_str(),
+						  (const char**)tmp,
+						  1,
+						  lock_type,
+						  10);
+    if (res != 0) return false;
+  } 
+  catch(const mysqlpp::Exception& er)
+  {
+    return false;
+  }
+  return true;
+}
+
+void onldb::new_unlock(std::string l) throw()
+{
+  try
+  {
+    int res = mysql_release_locking_service_locks(NULL, l.c_str());
+    if (res != 0) cout << "Warning: releasing lock " << l << " encountered an exception" << endl;
+  } 
+  catch(const mysqlpp::Exception& er)
+  {
+    cout << "Warning: releasing lock " << l << " encountered an exception" << endl;
+  }
+}
+*/
 
 bool onldb::lock(std::string l) throw()
 {
@@ -2581,12 +2619,13 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	  if (node->type != "vm" && n && n->marked) continue;
 	}
 
-      if (n && (!in_list(n, cluster->rnodes_used) || node->type == "vm")) //check core, mem, and interface bw capacities to see if there is enough for this node
+      if (n && (!in_list(n, cluster->rnodes_used) || node->type == "vm"))//check if node is viable
 	{
+	  //check core, mem, and interface bw capacities to see if there is enough for this node
 	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
 	    {
 	      //if it's a vm or a node with virtual ports requested by new RLI (node's port_capacities will be empty for older requests || whole node request)
-	      if (node->type == "vm" || ((n->has_vport) && !node->port_capacities.empty()))
+	      if (node->type == "vm" || ((n->has_vport) && !node->port_capacities.empty())) //check if vm or virtual port has enough bw
 		{
 		  std::map<int,int>::iterator uportit;
 		  std::map<int,int>::iterator rportit = n->port_capacities.begin();
@@ -2631,17 +2670,34 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			      rtn_num_vms = tmp_num;
 			      rtn = n;//keep this if this is the lowest utilized node we've seen but keep looking for one with no vms
 			    }*///END OF VM STRIPING
-			  if (tmp_num == 0) return n;
+			  if (tmp_num == 0) //PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
+			    {
+			      if (compute_path_costs(node, n) < 0)
+				break; //can't map existing links
+			      else    
+				return n;
+			    }//return n;//add a check links before returning node
 			}
-		      else
-			return n;
+		      else //PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
+			{
+			  if (compute_path_costs(node, n) < 0)
+			    break; //can't map existing links
+			  else    
+			    return n;
+			}
 		    }
 		  else if (fixed) //the node we want doesn't have enough bw
 		    break;
 		  //keep looking
 		}
-	      else
-		return n;
+	      else//PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
+		{
+		  if (compute_path_costs(node, n) < 0)
+		    break; //can't map existing links
+		  else    
+		    return n;
+		}
+	      //return n;
 	    }
 	  else if (fixed) 
 	    break;
@@ -3105,7 +3161,9 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 		}
 	      else
 		available_node = find_available_node(cluster, (*nit)->node);
-	      if (available_node)
+	      if (available_node && 
+		  //JP: PROBLEM need to check if there is a feasible path to any neighbor of the neighbor that has already been mapped
+		  (compute_path_costs((*nit)->node, available_node) >= 0))//END FIX
 		{
 		  if ((*nit)->node->type == "vm")
 		    {
@@ -3113,18 +3171,25 @@ onldb::find_neighbor_mapping(mapping_cluster_ptr cluster, std::list<node_load_pt
 		      available_node->potential_memcap -= (*nit)->node->mem_capacity;
 		    }
 		  else available_node->potential_corecap = 0;
-		  //JP: PROBLEM need to check if there is a feasible path to any neighbor of the neighbor that has already been mapped
+		  /*//JP: PROBLEM need to check if there is a feasible path to any neighbor of the neighbor that has already been mapped
 		  if (compute_path_costs((*nit)->node, available_node) < 0)//couldn't reach some neighbor of the neighbor from this cluster
 		    {
 		      unmapped_nodes.push_back(*nit);
 		      continue;
-		    }//END FIX
+		      }//END FIX*/
 		  cluster->rnodes_used.push_back(available_node);
 		  cluster->nodes_used.push_back(*nit);
 		  total_load += (*nit)->load;
 		}
 	      else
-		unmapped_nodes.push_back(*nit);
+		{
+		  if (available_node)
+		    {
+		      cout << "find_neighbor_mapping:: failed on links (node,realnode) = (" << (*nit)->node->label << "," << available_node->label << ")" << endl;
+		      available_node = null_ptr;
+		    }
+		  unmapped_nodes.push_back(*nit);
+		}
 	    }
 	  else
 	    unmapped_nodes.push_back(*nit);
@@ -3701,7 +3766,6 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	}
     }
 
-  cout << "onldb::find_cheapest_path path_addition_count:" << num_paths <<  endl;
   //if we found a sink path put it into the potential path and return the cost otw return -1
   if (sink_path)
     {
@@ -3711,8 +3775,10 @@ onldb::find_cheapest_path(link_resource_ptr ulink, link_resource_ptr potential_p
 	  potential_path->mapped_path.push_back(sink_path->path.front());
 	  sink_path->path.pop_front();
 	}
+      cout << "onldb::find_cheapest_path link:" << ulink->label << " path_addition_count:" << num_paths <<  " cost:" << potential_path->cost << endl;
       return (potential_path->cost);
     }
+  cout << "onldb::find_cheapest_path link:" << ulink->label << " path_addition_count:" << num_paths <<  " cost:-1" << endl;
   return -1;
 }
 
@@ -3791,7 +3857,23 @@ onldb::map_node(node_resource_ptr node, topology* req, mapping_cluster_ptr clust
 	  (*nrnode_it)->core_capacity -= (*nbrit)->node->core_capacity;
 	  (*nrnode_it)->mem_capacity -= (*nbrit)->node->mem_capacity;
 	  (*nrnode_it)->user_nodes.push_back((*nbrit)->node);
-	  if ((*nbrit)->node->is_parent) map_children((*nbrit)->node, (*nrnode_it));
+	  if ((*nbrit)->node->is_parent)
+	    {
+	      map_children((*nbrit)->node, (*nrnode_it));
+	      //PROBLEM: JP 7.11.19 need to map links here if it turns out that 2 endpoints have been mapped
+	      for(nit = (*nbrit)->node->node_children.begin(); nit != (*nbrit)->node->node_children.end(); ++nit)
+		{
+		  if ((*nit)->marked) map_edges((*nit), (*nit)->mapped_node, base);
+		  else 
+		    {
+		      cout << "Error: map_node neighbor:" << (*nbrit)->node->label << " child node " << (*nit)->label << " not mapped " << endl; 
+		    }
+		}
+	    }
+	  //PROBLEM: JP 7.11.19 need to map links here if it turns out that 2 endpoints have been mapped
+	  else
+	    map_edges((*nbrit)->node, *nrnode_it, base);
+	  //ENDFIX 7.11.19
 	}
       cout << "     side effect: request node (" << (*nbrit)->node->type << (*nbrit)->node->label << "," << (*nbrit)->node->user_nodes.front()->label << ") real node (" << (*nrnode_it)->type << (*nrnode_it)->label << ", " << (*nrnode_it)->node << ")" << endl;
       ++nrnode_it;

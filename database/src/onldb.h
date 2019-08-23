@@ -33,6 +33,8 @@ namespace onl
 
       bool lock(std::string l) throw();
       void unlock(std::string l) throw();
+      //bool new_lock(std::string l, bool isread = false) throw();
+      //void new_unlock(std::string l) throw();
 
       // returned vals are based on times in current local TZ
       std::string time_unix2db(time_t unix_time) throw();
