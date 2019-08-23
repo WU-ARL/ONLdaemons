@@ -55,7 +55,79 @@ namespace onld
   // result = t1 - t2, if t1<t2, returns false, o/w returns true
   bool timespec_diff(struct timespec& result, const struct timespec t1, const struct timespec t2);
 
-  class autoLock
+  class autoRdLock
+  {
+    private:
+      pthread_rwlock_t &lock_;
+      bool locked_;
+
+    public:
+      autoRdLock(pthread_rwlock_t &l) : lock_(l), locked_(false) {lock();}
+      ~autoRdLock() { unlock(); }
+      int unlock()
+      {
+        int res = 0;
+        if (locked_ == true) {
+          if ((res = pthread_rwlock_unlock(&lock_)) != 0 && res != EDEADLK)
+            write_stderr("pthread_rwlock_unlock failed!", errno);
+          else
+            locked_ = false;
+        }
+        return res;
+      }
+      int lock()
+      {
+        int res = 0;
+        if (locked_ == false) {
+          if ((res = pthread_rwlock_rdlock(&lock_)) != 0)
+            write_stderr("pthread_rwlock_rdlock failed!", errno);
+          else
+            locked_ = true;
+        }
+        return res;
+      }
+
+      bool locked() {return locked_;}
+      bool operator!() {return !locked();}
+  }; 
+
+  class autoWrLock
+  {
+    private:
+      pthread_rwlock_t &lock_;
+      bool locked_;
+
+    public:
+      autoWrLock(pthread_rwlock_t &l) : lock_(l), locked_(false) {lock();}
+      ~autoWrLock() { unlock(); }
+      int unlock()
+      {
+        int res = 0;
+        if (locked_ == true) {
+          if ((res = pthread_rwlock_unlock(&lock_)) != 0 && res != EDEADLK)
+            write_stderr("pthread_rwlock_unlock failed!", errno);
+          else
+            locked_ = false;
+        }
+        return res;
+      }
+      int lock()
+      {
+        int res = 0;
+        if (locked_ == false) {
+          if ((res = pthread_rwlock_wrlock(&lock_)) != 0)
+            write_stderr("pthread_rwlock_rdlock failed!", errno);
+          else
+            locked_ = true;
+        }
+        return res;
+      }
+
+      bool locked() {return locked_;}
+      bool operator!() {return !locked();}
+  }; 
+
+class autoLock
   {
     private:
       pthread_mutex_t &lock_;

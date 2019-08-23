@@ -68,7 +68,8 @@ namespace onld
       static dispatcher* the_dispatcher;
 
       pthread_mutex_t seq_lock;
-      pthread_mutex_t map_lock; //JP added 9_4_2012 to try and fix seg fault
+      //pthread_mutex_t map_lock; //JP added 9_4_2012 to try and fix seg fault
+      pthread_rwlock_t map_lock; //JP added 11_26_2018 to try and fix seg fault again
       std::map<rendezvous, request *> rend_map;
       uint32_t next_seq[256];
 
