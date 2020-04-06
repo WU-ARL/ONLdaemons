@@ -3520,6 +3520,41 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw()
 	  node_resource_ptr last_visited = source;
 	  node_resource_ptr other_node;
 	  bool port_matters = true;
+	  //JP replacement code to account for vms and virtual port capacities. Bug fix for finding a path in cost
+	  //       computing stage but not finding it when mapping the edge - 8/23/2019
+	  for (plit = potential_path->mapped_path.begin(); plit != potential_path->mapped_path.end(); ++plit)
+	    {
+	      if ((*plit)->node1 != (*plit)->node2)
+		{
+		  //if (last_visited->type_type == "infrastructure") port_matters = false;
+		  if ((*plit)->node1 == last_visited) //&& (!port_matters || (*lit)->node1_port == (*plit)->node1_port))
+		    {
+		      if ((*plit)->potential_rcap < l_rload)
+			(*plit)->potential_rcap = 0;
+		      else
+			(*plit)->potential_rcap -= l_rload;
+		      if ((*plit)->potential_lcap < l_lload)
+			(*plit)->potential_lcap = 0;
+		      else
+			(*plit)->potential_lcap -= l_lload;
+		      last_visited = (*plit)->node2;
+		    }
+		  else if ((*plit)->node2 == last_visited) //&& (!port_matters || (*lit)->node1_port == (*plit)->node2_port))
+		    {
+		      if ((*plit)->potential_rcap < l_lload)
+			(*plit)->potential_rcap = 0;
+		      else
+			(*plit)->potential_rcap -= l_lload;
+		      if ((*plit)->potential_lcap < l_rload)
+			(*plit)->potential_lcap = 0;
+		      else
+			(*plit)->potential_lcap -= l_rload;
+		      last_visited = (*plit)->node1;
+		    }
+		}
+	    }
+	  //end Replacement
+	  /*//code replaced
 	  for (plit = potential_path->mapped_path.begin(); plit != potential_path->mapped_path.end(); ++plit)
 	    {
 	      if (((*plit)->node1->type_type == "infrastructure" && (*plit)->node2->type_type == "infrastructure") && ((*plit)->node1 != (*plit)->node2))
@@ -3539,6 +3574,8 @@ onldb::compute_path_costs(node_resource_ptr node, node_resource_ptr n) throw()
 		    }
 		}
 	    }
+	    
+	  //end replaced code*/
 	  mapped_edges.push_back(potential_path);
 	}
     }
