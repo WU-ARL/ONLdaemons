@@ -19,7 +19,8 @@ CFLAGS = -D_GNU_SOURCE -D_REENTRANT -D_THREAD_SAFE -W -Wall -Wundef -Wimplicit -
 INCLUDES = -I/usr/include/mysql -I../include 
 #LIBS = -lpthread -L/usr/lib64/mysql -L ../lib/$(OBJDIR) -lonldb -lmysqlclient_r -lmysqlpp -lssl
 #LIBS = /usr/lib64/librt.a -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp /usr/lib64/libssl.a /usr/lib64/libcrypto.a -lz -lkrb5 -lk5crypto -ldl /usr/lib64/libstdc++.so.6
-LIBS = -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp 
+LIBS = -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib -lmysqlclient -lmysqlpp  -lstdc++
+#LIBS = -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib64/mysql -lmysqlclient_r -lmysqlpp  -lstdc++
 
 DEBUG = -g
 #CC     = g++
