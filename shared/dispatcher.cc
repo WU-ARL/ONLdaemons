@@ -57,13 +57,15 @@ dispatcher::dispatcher()
   }
 
   pthread_mutex_init(&seq_lock, NULL);
-  pthread_mutex_init(&map_lock, NULL); //JP added 9_4_2012 to try and fix seg fault
+  //pthread_mutex_init(&map_lock, NULL); //JP added 9_4_2012 to try and fix seg fault
+  pthread_rwlock_init(&map_lock, NULL); //JP added 11_26_2018 to try and fix seg fault again
 }
 
 dispatcher::~dispatcher()
 {
   pthread_mutex_destroy(&seq_lock);
-  pthread_mutex_destroy(&map_lock); //JP added 9_4_2012 to try and fix seg fault
+  //pthread_mutex_destroy(&map_lock); //JP added 9_4_2012 to try and fix seg fault
+  pthread_rwlock_destroy(&map_lock); //JP added 11_26_2018 to try and fix seg fault again
 }
 
 dispatcher *
@@ -124,7 +126,8 @@ dispatcher::register_rendezvous(request *req)
   rendezvous rend(id,seq);
   req->set_rendezvous(rend);
 
-  autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  //autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  autoWrLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   rend_map[rend] = req;
   mlock.unlock(); //JP added 9_4_2012 to try and fix seg faultYY
 }
@@ -143,7 +146,8 @@ dispatcher::register_periodic_rendezvous(request *req)
   req->set_return_rendezvous(return_rend);
   req->prepare_for_periodic();
 
-  autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  //autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  autoWrLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   rend_map[return_rend] = req;
   mlock.unlock(); //JP added 9_4_2012 to try and fix seg faultYY
 }
@@ -154,9 +158,11 @@ dispatcher::call_rendezvous(response *resp)
   rendezvous rend = resp->get_rendezvous();
 
   std::map<rendezvous, request *>::iterator it;
+  autoRdLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   it = rend_map.find(rend); 
   if(it == rend_map.end()) { return true; }
   request *req = (request *)(it->second);
+  mlock.unlock(); //JP added 11_26_2018 to try and fix seg fault again
 
   return req->request_rendezvous(resp);
 }
@@ -167,9 +173,11 @@ dispatcher::call_rendezvous(periodic *per)
   rendezvous rend = per->get_rendezvous();
 
   std::map<rendezvous, request *>::iterator it;
+  autoRdLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   it = rend_map.find(rend); 
   if(it == rend_map.end()) { return true; }
   request *req = (request *)(it->second);
+  mlock.unlock(); //JP added 11_26_2018 to try and fix seg fault again
 
   return req->request_rendezvous(per);
 }
@@ -178,7 +186,8 @@ void
 dispatcher::clear_rendezvous(request *req)
 {
   rendezvous rend = req->get_rendezvous();
-  autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  //autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  autoWrLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   rend_map.erase(rend);
   mlock.unlock(); //JP added 9_4_2012 to try and fix seg fault
 
@@ -190,7 +199,8 @@ void
 dispatcher::clear_periodic_rendezvous(request *req)
 {
   rendezvous return_rend = req->get_return_rendezvous();
-  autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  //autoLock mlock(map_lock); //JP added 9_4_2012 to try and fix seg fault
+  autoWrLock mlock(map_lock);  //JP added 11_26_2018 to try and fix seg fault again
   rend_map.erase(return_rend);
   mlock.unlock(); //JP added 9_4_2012 to try and fix seg fault
 
