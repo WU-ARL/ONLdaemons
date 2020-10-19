@@ -121,7 +121,32 @@ start_experiment_req::start_specialization_daemon(std::string specd)
   if(fork() == 0)
   {    
     struct passwd *pwent = NULL;
-    if (!root_only) pwent = getpwnam(user.c_str());
+
+    //figure out the number of arguments
+    int argc = init_params.size();
+    const char* argv[(argc+3)]; //arguments sent from RLI plus the user
+    std::list<param>::iterator pit;
+    int i = 0;
+    for (pit = init_params.begin(); pit != init_params.end(); ++pit)
+      {
+	argv[i] = pit->getString().c_str();
+	++i;
+      }
+    argv[0] = specd.c_str();
+    argv[i] = "--onluser";
+    argv[++i] = user.c_str();
+    argv[++i] = (char*)NULL;
+    //check if marked root only or specd in right place or is root only to run as root
+    if (!root_only)
+      {
+	//check to see if this is a root only process
+	uid_t myrootid = getuid();
+	//if the specialty daemon is owned by root and group and others do not have executable permissions
+	if (specd_stat.st_uid != myrootid ||
+	    ((specd_stat.st_mode & S_IXGRP) == S_IXGRP) ||
+	    ((specd_stat.st_mode & S_IXOTH) == S_IXOTH))
+	  pwent = getpwnam(user.c_str());
+      }
     if (pwent == NULL)
       {
         write_log("start_experiment_req::start_specialization_daemon failed couldn't get passwd entry for " + user);
@@ -147,20 +172,6 @@ start_experiment_req::start_specialization_daemon(std::string specd)
           }
       }
 
-    //figure out the number of arguments
-    int argc = init_params.size();
-    const char* argv[(argc+3)]; //arguments sent from RLI plus the user
-    std::list<param>::iterator pit;
-    int i = 0;
-    for (pit = init_params.begin(); pit != init_params.end(); ++pit)
-      {
-	argv[i] = pit->getString().c_str();
-	++i;
-      }
-    argv[0] = specd.c_str();
-    argv[i] = "--onluser";
-    argv[++i] = user.c_str();
-    argv[++i] = (char*)NULL;
   
     execv(argv[0], (char* const*)argv);
     
@@ -338,6 +349,7 @@ refresh_req::handle()
 
   return true;
 }
+
 end_configure_node_req::end_configure_node_req(uint8_t *mbuf, uint32_t size): end_configure_node(mbuf, size)
 {
 }
@@ -563,6 +575,15 @@ rli_relay_req::write()
   {
     buf << bytes[i];
   }
+}
+
+rli_relay_short_req::rli_relay_short_req(uint8_t *mbuf, uint32_t size): rli_relay_req(mbuf, size)
+{
+  timeout = 2;
+}
+
+rli_relay_short_req::~rli_relay_short_req()
+{
 }
 
 crd_relay_req::crd_relay_req(uint8_t *mbuf, uint32_t size): crd_request(mbuf, size)

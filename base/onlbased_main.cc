@@ -112,9 +112,14 @@ int main(int argc, char** argv)
   register_resp<crd_response>(NCCP_Operation_CfgNode);
   register_req<end_configure_node_req>(NCCP_Operation_EndCfgNode);
 
-  for(uint8_t op=64; op<=254; ++op)
+  for(uint8_t op=64; op<100; ++op)
   {
     register_req<rli_relay_req>(op);
+    register_resp<rli_response>(op);
+  }
+  for(uint8_t op=100; op<=254; ++op)
+  {
+    register_req<rli_relay_short_req>(op);
     register_resp<rli_response>(op);
   }
 
