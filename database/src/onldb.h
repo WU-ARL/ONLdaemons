@@ -130,6 +130,7 @@ namespace onl
 
       onldb_resp authenticate_user(std::string username, std::string password_hash) throw();
       onldb_resp is_admin(std::string username) throw();
+      onldb_resp is_sysadmin(std::string username) throw();
 
       // begin1,begin2 are strings in YYYYMMDDHHMMSS form, and should be in CST6CDT timezone
       // len is in minutes
