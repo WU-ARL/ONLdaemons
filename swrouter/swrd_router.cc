@@ -105,6 +105,7 @@ Router::Router(int rtr_type) throw(configuration_exception)
 
   // last initialize all the locks used here
   pthread_mutex_init((&conf_lock), NULL);
+  pthread_mutex_init((&iptable_lock), NULL);
 
   state = STOP;
 
@@ -1739,8 +1740,13 @@ Router::read_stats(int port, enum rtnl_tc_stat sid, int qid) throw(monitor_excep
   else
     {
 	/* Iterate on all_qdiscs cache */
-      uint32_t tc_handle = TC_HANDLE((port + 1),qid);
-      if (port > 8) tc_handle = TC_HANDLE((port + 7),qid); //this is to work around a bug in libnl 7/12/17 this may change again
+      int tmp_p = port + 1;
+      int tmp_q = qid;
+      if (qid > 9) tmp_q = qid + 6; //this is to work around a bug in libnl 4/21/2020 this may change again
+      if (port > 8) tmp_p = (port + 7);//this is to work around a bug in libnl 7/12/17 this may change again
+      uint32_t tc_handle = TC_HANDLE(tmp_p,tmp_q);
+      //uint32_t tc_handle = TC_HANDLE((port + 1),qid);
+      //if (port > 8) tc_handle = TC_HANDLE((port + 7),qid); //this is to work around a bug in libnl 7/12/17 this may change again
       
       if (!(qdisc  = rtnl_qdisc_get_by_parent(all_qdiscs, ifindex, tc_handle)))
 	//if (!(qdisc  = rtnl_qdisc_get(all_qdiscs, ifindex, TC_HANDLE((port + 1),qid))))
@@ -1821,7 +1827,12 @@ Router::read_stats_class(int port, enum rtnl_tc_stat sid, int qid) throw(monitor
       throw monitor_exception("rtnl_class_alloc_cache failed ");
     }
 
-  if (!(tcclass = rtnl_class_get(all_classes, ifindex, TC_HANDLE((port + 1),qid))))
+  int tmp_p = port + 1;
+  int tmp_q = qid;
+  if (qid > 9) tmp_q = qid + 6; //this is to work around a bug in libnl 4/21/2020 this may change again
+  if (port > 8) tmp_p = (port + 7);//this is to work around a bug in libnl 7/12/17 this may change again
+  //if (!(tcclass = rtnl_class_get(all_classes, ifindex, TC_HANDLE((port + 1),qid))))
+  if (!(tcclass = rtnl_class_get(all_classes, ifindex, TC_HANDLE(tmp_p, tmp_q))))
     {
       nl_socket_free(my_sock);
       nl_cache_free(link_cache);
