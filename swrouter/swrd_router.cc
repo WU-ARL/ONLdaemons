@@ -38,7 +38,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-//#include <net/if.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <glob.h>
@@ -67,6 +67,8 @@ Router::Router(int rtr_type) throw(configuration_exception)
   struct ifreq ifr;
   char addr_str[INET_ADDRSTRLEN];
   struct sockaddr_in sa,*temp;
+
+  write_log("Router::Router(" + int2str(rtr_type) + ")" );
 
   system_cmd("rm -f /tmp/swr_fstats*");
 

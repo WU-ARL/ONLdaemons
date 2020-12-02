@@ -193,6 +193,7 @@ namespace onld
       double getDouble() { return double_val; }
       bool getBool() { return bool_val; }
       std::string getString();// { return string_val.getString(); }
+      const char* getCString();
       
       friend byte_buffer& operator<<(byte_buffer& buf, param& p);
       friend byte_buffer& operator>>(byte_buffer& buf, param& p);

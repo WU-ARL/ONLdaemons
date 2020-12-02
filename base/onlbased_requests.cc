@@ -117,7 +117,7 @@ start_experiment_req::start_specialization_daemon(std::string specd)
     return false;
   }
 
-  write_log("start_experiment_req::start_specialization_daemon passing user: " + user);
+  write_log("start_experiment_req::start_specialization_daemon passing user: " + user + " num params:" + int2str(init_params.size()));
   if(fork() == 0)
   {    
     struct passwd *pwent = NULL;
@@ -129,13 +129,22 @@ start_experiment_req::start_specialization_daemon(std::string specd)
     int i = 0;
     for (pit = init_params.begin(); pit != init_params.end(); ++pit)
       {
-	argv[i] = pit->getString().c_str();
+	argv[i] = pit->getCString();//.c_str();
+	write_log("start_experiment_req::start_specialization_daemon param( " + int2str(i) + "," + pit->getCString() + ")");
 	++i;
       }
     argv[0] = specd.c_str();
     argv[i] = "--onluser";
     argv[++i] = user.c_str();
     argv[++i] = (char*)NULL;
+    std::string arg2_str = argv[0];
+    for (int j = 1; j < i; ++j)
+      {
+	std::string tmp1 = argv[j];
+	arg2_str += ",";
+	arg2_str += tmp1;
+      }
+    write_log("start_experiment_req::start_specialization_daemon with args2 " + arg2_str);
     //check if marked root only or specd in right place or is root only to run as root
     if (!root_only)
       {
@@ -172,7 +181,14 @@ start_experiment_req::start_specialization_daemon(std::string specd)
           }
       }
 
-  
+    std::string arg_str = argv[0];
+    for (int j = 1; j < i; ++j)
+      {
+	std::string tmp1 = argv[j];
+	arg_str += ",";
+	arg_str += tmp1;
+      }
+    write_log("start_experiment_req::start_specialization_daemon execv with args " + arg_str);
     execv(argv[0], (char* const*)argv);
     
     //execl(specd.c_str(), specd.c_str(), "--onluser", user.c_str(), (char *)NULL);
