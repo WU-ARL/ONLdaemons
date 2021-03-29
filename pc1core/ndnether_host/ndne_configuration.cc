@@ -56,12 +56,12 @@
 #include "shared.h"
 
 //#include "swrd_types.h"
-#include "hostf_configuration.h"
-#include "hostf_requests.h"
+#include "ndne_configuration.h"
+#include "ndne_requests.h"
 //#define START_PRIORITY 255
 #define IFACE_DEFAULT_MIN 1000
 
-using namespace hostf;
+using namespace ndne;
 
 HostConfiguration::HostConfiguration() throw(configuration_exception)
 { 
@@ -221,30 +221,25 @@ HostConfiguration::configure_port(unsigned int port, std::string ip, std::string
       portTable[port].rate = rate;
       portTable[port].max_rate = rate;
       
-      if (portTable[port].next_hop == "0.0.0.0")
-	{
-	  sprintf(shcmd, "/etc/ONL/bin/subtypes/onl_hostf_cfgport.sh %d %s %s 255.255.255.0 %d %d %d", port, portTable[port].nic.c_str(), ip.c_str(), rate, IFACE_DEFAULT_MIN, mark);
+//      if (portTable[port].next_hop == "0.0.0.0")
+//	{
+//	  system_cmd("sudo /usr/local/bin/onl_cfgport.sh " + portTable[port].nic + " " + portTable[port].ip_addr + " 255.255.255.0");
+//	}
+ //     else
+//	{
+	  sprintf(shcmd, "/etc/ONL/bin/subtypes/onl_ndne_cfgport.sh %d %s %s 255.255.255.0 %d %d %d", port, portTable[port].nic.c_str(), ip.c_str(), rate, IFACE_DEFAULT_MIN, mark);
 	  if (system_cmd(shcmd) != 0)
 	    {
-	      throw configuration_exception("HostConfiguration::configure_port system onl_hostf_cfgport failed");
-	    }
-	  //system_cmd("sudo /usr/local/bin/onl_cfgport.sh " + portTable[port].nic + " " + portTable[port].ip_addr + " 255.255.255.0");
-	}
-      else
-	{
-	  sprintf(shcmd, "/etc/ONL/bin/subtypes/onl_hostf_cfgport.sh %d %s %s %s %d %d %d", port, portTable[port].nic.c_str(), ip.c_str(), portTable[port].netmask.c_str(), rate, IFACE_DEFAULT_MIN, mark);
-	  if (system_cmd(shcmd) != 0)
-	    {
-	      throw configuration_exception("HostConfiguration::configure_port system onl_hostf_cfgport failed");
+	      throw configuration_exception("HostConfiguration::configure_port system onl_ndne_cfgport failed");
 	    }
 
-	  if(portTable[port].next_hop != "0.0.0.0")
-	    {
-	      if (0 != system_cmd("sudo /usr/local/bin/onl_addroute.sh 192.168.0.0 255.255.0.0 " + portTable[port].nic))
-		{
-		  throw configuration_exception("HostConfiguration::configure_port system onl_addroute failed");
-		};
-	    }
+//	  if(portTable[port].next_hop != "0.0.0.0")
+//	    {
+//	      if (0 != system_cmd("sudo /usr/local/bin/onl_addroute.sh 192.168.0.0 255.255.0.0 " + portTable[port].nic))
+//		{
+//		  throw configuration_exception("HostConfiguration::configure_port system onl_addroute failed");
+//		};
+//	    }
 
 	  //add default netem queue to be consistent with any added queues
 	  int p1 = port + 1;
@@ -254,7 +249,7 @@ HostConfiguration::configure_port(unsigned int port, std::string ip, std::string
 	    {
 	      throw configuration_exception("HostConfiguration::configure_port system (tc qdisc add) failed");
 	    }
-	}
+//	}
 
       write_log("HostConfiguration::configure_node: port=" + int2str(port) + ", ipstr=" + ip + ", ip=" + portTable[port].ip_addr);
     }

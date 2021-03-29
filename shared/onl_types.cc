@@ -487,6 +487,28 @@ param::getString()
   return rtn;
 }
 
+
+const char* 
+param::getCString()
+{
+  std::string rtn;
+  switch (pt)
+  {
+    case int_param:    
+      return (int2str(int_val).c_str());
+    case double_param: // doubles sent/received as strings
+    case string_param: 
+      return string_val.getCString();
+    case bool_param:
+    {
+      if(bool_val) rtn = "1";
+      else rtn = "0";
+      break;
+    }
+  }
+  return rtn.c_str();
+}
+
 byte_buffer&
 onld::operator<<(byte_buffer& buf, param& p)
 {

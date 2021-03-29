@@ -103,6 +103,13 @@ namespace onlbased
     protected:
       byte_buffer data;
   }; // class rli_relay_req
+  
+  class rli_relay_short_req : public rli_relay_req
+  {
+    public:
+      rli_relay_short_req(uint8_t *mbuf, uint32_t size);
+      virtual ~rli_relay_short_req();
+  }; // class rli_relay_short_req
 
   class crd_relay_req : public onld::crd_request
   {
