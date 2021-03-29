@@ -74,7 +74,7 @@ namespace swr
   bool init(int rtr_type)
   {
     onld::log = new log_file("/tmp/swrd.log");
-    write_log("init: Initializing");
+    write_log("init: Initializing rtr_type: " + int2str(rtr_type));
     /*
     char shcmd[256];
     int num_ports = rtr_type;
@@ -137,8 +137,10 @@ int main(int argc, char** argv)
   int rtr_type = SWR_2P_10G;
   for (int i = 0; i < argc; ++i)
     {
+      write_log("got param (" + int2str(i) + "," + argv[i] + ")");
       if (strcmp(argv[i], "-swr5") == 0) 
 	{
+	  write_log("got param -swr5");
 	  rtr_type = SWR_5P_1G;
 	  break;
 	} 
