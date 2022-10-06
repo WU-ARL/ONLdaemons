@@ -59,15 +59,14 @@ if [ ! 0 -eq $? ]
 then
    exit $?
 fi
-echo "arping -q -c 3 -A -I $NIC $IPADDR"
-arping -q -c 3 -A -I $NIC $IPADDR
-RTN=$?
-if [ $RTN -ne 0 ]
-#if [ ! 0 -eq $? ]
-then
-   echo "Error:arping failed $RTN"
-   exit $?
-fi
+#echo "arping -q -c 3 -A -I $NIC $IPADDR"
+#arping -q -c 3 -A -I $NIC $IPADDR
+#RTN=$?
+#if [ $RTN -ne 0 ]
+#then
+#   echo "Error:arping failed $RTN"
+#   exit $?
+#fi
  
 echo "iptables -t filter -A FORWARD -o $iface -j MARK --set-mark $iptMark"
 iptables -t filter -A FORWARD -o $iface -j MARK --set-mark $iptMark
