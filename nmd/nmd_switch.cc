@@ -23,6 +23,9 @@
 #include <stdlib.h>
 
 #define user "admin"
+#define authentication "MD5"
+#define password "netgearSwPW"
+#define seclevel "authNoPriv"
 
 bool set_switch_vlan_membership_arista64(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
 bool set_switch_vlan_membership_arista(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
@@ -409,16 +412,40 @@ bool set_switch_vlan_membership_snmp(port_list switch_ports, string switch_id, s
 
   // set all ports not in this list to be explicitly excluded from vlan
   portStr = encodeEgressPorts(switch_ports, numBytes, true);    
-  cmd1 << "snmpset -v3 -u " << user << " " << switch_id
-       << " Q-BRIDGE-MIB::dot1qVlanForbiddenEgressPorts." << vlan_id
-       << " x " << portStr;
+  //if (switch_id == "onlsw5") // onlsw5 currently can't be logged in to to change its settings
+  //  cmd1 << "snmpset -v3 " 
+  //       << "-u " << user << " " 
+  //       << switch_id
+  //       << " Q-BRIDGE-MIB::dot1qVlanForbiddenEgressPorts." << vlan_id
+  //       << " x " << portStr;
+  //else
+    cmd1 << "snmpset -v3 " 
+         << "-u " << user << " " 
+         << "-l " << seclevel << " " 
+         << "-a " << authentication << " " 
+         << "-A " << password << " " 
+         << switch_id
+         << " Q-BRIDGE-MIB::dot1qVlanForbiddenEgressPorts." << vlan_id
+         << " x " << portStr;
   status &= exec_snmp(cmd1.str());
 
   // set all ports in this list to be included in this vlan
   portStr = encodeEgressPorts(switch_ports, numBytes, false);    
-  cmd2 <<  "snmpset -v3 -u " << user << " " << switch_id
-       << " Q-BRIDGE-MIB::dot1qVlanStaticEgressPorts." << vlan_id
-       << " x " << portStr;
+  //if (switch_id == "onlsw5") // onlsw5 currently can't be logged in to to change its settings
+  //  cmd2 <<  "snmpset -v3 "
+  //       << "-u " << user << " " 
+  //       << switch_id
+  //       << " Q-BRIDGE-MIB::dot1qVlanStaticEgressPorts." << vlan_id
+  //       << " x " << portStr;
+  //else
+    cmd2 <<  "snmpset -v3 "
+         << "-u " << user << " " 
+         << "-l " << seclevel << " " 
+         << "-a " << authentication << " " 
+         << "-A " << password << " " 
+         << switch_id
+         << " Q-BRIDGE-MIB::dot1qVlanStaticEgressPorts." << vlan_id
+         << " x " << portStr;
 
   status &= exec_snmp(cmd2.str());
 
@@ -435,9 +462,21 @@ bool set_switch_pvids_snmp(port_list host_ports, string switch_id, switch_vlan v
   for (port_iter iter = host_ports.begin();
        iter != host_ports.end(); iter++) {
     ostringstream cmd;
-    cmd << "snmpset -v3 -u " << user << " " << switch_id
-       << " Q-BRIDGE-MIB::dot1qPvid." << iter->getPortNum()
-       << " u " << vlan_id;
+    //if (switch_id == "onlsw5") // onlsw5 currently can't be logged in to to change its settings
+    //  cmd << "snmpset -v3 "
+    //      << "-u " << user << " " 
+    //      << switch_id
+    //      << " Q-BRIDGE-MIB::dot1qPvid." << iter->getPortNum()
+    //      << " u " << vlan_id;
+    //else
+      cmd << "snmpset -v3 "
+          << "-u " << user << " " 
+          << "-l " << seclevel << " " 
+          << "-a " << authentication << " " 
+          << "-A " << password << " " 
+          << switch_id
+          << " Q-BRIDGE-MIB::dot1qPvid." << iter->getPortNum()
+          << " u " << vlan_id;
     exec_snmp(cmd.str());
   }
   
