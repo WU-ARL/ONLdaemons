@@ -121,6 +121,7 @@ namespace hostf
   static const NCCP_OperationType HOST_AddNetemParams = 90;
   static const NCCP_OperationType HOST_DeleteNetemParams = 91;
 
+      
   class set_queue_params_req : public rli_request
   {
     public:
@@ -129,24 +130,26 @@ namespace hostf
  
       virtual void parse();
       virtual bool handle();
+      const queue_params getQParams() { return qparams;}
 
     protected:
-      uint32_t qid;
-      uint32_t rate;
-      uint32_t burst;
-      uint32_t ceil_rate;
-      uint32_t cburst;
-      uint32_t mtu;
-      //netem params
-      //delay
-      uint32_t delay;
-      uint32_t jitter;
-      //loss
-      uint32_t loss_percent; //uses random
-      //corrupt
-      uint32_t corrupt_percent;
-      //duplicate
-      uint32_t duplicate_percent;
+      queue_params qparams;
+      //uint32_t qid;
+      //uint32_t rate;
+      //uint32_t burst;
+      //uint32_t ceil_rate;
+      //uint32_t cburst;
+      //uint32_t mtu;
+      ////netem params
+      ////delay
+      //uint32_t delay;
+      //uint32_t jitter;
+      ////loss
+      //uint32_t loss_percent; //uses random
+      ////corrupt
+      //uint32_t corrupt_percent;
+      ////duplicate
+      //uint32_t duplicate_percent;
   }; // class set_queue_params_req
 
   static const NCCP_OperationType HOST_SetPortRate = 81;

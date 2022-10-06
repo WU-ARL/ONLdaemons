@@ -334,29 +334,34 @@ set_queue_params_req::handle()
     switch(get_op())
       {
       case HOST_AddQueue:
-	conf->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu);
-	if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
-	  conf->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
+	conf->add_queue(port, qparams);
+	//conf->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu);
+	if (qparams.delay > 0 || qparams.jitter > 0 || qparams.loss > 0 || qparams.corrupt > 0 || qparams.duplicate > 0 || qparams.qlength != 5000)
+	  conf->add_netem_queue(port, qparams);
+	  //conf->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
 	rliresp = new rli_response(this, NCCP_Status_Fine);
 	break;
       case HOST_ChangeQueue:
-	conf->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu, true);
+	conf->add_queue(port, qparams, true);
+	//conf->add_queue(port, qid, rate, burst, ceil_rate, cburst, mtu, true);
 	rliresp = new rli_response(this, NCCP_Status_Fine);
 	break;
       case HOST_DeleteQueue:
-	conf->delete_queue(port, qid);
+	conf->delete_queue(port, qparams.qid);
 	rliresp = new rli_response(this, NCCP_Status_Fine);
 	break;
       case HOST_AddNetemParams:
-	if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
-	  conf->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
+	//if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
+	if (qparams.delay > 0 || qparams.jitter > 0 || qparams.loss > 0 || qparams.corrupt > 0 || qparams.duplicate > 0 || qparams.qlength != 5000)
+	  conf->add_netem_queue(port, qparams);
+	  //conf->add_netem_queue(port, qid, delay, jitter, loss_percent, corrupt_percent, duplicate_percent);
 	else
-	  conf->delete_netem_queue(port, qid);
+	  conf->delete_netem_queue(port, qparams.qid);
 	rliresp = new rli_response(this, NCCP_Status_Fine);
 	break;
       case HOST_DeleteNetemParams:
 	//if (delay > 0 || jitter > 0 || loss_percent > 0 || corrupt_percent > 0 || duplicate_percent > 0)
-	conf->delete_netem_queue(port, qid);
+	conf->delete_netem_queue(port, qparams.qid);
 	rliresp = new rli_response(this, NCCP_Status_Fine);
 	break;
       default:
@@ -382,36 +387,39 @@ set_queue_params_req::parse()
 {
   rli_request::parse();
 
-  rate = 0;
-  burst = 0;
-  mtu = 0;
-  delay = 0;
-  jitter = 0;
-  loss_percent = 0;
-  corrupt_percent = 0;
-  duplicate_percent = 0;
+  qparams.rate = 0;
+  qparams.burst = 0;
+  qparams.mtu = 0;
+  qparams.delay = 0;
+  qparams.jitter = 0;
+  qparams.loss = 0;
+  qparams.corrupt = 0;
+  qparams.duplicate = 0;
   int i = 0;
-  qid = params[i++].getInt();
+  qparams.qid = params[i++].getInt();
+  qparams.qlength = 5000;
   switch(get_op())
     {
     case(HOST_DeleteQueue):
       break;
     case(HOST_AddQueue):
     case(HOST_ChangeQueue):
-      rate = params[i++].getInt();
-      burst = params[i++].getInt();
-      mtu = params[i++].getInt();
+      qparams.rate = params[i++].getInt();
+      qparams.burst = params[i++].getInt();
+      qparams.mtu = params[i++].getInt();
       if (get_op() == HOST_ChangeQueue) break;
     case(HOST_AddNetemParams):
     case(HOST_DeleteNetemParams):
-      delay = params[i++].getInt();
-      jitter = params[i++].getInt();
-      loss_percent = params[i++].getInt();
-      corrupt_percent = params[i++].getInt();
-      duplicate_percent = params[i++].getInt();
+      qparams.delay = params[i++].getInt();
+      qparams.jitter = params[i++].getInt();
+      qparams.loss = params[i++].getInt();
+      qparams.corrupt = params[i++].getInt();
+      qparams.duplicate = params[i++].getInt();
+      if (params.size() > i)
+	qparams.qlength = params[i++].getInt();
     }
-  ceil_rate = rate; //params[3].getInt();
-  cburst = burst; //params[4].getInt();
+  qparams.ceil_rate = qparams.rate; //params[3].getInt();
+  qparams.cburst = qparams.burst; //params[4].getInt();
 }
 
  

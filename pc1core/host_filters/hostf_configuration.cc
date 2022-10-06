@@ -248,7 +248,7 @@ HostConfiguration::configure_port(unsigned int port, std::string ip, std::string
 
 	  //add default netem queue to be consistent with any added queues
 	  int p1 = port + 1;
-	  sprintf(shcmd, "tc qdisc add dev %s parent %d:1 handle %d:0 netem delay 0ms", portTable[port].nic.c_str(), p1, (delay_index + 1));
+	  sprintf(shcmd, "tc qdisc add dev %s parent %d:1 handle %d:0 netem delay 0ms limit 50000", portTable[port].nic.c_str(), p1, (delay_index + 1));
 	  write_log("HostConfiguration::configure_port system(" + std::string(shcmd) + ")");
 	  if(system_cmd(shcmd) != 0)
 	    {
@@ -466,11 +466,11 @@ void HostConfiguration::filter_command(filter_ptr f, bool isdel) throw(configura
   std::string command_type = "add_filter";
   if (!isdel)
     {
-      if ((f->dest_prefix.substr(0,3) != "192" && f->dest_prefix != "*") ||
-	  (f->src_prefix.substr(0,3) != "192" && f->src_prefix != "*"))
+      if ((f->dest_prefix.substr(0,3) != "192" && f->dest_prefix.substr(0,3) != "224" && f->dest_prefix.substr(0,1) != "0" && f->dest_prefix != "*") ||
+	  (f->src_prefix.substr(0,3) != "192" && f->src_prefix.substr(0,3) != "224"  && f->src_prefix.substr(0,1) != "0" && f->src_prefix != "*"))
       {
-	write_log("HostConfiguration::add_route: prefix does not start with 192");
-	throw configuration_exception("add filter prefix needs to start with 192");
+	write_log("HostConfiguration::add_route: prefix does not start with 192 or 224 or 0");
+	throw configuration_exception("add filter prefix needs to start with 192 or 224 or 0");
       }
       //cmdprefix1 += " -I PREROUTING";
       cmdprefix1 += " -I OUTPUT";
@@ -706,7 +706,8 @@ unsigned int HostConfiguration::get_next_hop_addr(unsigned int port) throw()
 }
 */ 
 
-void HostConfiguration::add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change) throw(configuration_exception)
+void HostConfiguration::add_queue(uint16_t port, const queue_params qparams, bool change) throw(configuration_exception)
+//void HostConfiguration::add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change) throw(configuration_exception)
 {
   std::string nic;
   std::string shcmd;
@@ -721,20 +722,20 @@ void HostConfiguration::add_queue(uint16_t port, uint32_t qid, uint32_t rate, ui
   int p1 = port + 1;
 
   shcmd = "tc class " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":0 classid " + int2str(p1) + ":"
-    + int2str(qid) + " htb rate ";
+    + int2str(qparams.qid) + " htb rate ";
 
-  if (rate == 0 && ceil_rate > 0) shcmd += int2str(ceil_rate) + "kbit ceil ";
-  else shcmd += int2str(rate) + "kbit ceil ";
+  if (qparams.rate == 0 && qparams.ceil_rate > 0) shcmd += int2str(qparams.ceil_rate) + "kbit ceil ";
+  else shcmd += int2str(qparams.rate) + "kbit ceil ";
 
-  if (ceil_rate > 0) 
-    shcmd += int2str(ceil_rate) + "kbit";
+  if (qparams.ceil_rate > 0) 
+    shcmd += int2str(qparams.ceil_rate) + "kbit";
   else 
-    shcmd += int2str(rate) + "kbit";
+    shcmd += int2str(qparams.rate) + "kbit";
 
-  if (burst > 0) shcmd += " burst " + int2str(burst);
-  if (cburst > 0) shcmd += " cburst " + int2str(cburst);
+  if (qparams.burst > 0) shcmd += " burst " + int2str(qparams.burst);
+  if (qparams.cburst > 0) shcmd += " cburst " + int2str(qparams.cburst);
   shcmd += " prio 2";
-  if (mtu > 0) shcmd += " mtu " + int2str(mtu);
+  if (qparams.mtu > 0) shcmd += " mtu " + int2str(qparams.mtu);
   else shcmd += " mtu 1500";
   write_log("HostConfiguration::" + cmd_type +"_queue: (" + std::string(shcmd) + ")");
   if (system_cmd(shcmd) != 0)
@@ -745,9 +746,9 @@ void HostConfiguration::add_queue(uint16_t port, uint32_t qid, uint32_t rate, ui
   //need to add qdisc so can get qlength think sfq
   if (!change)
     {
-      int newq_handle = qid + delay_index;
+      int newq_handle = qparams.qid + delay_index;
       //shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 sfq perturb 10" ;
-      shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 netem delay 0ms" ;
+      shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qparams.qid) + " handle " + int2str(newq_handle) + ":0 netem delay 0ms limit 50000" ;
       write_log("HostConfiguration::" + cmd_type +"_queue: (" + std::string(shcmd) + ")");
       if (system_cmd(shcmd) != 0)
 	{
@@ -791,7 +792,8 @@ void HostConfiguration::delete_queue(uint16_t port, uint32_t qid) throw(configur
 }
 
 //Add delay on port for outgoing traffic
-void HostConfiguration::add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, uint32_t corrupt, uint32_t duplicate, bool change) throw(configuration_exception)
+//void HostConfiguration::add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, uint32_t corrupt, uint32_t duplicate, bool change) throw(configuration_exception)
+void HostConfiguration::add_netem_queue(uint16_t port, const queue_params qparams, bool change) throw(configuration_exception)
 {
   std::string nic;
   std::string shcmd;
@@ -804,33 +806,34 @@ void HostConfiguration::add_netem_queue(uint16_t port, uint32_t qid, uint32_t dt
   nic = portTable[port].nic;
 
   int p1 = port + 1;
-  int newq_handle = qid + delay_index;
+  int newq_handle = qparams.qid + delay_index;
 
 
   //first delete any existing q
-  shcmd = "tc qdisc del dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0" ;
+  shcmd = "tc qdisc del dev " + nic + " parent " + int2str(p1) + ":" + int2str(qparams.qid) + " handle " + int2str(newq_handle) + ":0" ;
   write_log("HostConfiguration::" + cmd_type + "_netem_queue: (" + std::string(shcmd) + ")");
   system_cmd(shcmd);//don't care if this fails
 
-  shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qid) + " handle " + int2str(newq_handle) + ":0 netem" ;
+  shcmd = "tc qdisc " + cmd_type + " dev " + nic + " parent " + int2str(p1) + ":" + int2str(qparams.qid) + " handle " + int2str(newq_handle) + ":0 netem" ;
 
-  if (dtime > 0)
+  if (qparams.delay > 0)
     {
-      shcmd += " delay " + int2str(dtime) + "ms";
-      if (jitter > 0) shcmd += " " + int2str(jitter);
+      shcmd += " delay " + int2str(qparams.delay) + "ms";
+      if (qparams.jitter > 0) shcmd += " " + int2str(qparams.jitter);
     }
   else if (change) 
     shcmd += " delay 0ms";
 
-  if (loss > 0) shcmd += " loss " + int2str(loss);
+  if (qparams.loss > 0) shcmd += " loss " + int2str(qparams.loss);
   else if (change) 
     shcmd += " loss 0";
-  if (corrupt > 0) shcmd += " corrupt " + int2str(corrupt);
+  if (qparams.corrupt > 0) shcmd += " corrupt " + int2str(qparams.corrupt);
   else if (change) 
     shcmd += " corrupt 0";
-  if (duplicate > 0) shcmd += " duplicate " + int2str(duplicate);
+  if (qparams.duplicate > 0) shcmd += " duplicate " + int2str(qparams.duplicate);
   else if (change) 
     shcmd += " duplicate 0";
+  shcmd += " limit " + int2str(qparams.qlength);
 
   write_log("HostConfiguration::" + cmd_type + "_netem_queue: (" + std::string(shcmd) + ")");
   if (system_cmd(shcmd) != 0)

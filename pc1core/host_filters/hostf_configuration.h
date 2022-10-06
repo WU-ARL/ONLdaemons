@@ -62,6 +62,27 @@ namespace hostf
     int qid;
   } filter_info;
 
+  typedef struct _queue_params
+  {
+      uint32_t qid;
+      uint32_t rate;
+      uint32_t burst;
+      uint32_t ceil_rate;
+      uint32_t cburst;
+      uint32_t mtu;
+      //netem params
+      //delay
+      uint32_t delay;
+      uint32_t jitter;
+      //loss
+      uint32_t loss; //percentage //uses random
+      //corrupt
+    uint32_t corrupt; //percentage
+      //duplicate
+    uint32_t duplicate; //percentage
+      uint32_t qlength; // in packets
+  } queue_params;
+  
   typedef boost::shared_ptr<filter_info> filter_ptr;
 
   class configuration_exception: public std::runtime_error
@@ -128,12 +149,14 @@ namespace hostf
       uint32_t filter_stats(filter_ptr f, bool ispkts) throw(configuration_exception);
 
       //adds or changes queue parameters
-      void add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, 
-		     uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change=false) throw(configuration_exception);
+      void add_queue(uint16_t port, const queue_params qparams, bool change=false) throw(configuration_exception);
+      //void add_queue(uint16_t port, uint32_t qid, uint32_t rate, uint32_t burst, 
+      //	     uint32_t ceil_rate, uint32_t cburst, uint32_t mtu, bool change=false) throw(configuration_exception);
       void delete_queue(uint16_t port, uint32_t qid) throw(configuration_exception);
       //adds or changes netem queue parameters for existing htb queue <port+1>:qid
-      void add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, 
-			   uint32_t corrupt, uint32_t duplicate, bool change=false) throw(configuration_exception);
+      void add_netem_queue(uint16_t port, const queue_params qparams, bool change=false) throw(configuration_exception);
+      //void add_netem_queue(uint16_t port, uint32_t qid, uint32_t dtime, uint32_t jitter, uint32_t loss, 
+      //		   uint32_t corrupt, uint32_t duplicate, bool change=false) throw(configuration_exception);
       void delete_netem_queue(uint16_t port, uint32_t qid) throw(configuration_exception);
 
       //Add delay on port for outgoing traffic
