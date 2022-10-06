@@ -461,11 +461,11 @@ void HostConfiguration::filter_command(filter_ptr f, bool isdel) throw(configura
   std::string command_type = "add_filter";
   if (!isdel)
     {
-      if ((f->dest_prefix.substr(0,3) != "192" && f->dest_prefix != "*") ||
-	  (f->src_prefix.substr(0,3) != "192" && f->src_prefix != "*"))
+      if ((f->dest_prefix.substr(0,3) != "192" && f->dest_prefix.substr(0,3) != "224" && f->dest_prefix != "*") ||
+	  (f->src_prefix.substr(0,3) != "192" && f->src_prefix.substr(0,3) != "224" && f->src_prefix != "*"))
       {
-	write_log("HostConfiguration::add_route: prefix does not start with 192");
-	throw configuration_exception("add filter prefix needs to start with 192");
+	write_log("HostConfiguration::add_route: prefix does not start with 192 or 224");
+	throw configuration_exception("add filter prefix needs to start with 192 or 224");
       }
       //cmdprefix1 += " -I PREROUTING";
       cmdprefix1 += " -I OUTPUT";
