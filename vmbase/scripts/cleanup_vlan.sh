@@ -39,8 +39,8 @@ then
 	echo "Argument should be integer only"
 	exit 1
 fi
-ifconfig | grep -o "^br_vlan[0-9]\+\s" > cur_vlans.txt
-vlan_exists=$(grep -c "^br_vlan$vlan_num\s$" cur_vlans.txt)
+ifconfig | grep -o "^br_vlan[0-9]\+" > cur_vlans.txt
+vlan_exists=$(grep -c "^br_vlan$vlan_num" cur_vlans.txt)
 if [ $vlan_exists -eq 0 ]
 then
 	echo "br_vlan$vlan_num does not exist"
@@ -48,7 +48,7 @@ then
 fi
 
 #Let's remove the vlan interface
-vlan_interface=$(ifconfig -a |grep -o "^data[0-9]\+\.$vlan_num\s")
+vlan_interface=$(ifconfig -a |grep -o "^data[0-9]\+\.$vlan_num")
 
 ifconfig $vlan_interface down
 ifconfig br_vlan$vlan_num down

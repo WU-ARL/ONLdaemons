@@ -54,6 +54,8 @@ mkdir -p /KVM_Images/var/users/$username/$vm_name
 virsh start $vm_name
 exit 0
 
+#from here on never gets run. I'm not sure why it's here or if we need it
+#prepare_vm.sh seems like it's for a very specific VM image
 count=0
 while [ $count -lt 10 ]
 do

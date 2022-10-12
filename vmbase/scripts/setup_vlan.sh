@@ -62,11 +62,18 @@ fi
 #fi
 vlan_interface=$(echo "data$vlan_port")
 
+#load 8021q module into kernel- this allows us to use vlans
 modprobe 8021q
+#create new interface data$vlan_port that is a member of vlan $vlan_num
 vconfig add $vlan_interface $vlan_num
+#assign address in data address space
 ip addr add 192.168.0.0/16 dev $vlan_interface.$vlan_num
+#bring the new interface up
 sudo ifconfig $vlan_interface.$vlan_num up
+#create a new instance of an ethernet bridge br_vlan$vlan_num
 brctl addbr br_vlan$vlan_num
+#make the interface $vlan_interface.$vlan_num a part of the new bridge br_vlan$vlan_num
 brctl addif br_vlan$vlan_num $vlan_interface.$vlan_num
+#bring the new bridge instance up
 ifconfig br_vlan$vlan_num up
 exit 0
