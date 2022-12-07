@@ -69,7 +69,7 @@ namespace onlvpnbased
       ~session() throw();   
 
       experiment_info& getExpInfo() { return expInfo;}
-      dev_ptr addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem, std::string pw, std::string img);
+      dev_ptr addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem);
       bool removeDev(component& c);
       bool removeDev(dev_ptr devp);
 
