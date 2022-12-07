@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Charlie Wiseman, Jyoti Parwatikar, John DeHart 
+ * Copyright (c) 2022 Jyoti Parwatikar and John DeHart
  * and Washington University in St. Louis
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
