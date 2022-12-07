@@ -24,7 +24,7 @@ namespace onl
   typedef struct _type_info
   {
     std::string type;
-    std::string type_type;
+    std::string dev_type;
     int num;
     int grpmaxnum;
   } type_info;

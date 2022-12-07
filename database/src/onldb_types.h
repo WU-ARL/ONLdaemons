@@ -56,7 +56,7 @@ namespace onl
     mysqlpp::sql_datetime, begin,
     mysqlpp::sql_datetime, end)
 
-  sql_create_12(types,1,12,
+  sql_create_13(types,1,13,
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_varchar, type,
     mysqlpp::sql_tinyint_unsigned, daemon,
@@ -68,7 +68,8 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, memcapacity,
     mysqlpp::sql_smallint_unsigned, numinterfaces,
     mysqlpp::sql_smallint_unsigned, interfacebw,
-    mysqlpp::sql_tinyint_unsigned, rootonly)
+    mysqlpp::sql_tinyint_unsigned, rootonly,
+    mysqlpp::sql_varchar, hostedtype)
 
   sql_create_4(interfacetypes,1,4,
     mysqlpp::sql_varchar, interface,
@@ -426,18 +427,20 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, vlanid,
     mysqlpp::sql_smallint_unsigned, port)
 
-  sql_create_7(typeinfo,7,0,
+  sql_create_8(typeinfo,8,0,
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_tinyint_unsigned, hasvport,
-    mysqlpp::sql_tinyint_unsigned, vmsupport,
+    mysqlpp::sql_varchar, hostedtype,
     mysqlpp::sql_smallint_unsigned, corecapacity,
     mysqlpp::sql_smallint_unsigned, memcapacity,
     mysqlpp::sql_smallint_unsigned, numinterfaces,
-    mysqlpp::sql_smallint_unsigned, interfacebw)
+    mysqlpp::sql_smallint_unsigned, interfacebw,
+    mysqlpp::sql_varchar, devtype)
 
-  sql_create_3(typeresinfo,3,0,
+  sql_create_4(typeresinfo,4,0,
     mysqlpp::sql_varchar, tid,
     mysqlpp::sql_tinyint_unsigned, hasvport,
-    mysqlpp::sql_tinyint_unsigned, rootonly)
+    mysqlpp::sql_tinyint_unsigned, rootonly,
+    mysqlpp::sql_varchar, hostedtype)
 };
 #endif // _ONLDB_TYPES_H

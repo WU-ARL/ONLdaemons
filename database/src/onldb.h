@@ -44,7 +44,7 @@ namespace onl
       time_t add_time(time_t time, unsigned int seconds) throw();
       time_t sub_time(time_t time, unsigned int seconds) throw();
 
-      std::string get_type_type(std::string type) throw();
+      std::string get_dev_type(std::string type) throw();
       onldb_resp is_infrastructure(std::string node) throw();
       onldb_resp verify_clusters(topology *t) throw();
 

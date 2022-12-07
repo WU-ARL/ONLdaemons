@@ -118,7 +118,7 @@ onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int
   hrp->acl = "unused";
   hrp->cp = "unused";
 
-  hrp->type_type = "";
+  hrp->dev_type = "";
   hrp->marked = false;
   hrp->level = 0;
   hrp->priority = 0;
@@ -126,7 +126,8 @@ onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int
   hrp->cost = 0;
   hrp->is_split = false;
 
-  hrp->has_vmsupport = false;
+  //hrp->has_vmsupport = false;
+  hrp->hosted_type = "";
   hrp->core_capacity = cores;
   hrp->mem_capacity = mem;
   hrp->potential_corecap = cores;
@@ -188,7 +189,7 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   hrp->acl = cpnode->acl;
   hrp->cp = cpnode->cp;
 
-  hrp->type_type = cpnode->type_type;
+  hrp->dev_type = cpnode->dev_type;
   hrp->marked = cpnode->marked;
   hrp->level = cpnode->level;
   hrp->priority = cpnode->priority;
@@ -197,7 +198,8 @@ onldb_resp topology::add_copy_node(node_resource_ptr cpnode) throw()
   hrp->user_nodes.push_back(cpnode);
   hrp->is_split = cpnode->is_split;
 
-  hrp->has_vmsupport = cpnode->has_vmsupport;
+  //hrp->has_vmsupport = cpnode->has_vmsupport;
+  hrp->hosted_type = cpnode->hosted_type;
   hrp->core_capacity = cpnode->core_capacity;
   hrp->mem_capacity = cpnode->mem_capacity;
   hrp->potential_corecap = cpnode->potential_corecap;
@@ -577,7 +579,7 @@ topology::compute_intercluster_cost()
 	{
 	  for (plit = (*lit)->mapped_path.begin(); plit != (*lit)->mapped_path.end(); ++plit)
 	    {
-	      if ((*plit)->node1->type_type == "infrastructure" &&  (*plit)->node2->type_type == "infrastructure")
+	      if ((*plit)->node1->dev_type == "infrastructure" &&  (*plit)->node2->dev_type == "infrastructure")
 		rtn += (*lit)->cost;
 	    }
 	}

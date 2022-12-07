@@ -52,7 +52,7 @@ namespace onl
     std::string cp; // initialized to "unused"
 
     // these are filled in later and are used for auxiliary purposes by the implementation
-    std::string type_type; // initialized to ""
+    //std::string type_type; // initialized to ""
     bool marked; // initialized to false
     unsigned int level; // initialized to 0
     unsigned int priority;  //initialized to 0
@@ -61,8 +61,10 @@ namespace onl
     boost::shared_ptr<struct _node_resource> mapped_node;
     bool is_split; //initialize to false
 
-    //vm support
-    bool has_vmsupport;//initialize to false
+    //virtual component support
+    //bool has_vmsupport;//initialize to false
+    std::string hosted_type; // initialized to ""
+    std::string dev_type; // initialized to ""
     unsigned int core_capacity;//For user nodes, this is the requested capacity. For base nodes, this is the current available cap
     unsigned int mem_capacity;//same as core_capacity
     std::map< int,int > port_capacities;//port id, capacity
@@ -135,7 +137,7 @@ namespace onl
   typedef struct _assign_info
   {
     std::string type;
-    std::string type_type;
+    std::string dev_type;
     bool marked;
     std::list<node_resource_ptr> user_nodes;
     std::list<node_resource_ptr> testbed_nodes;
