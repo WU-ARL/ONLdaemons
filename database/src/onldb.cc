@@ -315,7 +315,8 @@ bool node_hosts_type(node_resource_ptr node, node_resource_ptr hosted)
 
 bool node_hosts_type(node_resource_ptr node, assign_info_ptr hosted)
 {
-  return (hosted->dev_type == "hosted" && node->hosted_type == hosted->type);
+  return (node->hosted_type.length() > 0 && node->hosted_type == hosted->type);
+  //return (hosted->dev_type == "hosted" && node->hosted_type == hosted->type);
 }
 
 bool node_hosted(node_resource_ptr hosted)
@@ -1279,7 +1280,7 @@ onldb_resp onldb::fill_in_topology(topology *t, int rid) throw()
     {
       if((*ait)->marked == false)
       {
-        std::string s = "you requested more " + (*ait)->type + "s than you reserved";
+        std::string s = "you requested a type " + (*ait)->type + "s that you didn't reserve";
         while(!assign_lists.empty())
         {
           new_list = (std::list<assign_info_ptr> *)assign_lists.front();
@@ -1987,6 +1988,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
     {
       if((*ait)->type == (*nit)->type)
       {
+	(*nit)->dev_type = (*ait)->dev_type;
         (*ait)->user_nodes.push_back(*nit);
         break;
       }
@@ -2000,6 +2002,7 @@ onldb_resp onldb::try_reservation(topology *t, std::string user, std::string beg
       if(tt == "") return onldb_resp(-1, (std::string)"database consistency problem");
       newnode->dev_type = tt;
       newnode->user_nodes.push_back(*nit);
+      (*nit)->dev_type = tt;
       assign_list.push_back(newnode);
     }
   }
@@ -2174,7 +2177,7 @@ bool onldb::find_embedding(topology *orig_req,  topology* base, std::list<mappin
   for (reqnit = orig_req->nodes.begin(); reqnit != orig_req->nodes.end(); ++reqnit)
     {
       req.add_copy_node((*reqnit));
-      cout << "(" << (*reqnit)->type << (*reqnit)->label << ")";
+      cout << "(" << (*reqnit)->type << (*reqnit)->label << ";" << (*reqnit)->dev_type << ")";
     }
   
   cout << endl << "    links:";
@@ -2899,7 +2902,11 @@ onldb::compute_mapping_cost(mapping_cluster_ptr mcluster, node_resource_ptr node
     n = find_fixed_node(mcluster, node);//, nodes_used);
   else
     n = find_available_node(mcluster, node);//->type, nodes_used);
-  if (!n) return -1; //we couldn't find an available node of the right type in this cluster
+  if (!n)
+    {
+      cout << " available node not found";
+      return -1; //we couldn't find an available node of the right type in this cluster
+    }
   
   if (!mcluster->mapped)//!is_cluster_mapped(cluster)) 
     {
