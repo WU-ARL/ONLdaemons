@@ -609,25 +609,45 @@ onld::operator>>(byte_buffer& buf, std::vector<param>& pvec)
 node_info::node_info()
 {
   ipaddr = "";
+  dev_ipaddr = "";
   subnet = "";
   port = 0;
   real_port = 0;
-  remote_type = "";
-  is_remote_router = false;
-  nexthop_ipaddr = "";
+  //remote_type = "";
+  //is_remote_router = false;
+  //nexthop_ipaddr = "";
   vlanid = 0;
   bandwidth = 1000;
 }
 
-node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rp)
+node_info::node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rport)
 {
   ipaddr = ip.c_str();
+  dev_ipaddr = "";
   subnet = sn.c_str();
-  remote_type = rtype.c_str();
-  is_remote_router = rrouter;
+  //remote_type = rtype.c_str();
+  //is_remote_router = rrouter;
   port = portnum;
-  nexthop_ipaddr = next_hop_ip.c_str();
-  real_port = rp;
+  //nexthop_ipaddr = next_hop_ip.c_str();
+  real_port = rport;
+  vlanid = 0;
+  bandwidth = 1000;
+  nexthop.ipaddr = next_hop_ip;
+  nexthop.is_router = rrouter;
+  nexthop.ntype = rtype;
+}
+
+
+node_info::node_info(std::string ip, std::string sn, uint32_t portnum, uint32_t rport, std::string devip)
+{
+  ipaddr = ip.c_str();
+  dev_ipaddr = devip.c_str();
+  subnet = sn.c_str();
+  //remote_type = rtype.c_str();
+  //is_remote_router = rrouter;
+  port = portnum;
+  //nexthop_ipaddr = next_hop_ip.c_str();
+  real_port = rport;
   vlanid = 0;
   bandwidth = 1000;
 }
@@ -637,9 +657,10 @@ node_info::node_info(const node_info& ni)
   ipaddr = ni.ipaddr;
   subnet = ni.subnet;
   port = ni.port;
-  remote_type = ni.remote_type;
-  is_remote_router = ni.is_remote_router;
-  nexthop_ipaddr = ni.nexthop_ipaddr;
+  //remote_type = ni.remote_type;
+  //is_remote_router = ni.is_remote_router;
+  //nexthop_ipaddr = ni.nexthop_ipaddr;
+  nexthop = ni.nexthop;
   real_port = ni.real_port;
   vlanid = ni.vlanid;
   bandwidth = ni.bandwidth;
@@ -649,15 +670,22 @@ node_info::~node_info()
 {
 }
 
+void
+node_info::setNextHop( std::string rtype, bool rrouter, std::string ip, std::string devip, std::string mac)
+{
+  nexthop.init(ip, rtype, rrouter, devip, mac);
+}
+
 node_info&
 node_info::operator=(const node_info& ni)
 {
   ipaddr = ni.ipaddr;
   subnet = ni.subnet;
   port = ni.port;
-  remote_type = ni.remote_type;
-  is_remote_router = ni.is_remote_router;
-  nexthop_ipaddr = ni.nexthop_ipaddr;
+  //remote_type = ni.remote_type;
+  //is_remote_router = ni.is_remote_router;
+  //nexthop_ipaddr = ni.nexthop_ipaddr;
+  nexthop = ni.nexthop;
   real_port = ni.real_port;
   vlanid = ni.vlanid;
   bandwidth = ni.bandwidth;
@@ -669,10 +697,11 @@ onld::operator<<(byte_buffer& buf, node_info& ni)
 {
   buf << ni.ipaddr;
   buf << ni.subnet;
-  buf << ni.remote_type;
-  buf << ni.is_remote_router;
+  //buf << ni.remote_type;
+  //buf << ni.is_remote_router;
   buf << ni.port;
-  buf << ni.nexthop_ipaddr;
+  //buf << ni.nexthop_ipaddr;
+  buf << ni.nexthop;
   buf << ni.real_port;
   buf << ni.vlanid;
   buf << ni.bandwidth;
@@ -684,12 +713,85 @@ onld::operator>>(byte_buffer& buf, node_info& ni)
 {
   buf >> ni.ipaddr;
   buf >> ni.subnet;
-  buf >> ni.remote_type;
-  buf >> ni.is_remote_router;
+  //buf >> ni.remote_type;
+  //buf >> ni.is_remote_router;
   buf >> ni.port;
-  buf >> ni.nexthop_ipaddr;
+  //buf >> ni.nexthop_ipaddr;
+  buf >> ni.nexthop;
   buf >> ni.real_port;
   buf >> ni.vlanid;
   buf >> ni.bandwidth;
+  return buf;
+}
+
+nh_info::nh_info()
+{
+  ipaddr = "";
+  ntype = "";
+  is_router = false;
+  ipaddr = "";
+  mac_addr = "";
+  dev_ipaddr = "";
+}
+
+nh_info::nh_info(std::string ip, std::string rtype, bool rrouter, std::string devip, std::string mac)
+{
+  init(ip,rtype,rrouter,devip,mac);
+}
+
+
+void
+nh_info::init(std::string ip, std::string rtype, bool rrouter, std::string devip, std::string mac)
+{
+  ipaddr = ip.c_str();
+  ntype = rtype.c_str();
+  is_router = rrouter;
+  mac_addr = mac.c_str();
+  dev_ipaddr = devip.c_str();
+}
+
+nh_info::nh_info(const nh_info& ni)
+{
+  ipaddr = ni.ipaddr;
+  ntype = ni.ntype;
+  is_router = ni.is_router;
+  mac_addr = ni.mac_addr;
+  dev_ipaddr = ni.dev_ipaddr;
+}
+
+nh_info::~nh_info()
+{
+}
+
+nh_info&
+nh_info::operator=(const nh_info& ni)
+{
+  ipaddr = ni.ipaddr;
+  ntype = ni.ntype;
+  is_router = ni.is_router;
+  mac_addr = ni.mac_addr;
+  dev_ipaddr = ni.dev_ipaddr;
+  return *this;
+}
+
+byte_buffer&
+onld::operator<<(byte_buffer& buf, nh_info& ni)
+{
+  buf << ni.ipaddr;
+  buf << ni.ntype;
+  buf << ni.is_router;
+  buf << ni.mac_addr;
+  buf << ni.dev_ipaddr;
+  return buf;
+}
+
+byte_buffer&
+onld::operator>>(byte_buffer& buf, nh_info& ni)
+{
+  buf >> ni.ipaddr;
+  buf >> ni.ntype;
+  buf >> ni.is_router;
+  buf >> ni.mac_addr;
+  buf >> ni.dev_ipaddr;
   return buf;
 }

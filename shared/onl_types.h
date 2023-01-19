@@ -104,6 +104,7 @@ namespace onld
       void setCP(std::string c) { cp = c.c_str(); }
       bool isRouter() { return is_router;}
       void setIsRouter(bool b) { is_router = b;}
+      bool isExtDev() { return (type == "extdev");}
 
       friend byte_buffer& operator<<(byte_buffer& buf, component& c);
       friend byte_buffer& operator>>(byte_buffer& buf, component& c);
@@ -215,46 +216,86 @@ namespace onld
   byte_buffer& operator<<(byte_buffer& buf, std::vector<param>& pvec);
   byte_buffer& operator>>(byte_buffer& buf, std::vector<param>& pvec);
 
+  class nh_info
+  {
+    public:
+      nh_info();
+      nh_info(std::string ip, std::string rtype, bool rrouter, std::string devip, std::string mac);
+      nh_info(const nh_info& ni);
+      ~nh_info();
+ 
+      nh_info& operator=(const nh_info& ni);
+      
+      void init(std::string ip, std::string rtype, bool rrouter, std::string devip, std::string mac);
+      std::string getIPAddr() { return ipaddr.getString(); }
+      std::string getDevIPAddr() { return dev_ipaddr.getString(); }
+      std::string getType() { return ntype.getString(); }
+      bool isRouter() { return is_router; }
+      std::string getMacAddr() { return mac_addr.getString(); }
+
+      friend byte_buffer& operator<<(byte_buffer& buf, nh_info& ni);
+      friend byte_buffer& operator>>(byte_buffer& buf, nh_info& ni);
+      friend class node_info;
+
+    private:
+      nccp_string ipaddr;
+      nccp_string ntype; //component we're connected to's type
+      bool is_router; //if the component we're connected to is a router
+      nccp_string mac_addr;
+      nccp_string dev_ipaddr;//can be name or address
+  }; // class node_info
+
+  byte_buffer& operator<<(byte_buffer& buf, nh_info& ni);
+  byte_buffer& operator>>(byte_buffer& buf, nh_info& ni);
+  
   class node_info
   {
     public:
       node_info();
-      //node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip);
       node_info(std::string ip, std::string sn, uint32_t portnum, std::string rtype, bool rrouter, std::string next_hop_ip, uint32_t rport);
+      node_info(std::string ip, std::string sn, uint32_t portnum, uint32_t rport, std::string devip);
       node_info(const node_info& ni);
       ~node_info();
  
       node_info& operator=(const node_info& ni);
   
       std::string getIPAddr() { return ipaddr.getString(); }
+      std::string getDevIPAddr() { return dev_ipaddr.getString(); }
       std::string getSubnet() { return subnet.getString(); }
       uint32_t getPort() { return port; }
       uint32_t getRealPort() { return real_port; }
-      std::string getRemoteType() { return remote_type.getString(); }
-      bool isRemoteRouter() { return is_remote_router; }
-      std::string getNHIPAddr() { return nexthop_ipaddr.getString(); }
+      std::string getRemoteType() { return nexthop.getType(); }
+      bool isRemoteRouter() { return nexthop.isRouter(); }
+      std::string getNHIPAddr() { return nexthop.getIPAddr(); }
+      std::string getNHDevIPAddr() { return nexthop.getDevIPAddr(); }
+      std::string getNHMacAddr() { return nexthop.getMacAddr(); }
       uint32_t getVLan() { return vlanid;}
       void setVLan(uint32_t v) { vlanid = v;}
       uint32_t getBandwidth() { return bandwidth;}
       void setBandwidth(uint32_t bw) { bandwidth = bw;} 
+      void setNextHop( std::string rtype, bool rrouter, std::string ip, std::string devip, std::string mac);
 
       friend byte_buffer& operator<<(byte_buffer& buf, node_info& ni);
       friend byte_buffer& operator>>(byte_buffer& buf, node_info& ni);
 
     private:
       nccp_string ipaddr;
+      nccp_string dev_ipaddr;
       nccp_string subnet;
       uint32_t port;//for components that support virtual ports this is the virtual port index
       uint32_t real_port;//used for components that support virtual ports this is the real interface assigned
       uint32_t vlanid;
       uint32_t bandwidth; //in Mbits/s
-      nccp_string remote_type; //component we're connected to's type
-      bool is_remote_router; //if the component we're connected to is a router
-      nccp_string nexthop_ipaddr;
+      nh_info nexthop;
+      //nccp_string remote_type; //component we're connected to's type
+      //bool is_remote_router; //if the component we're connected to is a router
+      //nccp_string nexthop_ipaddr;
   }; // class node_info
 
   byte_buffer& operator<<(byte_buffer& buf, node_info& ni);
   byte_buffer& operator>>(byte_buffer& buf, node_info& ni);
+
+  
 };
 
 #endif // _ONL_TYPES_H
