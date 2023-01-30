@@ -160,11 +160,11 @@ session::removeDev(dev_ptr devp)
 }
 
 bool //This is when we get the vlan info
-session::configureDev(component& c, node_info& ninfo)
+session::configureDev(component& c, node_info& ninfo) //this also has the vpn assigned ip in ninfo
 {
   dev_ptr dev = getDev(c);
 
-  write_log("session::configureDev interface " + int2str(ninfo.getPort()) + " with ipaddr:" + ninfo.getIPAddr() + " to physical port:" + int2str(ninfo.getRealPort()) + " vlan:" + int2str(ninfo.getVLan()));
+  write_log("session::configureDev interface " + int2str(ninfo.getPort()) + " with ipaddr:" + ninfo.getIPAddr() + " to physical port:" + int2str(ninfo.getRealPort()) + " vlan:" + int2str(ninfo.getVLan()) + "extIP:" + ninfo.getDevIPAddr());
 
   if (!dev)
     {

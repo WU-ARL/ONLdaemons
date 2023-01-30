@@ -84,6 +84,7 @@ namespace onlcrd
       std::list<param>& getRebootParams() { return reboot_params; }
       std::list<param>& getInitParams() { return init_params; }
       std::string getIPAddr() { return ipaddr.getString(); }
+      std::string getExtTag() { return ext_tag.getString(); }
       uint32_t getCores() { return cores;}
       uint32_t getMemory() { return mem;}
       uint32_t getNumInterfaces() { return num_interfaces;}
@@ -98,6 +99,7 @@ namespace onlcrd
       uint32_t mem;
       uint32_t num_interfaces;
       uint32_t interfacebw;
+      nccp_string ext_tag;
       std::list<param> reboot_params;
       std::list<param> init_params;
   }; // class session_add_component_req

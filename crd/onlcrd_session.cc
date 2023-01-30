@@ -185,7 +185,7 @@ session::commit(session_ptr sess)
   {
     session_add_component_req* req = (session_add_component_req*) *hw_it;
     component c = req->getComponent();
-    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), the_session_manager->has_virtual_port(c.getType()), req->getCores(), req->getMemory(), req->getNumInterfaces(), req->getInterfaceBW());
+    onl::onldb_resp r = topology.add_node(c.getType(), c.getID(), c.getParent(), the_session_manager->has_virtual_port(c.getType()), req->getCores(), req->getMemory(), req->getNumInterfaces(), req->getInterfaceBW(), req->getExtTag());
     if(r.result() < 1)
     {
       hw_it = component_reqs.erase(hw_it);
@@ -318,6 +318,12 @@ session::commit(session_ptr sess)
     comp->add_reboot_params(req->getRebootParams());
     comp->add_init_params(req->getInitParams());
     comp->set_ip_addr(req->getIPAddr());
+    std::string extip = topology.get_extip(compid);
+    if (extip.length() > 0)
+      {
+	comp->setDevIP(extip);
+      }
+    else comp->setDevIP(compname);
 
     comp->setCores(req->getCores());
     comp->setMemory(req->getMemory());
@@ -383,6 +389,11 @@ session::commit(session_ptr sess)
     link->set_capacity(cap1, cap2);
 
     link->set_switch_ports(clist);
+
+    //set macaddr
+    std::string mac1 = topology.get_macaddr(req->getComponent().getID(), 1);
+    std::string mac2 = topology.get_macaddr(req->getComponent().getID(), 1);
+    link->set_mac(mac1, mac2);
 
     link->set_session(sess);
     link->set_add_request(req);
@@ -656,7 +667,7 @@ session::write_mapping()
   //check that all components are active and then write mapping
   for(i=components.begin(); i!=components.end(); ++i)
   {
-    if((*i)->getVMID() > 0 && (*i)->getVMName().empty())
+    if((*i)->getVMID() > 0 && (*i)->getVMName().empty() && !((*i)->get_component().isExtDev()))
     {
       //write_log("session::write_mapping " + id + " for user " + user + " vm" + int2str((*i)->getVMID()) + " not done");
       return; 
@@ -678,8 +689,11 @@ session::write_mapping()
       }
       if (comp->getVMID() > 0)
 	{
-	  write_log("session::write_mapping " + id + " for user " + user + " writing: " + label + " " + comp->getVMName());
-	  e_file << label << " " << comp->getVMName() << std::endl;
+	  if (!((*i)->get_component().isExtDev()))
+	    {
+	      write_log("session::write_mapping " + id + " for user " + user + " writing: " + label + " " + comp->getVMName());
+	      e_file << label << " " << comp->getVMName() << std::endl;
+	    }
 	}
       else
 	{

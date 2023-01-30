@@ -983,7 +983,7 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 
     mysqlpp::Query query3 = onl->query();
     //query3 << "select connschedule.linkid,connschedule.capacity,connections.cid,connections.node1,connections.node1port,connections.node2,connections.node2port from connschedule join connections on connections.cid=connschedule.cid where connschedule.rid=" << mysqlpp::quote << rid << " order by connschedule.linkid";
-    query3 << "select connschedule.linkid,connschedule.capacity,connections.cid,connections.node1,connections.node1port,connections.node2,connections.node2port,connschedule.rload,connschedule.lload from connschedule join connections on connections.cid=connschedule.cid where connschedule.rid=" << mysqlpp::quote << rid << " order by connschedule.linkid";
+    query3 << "select connschedule.linkid,connschedule.capacity,connections.cid,connections.node1,connections.node1port,connections.node2,connections.node2port,connschedule.rload,connschedule.lload,connections.node1mac,connections.node2mac from connschedule join connections on connections.cid=connschedule.cid where connschedule.rid=" << mysqlpp::quote << rid << " order by connschedule.linkid";
     vector<linkinfo> li;
     query3.storein(li);
     vector<linkinfo>::iterator it3;
@@ -1012,6 +1012,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       //need the name of node since physical node won't match up to the topology for vms i.e. get_label won't work
       std::string node1_name;
       std::string node2_name;
+      std::string node1_mac;
+      std::string node2_mac;
 	 
       if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
 	{
@@ -1067,6 +1069,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 	  node2_port = 0;
 	  node2_rport = 0;
 	  node2_cap = 0;
+	  node1_mac = "";
+	  node2_mac = "";
      
 	  for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
 	    {
@@ -1113,8 +1117,16 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
 		  }
 	      }
 	  }
-	else if (node1_label == t->get_label(it3->node1) || node1_name == it3->node1) node1_rport = it3->node1port;
-	else if (node2_label == t->get_label(it3->node1) || node2_name == it3->node1) node2_rport = it3->node1port;
+	else if (node1_label == t->get_label(it3->node1) || node1_name == it3->node1)
+	  {
+	    node1_rport = it3->node1port;
+	    //set node1_mac
+	  }
+	else if (node2_label == t->get_label(it3->node1) || node2_name == it3->node1)
+	  {
+	    node2_rport = it3->node1port;
+	    //set node2_mac
+	  }
       }
       if(!li.empty())
       {
@@ -1124,6 +1136,8 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
           return onldb_resp(-1, (std::string)"database consistency problem");
         }
         t->links.back()->conns = cur_conns;
+        t->links.back()->node1_mac = node1_mac;
+        t->links.back()->node2_mac = node2_mac;
       }
     }
   }
@@ -7245,6 +7259,29 @@ onldb_resp onldb::assign_resources(std::string username, topology *t) throw()
       unlock("reservation");
       return onldb_resp(0,r2.msg());
     }
+    //look ext_ip for nodes with ext_tag
+    //mysqlpp::Query query = onl->query();
+    query << "select label,ipaddr from externaldevs where user=" << mysqlpp::quote << username;
+    vector<extdev> eds;
+    query.storein(eds);
+    
+    std::list<node_resource_ptr>::iterator nit;
+    for(nit = t->nodes.begin(); nit != t->nodes.end(); ++nit)
+      {
+	if ((*nit)->ext_tag.length() > 0)
+	  {
+	    vector<extdev>::iterator ed_it;
+	    for (ed_it = eds.begin(); ed_it != eds.end(); ++ed_it)
+	      {
+		if (ed_it->label  == (*nit)->ext_tag)
+		  {
+		    (*nit)->ext_ip = ed_it->ipaddr;
+		    break;
+		  }
+	      }
+	  }
+      }
+    
 
     // update the reservation state to show that it is active now
     resinfo orig_ri = ri;

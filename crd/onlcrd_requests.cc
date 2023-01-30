@@ -240,6 +240,18 @@ session_add_component_req::parse()
       num_interfaces = 0;//PROB: do I have to look this up?
       interfacebw = 0;
     }
+  if (version > 0x91)
+    {
+      if (comp.isExtDev())
+	{
+	  //get ext_tag from init_params
+	  std::list<param>::iterator pit = init_params.begin();
+	  if (pit != init_params.end())
+	    {
+	      ext_tag = pit->getString();
+	    }
+	}
+    }
 }
 
 session_add_cluster_req::session_add_cluster_req(uint8_t *mbuf, uint32_t size): rlicrd_request(mbuf, size)

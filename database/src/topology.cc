@@ -105,7 +105,7 @@ topology::get_node(std::string node)
   return null_ptr;
 }
 
-onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport, int cores, int mem, int num_interface, int interfacebw) throw()
+onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int parent_label, bool has_vport, int cores, int mem, int num_interface, int interfacebw, std::string ext_tag) throw()
 {
   node_resource_ptr hrp(new node_resource());
   hrp->type = lowercase(type);
@@ -134,6 +134,7 @@ onldb_resp topology::add_node(std::string type, unsigned int label, unsigned int
   hrp->potential_memcap = mem;
   
   hrp->vmid = 0;
+  hrp->ext_tag = ext_tag;
 
   for (int i = 0; i < num_interface; ++i)
     {
@@ -490,6 +491,19 @@ unsigned int topology::get_vmid(unsigned int label) throw()
   return 0;
 }
 
+std::string topology::get_extip(unsigned int label) throw()
+{
+  list<node_resource_ptr>::iterator nit;
+  for(nit = nodes.begin(); nit != nodes.end(); ++nit)
+  {
+    if((*nit)->label == label)
+    {
+      return (*nit)->ext_ip;
+    }
+  }
+  return "";
+}
+
 unsigned int topology::get_label(std::string node, unsigned int vmid) throw()
 {
   list<node_resource_ptr>::iterator nit;
@@ -542,6 +556,20 @@ int topology::get_capacity(unsigned int label, int node_ndx) throw()
     }
   }
   return -1;
+}
+
+std::string topology::get_macaddr(unsigned int label, int node_ndx) throw()
+{
+  list<link_resource_ptr>::iterator lit;
+  for(lit = links.begin(); lit != links.end(); ++lit)
+  {
+    if((*lit)->label == label)
+    {
+      if (node_ndx == 1) return (*lit)->node1_mac;
+      else return (*lit)->node2_mac;
+    }
+  }
+  return "";
 }
 
 

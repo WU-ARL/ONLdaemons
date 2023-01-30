@@ -149,7 +149,8 @@ namespace onld
     protected:
       uint32_t id;
       uint16_t port;
-      nccp_string version;
+      nccp_string version; //using this to store experiment id 1_30_23 in support of extdevs
+      //TODO change version to id
       std::vector<param> params;
   }; //class rli_request
 };

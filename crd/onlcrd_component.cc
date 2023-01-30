@@ -70,6 +70,7 @@ crd_component::crd_component(std::string n, std::string c, unsigned short p, boo
   needs_refresh = false;
   keebooting_now = false;
   received_up_msg = false;
+  devip = "";
 
   vmid = 0;
   cores = 1;
@@ -1173,10 +1174,10 @@ crd_virtual_machine::set_state(std::string s)
 
 crd_link::crd_link(crd_component_ptr e1, unsigned short e1p, crd_component_ptr e2, unsigned short e2p)
 {
-  endpoint1 = e1;
-  endpoint1_port = e1p;
-  endpoint2 = e2;
-  endpoint2_port = e2p;
+  p1.comp = e1;
+  p1.port = e1p;
+  p2.comp = e2;
+  p2.port = e2p;
 
   pthread_mutex_init(&state_lock, NULL);
   state = "new";
@@ -1224,21 +1225,21 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     return false;
   }
 
-  if (link_vlan)
-    write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid) + " endpoint1(" + endpoint1->getName() + "," + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + "," + int2str(endpoint2->get_component().getID()) + ")");
-  else
-    write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", no vlan endpoint1(" + endpoint1->getName() + "," + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + "," + int2str(endpoint2->get_component().getID()) + ")");
+  // if (link_vlan)
+  //   write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid) + " endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
+  // else
+  //   write_log("crd_link::send_port_configuration(): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", no vlan endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
   experiment exp;
   exp.setExpInfo(info);
+  std::string myip="";
 
   configure_node* cfgnode;
   //compare component ideas could be 2 different vms on same machine
-  if(c->getName() == endpoint1->getName() && !use2 && c->get_component().getID() == endpoint1->get_component().getID())
+  if(c->getName() == p1.comp->getName() && !use2 && c->get_component().getID() == p1.comp->get_component().getID())
   {
     //cgw, this doesn't work they way i think it should, but i'll change it for now
     //node_info nodeinfo(linkreq->getFromIP(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP());
-    std::string myip;
-    if(endpoint1->get_component().isRouter())
+    if(p1.comp->get_component().isRouter())
     {
       myip = linkreq->getToNHIP();
     }
@@ -1246,32 +1247,65 @@ crd_link::send_port_configuration(crd_component* c, bool use2)
     {
       myip = linkreq->getFromIP();
     }
-    node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP(), endpoint1_rport);
+    //node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP(), endpoint1_rport);
+    node_info nodeinfo(myip, linkreq->getFromSubnet(), p1.port, p1.rport, p1.comp->getDevIP());
+    nodeinfo.setNextHop(p2.comp->get_type(), p2.comp->get_component().isRouter(), linkreq->getFromNHIP(), p2.comp->getDevIP(), p2.mac);
     nodeinfo.setVLan(link_vlan->vlanid);
-    nodeinfo.setBandwidth(endpoint1_cap);
-    cfgnode = new configure_node(exp, endpoint1->get_component(), nodeinfo);
-    cfgnode->set_connection(endpoint1->get_connection());
+    nodeinfo.setBandwidth(p1.cap);
+    cfgnode = new configure_node(exp, p1.comp->get_component(), nodeinfo);
+    cfgnode->set_connection(p1.comp->get_connection());
+  
+    if (link_vlan)
+      write_log("crd_link::send_port_configuration(" + myip +"): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid) + " endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
+    else
+      write_log("crd_link::send_port_configuration(" + myip +"): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", no vlan endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
   }
   //compare component ideas could be 2 different vms on same machine
-  else if(c->getName() == endpoint2->getName() && c->get_component().getID() == endpoint2->get_component().getID())
-  { 
-    //cgw, this doesn't work they way i think it should, but i'll change it for now
-    //node_info nodeinfo(linkreq->getToIP(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP());
-    std::string myip;
-    if(endpoint2->get_component().isRouter())
+  else if(c->getName() == p2.comp->getName() && c->get_component().getID() == p2.comp->get_component().getID())
     {
-      myip = linkreq->getFromNHIP();
+      //cgw, this doesn't work they way i think it should, but i'll change it for now
+      //node_info nodeinfo(linkreq->getFromIP(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP());    std::string myip;
+      if(p2.comp->get_component().isRouter())
+	{
+	  myip = linkreq->getFromNHIP();
+	}
+      else
+	{
+	  myip = linkreq->getToIP();
+	}
+      //node_info nodeinfo(myip, linkreq->getFromSubnet(), endpoint1_port, endpoint2->get_type(), endpoint2->get_component().isRouter(), linkreq->getFromNHIP(), endpoint1_rport);
+      node_info nodeinfo(myip, linkreq->getToSubnet(), p2.port, p2.rport, p2.comp->getDevIP());
+      nodeinfo.setNextHop(p1.comp->get_type(), p1.comp->get_component().isRouter(), linkreq->getToNHIP(), p1.comp->getDevIP(), p1.mac);
+      nodeinfo.setVLan(link_vlan->vlanid);
+      nodeinfo.setBandwidth(p2.cap);
+      cfgnode = new configure_node(exp, p2.comp->get_component(), nodeinfo);
+      cfgnode->set_connection(p2.comp->get_connection());
+  
+      if (link_vlan)
+	write_log("crd_link::send_port_configuration(" + myip +"): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", vlan " + int2str(link_vlan->vlanid) + " endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
+      else
+	write_log("crd_link::send_port_configuration(" + myip +"): comp (" + c->getName() + ","+ int2str(c->get_component().getID()) + ") link " + int2str(comp.getID()) + ", no vlan endpoint1(" + p1.comp->getName() + "," + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + "," + int2str(p2.comp->get_component().getID()) + ")");
     }
-    else
-    {
-      myip = linkreq->getToIP();
-    }
-    node_info nodeinfo(myip, linkreq->getToSubnet(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP(), endpoint2_rport);
-    nodeinfo.setVLan(link_vlan->vlanid);
-    nodeinfo.setBandwidth(endpoint2_cap);
-    cfgnode = new configure_node(exp, endpoint2->get_component(), nodeinfo);
-    cfgnode->set_connection(endpoint2->get_connection());
-  }
+    
+  // if(c->getName() == endpoint2->getName() && c->get_component().getID() == endpoint2->get_component().getID())
+  // { 
+  //   //cgw, this doesn't work they way i think it should, but i'll change it for now
+  //   //node_info nodeinfo(linkreq->getToIP(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP());
+  //   std::string myip;
+  //   if(endpoint2->get_component().isRouter())
+  //   {
+  //     myip = linkreq->getFromNHIP();
+  //   }
+  //   else
+  //   {
+  //     myip = linkreq->getToIP();
+  //   }
+  //   node_info nodeinfo(myip, linkreq->getToSubnet(), endpoint2_port, endpoint1->get_type(), endpoint1->get_component().isRouter(), linkreq->getToNHIP(), endpoint2_rport);
+  //   nodeinfo.setVLan(link_vlan->vlanid);
+  //   nodeinfo.setBandwidth(endpoint2_cap);
+  //   cfgnode = new configure_node(exp, endpoint2->get_component(), nodeinfo);
+  //   cfgnode->set_connection(endpoint2->get_connection());
+  // }
   else
   {
     return false;
@@ -1302,9 +1336,9 @@ crd_link::is_loopback()
 {
   //added JP 10_5_15 fix returning loopback for different VMs on same machine
 
-  if (endpoint1->getName() == endpoint2->getName() && endpoint1->get_component().getID() == endpoint2->get_component().getID())
+  if (p1.comp->getName() == p2.comp->getName() && p1.comp->get_component().getID() == p2.comp->get_component().getID())
     {
-      write_log("crd_link::is_loopback loopback detected comp:" + int2str(comp.getID()) + " endpoint1(" + endpoint1->getName() + ", " + int2str(endpoint1->get_component().getID()) + ") endpoint2(" + endpoint2->getName() + ", " + int2str(endpoint2->get_component().getID()) + ")");
+      write_log("crd_link::is_loopback loopback detected comp:" + int2str(comp.getID()) + " endpoint1(" + p1.comp->getName() + ", " + int2str(p1.comp->get_component().getID()) + ") endpoint2(" + p2.comp->getName() + ", " + int2str(p2.comp->get_component().getID()) + ")");
       return true;
     }
 
@@ -1328,15 +1362,15 @@ crd_link::set_switch_ports(std::list<int>& connlist)
   std::list<int>::iterator c;
   for(c = connlist.begin(); c != connlist.end(); ++c)
   {
-    switch_port p1, p2;
-    the_session_manager->get_switch_ports(*c, p1, p2);
-    if(p1.getSwitchId() != "")
+    switch_port sp1, sp2;
+    the_session_manager->get_switch_ports(*c, sp1, sp2);
+    if(sp1.getSwitchId() != "")
     {
-      switch_ports.push_back(p1);
+      switch_ports.push_back(sp1);
     }
-    if(p2.getSwitchId() != "")
+    if(sp2.getSwitchId() != "")
     {
-      switch_ports.push_back(p2);
+      switch_ports.push_back(sp2);
     }
     //PROBLEM: need to know if we're ignoring vports here to set the pass tag as false
   }

@@ -328,7 +328,7 @@ namespace onl
     mysqlpp::sql_varchar, cluster,
     mysqlpp::sql_varchar, acl)
 
-  sql_create_9(linkinfo,9,0,
+  sql_create_11(linkinfo,11,0,
     mysqlpp::sql_smallint_unsigned, linkid,
     mysqlpp::sql_smallint_unsigned, capacity,
     mysqlpp::sql_smallint_unsigned, cid,
@@ -337,7 +337,9 @@ namespace onl
     mysqlpp::sql_varchar, node2,
     mysqlpp::sql_smallint_unsigned, node2port,
     mysqlpp::sql_smallint_unsigned, rload,
-    mysqlpp::sql_smallint_unsigned, lload)
+    mysqlpp::sql_smallint_unsigned, lload,
+    mysqlpp::sql_varchar, node1mac,
+    mysqlpp::sql_varchar, node2mac)
 
   sql_create_3(baseclusterinfo,3,0,
     mysqlpp::sql_varchar, cluster,
@@ -379,6 +381,10 @@ namespace onl
   sql_create_2(specnodeinfo,2,0,
     mysqlpp::sql_varchar, node,
     mysqlpp::sql_varchar, tid)
+    
+  sql_create_2(extdev,2,0,
+    mysqlpp::sql_varchar, label,
+    mysqlpp::sql_varchar, ipaddr)
 
   sql_create_1(connid,1,0,
     mysqlpp::sql_smallint_unsigned, cid);

@@ -657,6 +657,7 @@ node_info::node_info(const node_info& ni)
   ipaddr = ni.ipaddr;
   subnet = ni.subnet;
   port = ni.port;
+  dev_ipaddr = ni.dev_ipaddr;
   //remote_type = ni.remote_type;
   //is_remote_router = ni.is_remote_router;
   //nexthop_ipaddr = ni.nexthop_ipaddr;
@@ -682,6 +683,7 @@ node_info::operator=(const node_info& ni)
   ipaddr = ni.ipaddr;
   subnet = ni.subnet;
   port = ni.port;
+  dev_ipaddr = ni.dev_ipaddr;
   //remote_type = ni.remote_type;
   //is_remote_router = ni.is_remote_router;
   //nexthop_ipaddr = ni.nexthop_ipaddr;
@@ -705,6 +707,7 @@ onld::operator<<(byte_buffer& buf, node_info& ni)
   buf << ni.real_port;
   buf << ni.vlanid;
   buf << ni.bandwidth;
+  buf << ni.dev_ipaddr;
   return buf;
 }
 
@@ -721,6 +724,7 @@ onld::operator>>(byte_buffer& buf, node_info& ni)
   buf >> ni.real_port;
   buf >> ni.vlanid;
   buf >> ni.bandwidth;
+  buf >> ni.dev_ipaddr;
   return buf;
 }
 
@@ -794,4 +798,19 @@ onld::operator>>(byte_buffer& buf, nh_info& ni)
   buf >> ni.mac_addr;
   buf >> ni.dev_ipaddr;
   return buf;
+}
+
+
+
+std::string
+onld::addr_int2str(uint32_t addr)
+{
+  char addr_cstr[INET_ADDRSTRLEN];
+  struct in_addr ia;
+  ia.s_addr = htonl(addr);
+  if(inet_ntop(AF_INET,&ia,addr_cstr,INET_ADDRSTRLEN) == NULL)
+  {
+    return "";
+  }
+  return std::string(addr_cstr);
 }

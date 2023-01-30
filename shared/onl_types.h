@@ -104,7 +104,7 @@ namespace onld
       void setCP(std::string c) { cp = c.c_str(); }
       bool isRouter() { return is_router;}
       void setIsRouter(bool b) { is_router = b;}
-      bool isExtDev() { return (type == "extdev");}
+      bool isExtDev() { return (type.getString() == "ExtDev" || type.getString() == "extdev");}
 
       friend byte_buffer& operator<<(byte_buffer& buf, component& c);
       friend byte_buffer& operator>>(byte_buffer& buf, component& c);
@@ -295,6 +295,7 @@ namespace onld
   byte_buffer& operator<<(byte_buffer& buf, node_info& ni);
   byte_buffer& operator>>(byte_buffer& buf, node_info& ni);
 
+  std::string addr_int2str(uint32_t addr);
   
 };
 

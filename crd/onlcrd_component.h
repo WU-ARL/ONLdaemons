@@ -35,6 +35,8 @@ namespace onlcrd
       std::string getName() { return name; }
       bool hasCP() { return (cp.length() != 0); }
       std::string getCP() { return cp; }
+      std::string getDevIP() { return devip;}
+      void setDevIP(std::string dip) { devip = dip;}
       unsigned short getCPPort() { return cp_port; }
       bool isKeeboot() { return keeboot; }
      
@@ -95,6 +97,7 @@ namespace onlcrd
       std::string name;
       std::string vmname;
       std::string cp;
+      std::string devip;
       unsigned short cp_port;
       bool keeboot;
       bool is_dependent;
@@ -196,14 +199,15 @@ namespace onlcrd
 
       void set_vlan(vlan_ptr v) { link_vlan = v; alloc_vlan = false; }
       bool allocate_vlan();
-      void set_rports(unsigned short p1, unsigned short p2) { endpoint1_rport = p1; endpoint2_rport = p2;}
+      void set_rports(unsigned short rp1, unsigned short rp2) { p1.rport = rp1; p2.rport = rp2;}
 
-      crd_component_ptr get_node1() { return endpoint1; }
-      crd_component_ptr get_node2() { return endpoint2; }
+      crd_component_ptr get_node1() { return p1.comp; }
+      crd_component_ptr get_node2() { return p2.comp; }
 
-      unsigned int get_node1_capacity() { return endpoint1_cap;}
-      unsigned int get_node2_capacity() { return endpoint2_cap;}
-      void set_capacity(int c1, int c2) { endpoint1_cap = c1; endpoint2_cap = c2;}
+      unsigned int get_node1_capacity() { return p1.cap;}
+      unsigned int get_node2_capacity() { return p2.cap;}
+      void set_capacity(int c1, int c2) { p1.cap = c1; p2.cap = c2;}
+      void set_mac(std::string m1, std::string m2) { p1.mac = m1; p2.mac = m2;}
 
       void set_switch_ports(std::list<int>& connlist);
 
@@ -228,14 +232,24 @@ namespace onlcrd
       void complete_initialization(NCCP_StatusType sess_st);//called after nmd initializes session vlans
 
     protected:
-      crd_component_ptr endpoint1;
-      unsigned short endpoint1_port;
-      unsigned short endpoint1_rport;
-      unsigned int endpoint1_cap;
-      crd_component_ptr endpoint2;
-      unsigned short endpoint2_port;
-      unsigned short endpoint2_rport;
-      unsigned int endpoint2_cap;
+      struct endpoint {	
+	crd_component_ptr comp;
+	unsigned short port;
+	unsigned short rport;
+	unsigned int cap;
+	std::string mac;
+      };
+
+      endpoint p1;
+      endpoint p2;
+      //crd_component_ptr endpoint1;
+      //unsigned short endpoint1_port;
+      //unsigned short endpoint1_rport;
+      //unsigned int endpoint1_cap;
+      //crd_component_ptr endpoint2;
+      //unsigned short endpoint2_port;
+      //unsigned short endpoint2_rport;
+      //unsigned int endpoint2_cap;
       component comp;
 
       std::list<switch_port> switch_ports;

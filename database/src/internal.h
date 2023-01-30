@@ -76,7 +76,8 @@ namespace onl
 
     //used for reconstructing user topology on commit and assigning ids at reservation time
     unsigned int vmid;
-
+    std::string ext_tag; //external tag used to designate the specific device this should be set at reservation time
+    std::string ext_ip; //filled in by looking up ext_tag in database for user. filled in at commit time
     //for setting access list for node. if root only doesn't put user in access list
     bool root_only;
   } node_resource;
@@ -91,11 +92,13 @@ namespace onl
     node_resource_ptr node1;
     unsigned int node1_port;
     int node1_rport;//real physical port this is may differ from node1_port for virtual ports
+    std::string node1_mac;
     unsigned int node1_capacity;
     node_resource_ptr node2;
     unsigned int node2_port;
     unsigned int node2_capacity;
     int node2_rport;//real physical port this is may differ from node2_port for virtual ports
+    std::string node2_mac;
 
     // these will be filled in if the resource becomes part of an actual experiment
     std::list<int> conns;
