@@ -260,6 +260,129 @@ end_configure_node_req::handle()
   return true;
 }
 
+
+add_route_req::add_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+add_route_req::~add_route_req()
+{
+}
+
+bool
+add_route_req::handle()
+{
+  write_log("add_route_req::handle()");
+
+  session_ptr sess_ptr = the_session_manager->getSession(version.getString());
+  if (!sess_ptr)
+    {
+      write_log("add_route_req::handle() failed to get session pointer for " + version.getString());
+      rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
+      rliresp->send();
+      delete rliresp;
+      return true;
+    }
+  std::string prefixstr = addr_int2str(prefix);
+  if(prefixstr == "")
+  {
+    write_log("add_route_req: handle(): got bad prefix");
+    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
+    rliresp->send();
+    delete rliresp;
+    return true;
+  }
+  
+  std::string nhstr = addr_int2str(nexthop_ip);
+  if(nhstr == "")
+  {
+    write_log("add_route_req: handle(): got bad next hop");
+    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
+    rliresp->send();
+    delete rliresp;
+    return true;
+  }
+  
+  NCCP_StatusType stat = NCCP_Status_Fine;
+  if (!sess_ptr->add_route(id, port, prefixstr, mask, nhstr))
+  {
+    stat = NCCP_Status_Failed;
+  }
+
+  rli_response* rliresp = new rli_response(this, stat);
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+add_route_req::parse()
+{
+  rli_request::parse();
+
+  prefix = params[0].getInt();
+  mask = params[1].getInt();
+  output_port = params[2].getInt();
+  nexthop_ip = params[3].getInt();
+  //stats_index = params[4].getInt();
+}
+
+delete_route_req::delete_route_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
+{
+}
+
+delete_route_req::~delete_route_req()
+{
+}
+
+bool
+delete_route_req::handle()
+{
+  write_log("delete_route_req::handle()");
+
+  session_ptr sess_ptr = the_session_manager->getSession(version.getString());
+  if (!sess_ptr)
+    {
+      write_log("delete_route_req::handle() failed to get session pointer for " + version.getString());
+      rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
+      rliresp->send();
+      delete rliresp;
+      return true;
+    }
+  
+  std::string prefixstr = addr_int2str(prefix);
+  if (prefixstr == "")
+  {
+    write_log("delete_route_req: handle(): got bad prefix");
+    rli_response* rliresp = new rli_response(this, NCCP_Status_Failed);
+    rliresp->send();
+    delete rliresp;
+    return true;
+  }
+  
+  NCCP_StatusType stat = NCCP_Status_Fine;
+  if (!sess_ptr->delete_route(id, port, prefixstr, mask))
+  {
+    stat = NCCP_Status_Failed;
+  }
+
+  rli_response* rliresp = new rli_response(this, stat);
+  rliresp->send();
+  delete rliresp;
+
+  return true;
+}
+
+void
+delete_route_req::parse()
+{
+  rli_request::parse();
+
+  prefix = params[0].getInt();
+  mask = params[1].getInt();
+}
+
 user_data_req::user_data_req(uint8_t *mbuf, uint32_t size): rli_request(mbuf, size)
 { 
   user_data = NULL;

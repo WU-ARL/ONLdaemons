@@ -111,6 +111,19 @@ session_manager::getSession(experiment_info& einfo)
 }
 
 session_ptr 
+session_manager::getSession(std::string eid)
+{
+  std::list<session_ptr>::iterator sit;
+  session_ptr  no_ptr;
+  autoLockDebug slock(session_lock, "session_manager::getSession(): session_lock");
+  for (sit = active_sessions.begin(); sit != active_sessions.end(); ++sit)
+    {
+      if ((*sit)->expInfo.getID() == eid) return (*sit);
+    }
+  return no_ptr;
+}
+
+session_ptr 
 session_manager::addSession(experiment_info& einfo)
 {
   session_ptr sptr = getSession(einfo);
@@ -130,8 +143,12 @@ session_manager::startDev(session_ptr sptr, dev_ptr devp)
   write_log("session_manager::startDev experiment:(" + sptr->getExpInfo().getUserName() + ", " + sptr->getExpInfo().getID() + ") component:(" 
 	    + devp->comp.getLabel() + ", " + int2str(devp->comp.getID()) + ") dev:(" + devp->name + ",cores" + int2str(devp->cores) + ",memory" + int2str(devp->memory) 
 	    + ",interfaces" + int2str(devp->interfaces.size()) + ")");
-  /*
+
+  //put in wireguard configuration here
+  //JP TODO
+  
   std::list<devinterface_ptr>::iterator devi_it;
+  /*
   //write vlans to file /KVM_Images/scripts/lists/<devp->name>_vlan.txt
   std::string vnm_str = "/KVM_Images/scripts/lists/" + devp->name + "_vlan.txt";
   std::ofstream vlan_fs(vnm_str.c_str(), std::ofstream::out|std::ofstream::trunc);
@@ -145,22 +162,29 @@ session_manager::startDev(session_ptr sptr, dev_ptr devp)
   //  write_log("session_manager::startDev: setup_networking.sh failed");
   //  return false;
   //}
+  */
+  std::string cmd;
+  //should only be one interface
   for (devi_it = devp->interfaces.begin(); devi_it != devp->interfaces.end(); ++devi_it)
     {
       vlan_ptr vlan = sptr->getVLan((*devi_it)->ninfo.getVLan());
       vlan->interfaces.push_back((*devi_it));
-      write_log("    add interface:" + int2str((*devi_it)->ninfo.getPort()) + " with ipaddr:" + (*devi_it)->ninfo.getIPAddr() + " to physical port:" + int2str((*devi_it)->ninfo.getRealPort()) 
-		+  " and vlan:" + int2str((*devi_it)->ninfo.getVLan()));
-      //cmd = "/KVM_Images/scripts/setup_vlan.sh " + int2str((*devi_it)->ninfo.getVLan()) + " " + int2str((*devi_it)->ninfo.getRealPort());
-      //write_log("session_manager::startDev: system(" + cmd + ")");
-      //if(system(cmd.c_str()) != 0)
-      //{
-      //  write_log("session_manager::startDev: setup_vlan.sh failed");
-      //  return false;
-      //}
-      dip_fs << (*devi_it)->ninfo.getIPAddr() << std::endl;
-      vlan_fs << (*devi_it)->ninfo.getVLan() << " " << (*devi_it)->ninfo.getRealPort() << std::endl;
+      (*devi_it)->vlan = vlan;
+      // write_log("    add interface:" + int2str((*devi_it)->ninfo.getPort()) + " with ipaddr:" + (*devi_it)->ninfo.getIPAddr() + " to physical port:" + int2str((*devi_it)->ninfo.getRealPort()) 
+      //	+  " and vlan:" + int2str((*devi_it)->ninfo.getVLan()));
+      cmd = "/usr/local/bin/wg_setup_vlan.sh " + int2str((*devi_it)->ninfo.getVLan()) + " " + (*devi_it)->ninfo.getDevIPAddr() + " " + (*devi_it)->ninfo.getIPAddr() + " " + (*devi_it)->subn_addr + " " + devp->table_id;
+      write_log("session_manager::startDev: system(" + cmd + ")");
+      if(system(cmd.c_str()) != 0)
+      {
+        write_log("session_manager::startDev: setup_vlan.sh failed");
+        return false;
+      }
+      //dip_fs << (*devi_it)->ninfo.getIPAddr() << std::endl;
+      //vlan_fs << (*devi_it)->ninfo.getVLan() << " " << (*devi_it)->ninfo.getRealPort() << std::endl;
     }
+
+  //if no interfaces not sure we do anything
+  /*
   dip_fs.close();
   vlan_fs.close();
   //int dev_ndx = getDevIndex(devp->name);

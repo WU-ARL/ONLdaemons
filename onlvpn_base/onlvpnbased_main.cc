@@ -118,6 +118,9 @@ int main(int argc, char** argv)
   register_req<configure_node_req>(NCCP_Operation_CfgNode);
   register_req<end_configure_node_req>(NCCP_Operation_EndCfgNode);
   //register_resp<crd_response>(NCCP_Operation_CfgNode);
+  
+  register_req<add_route_req>(HOST_AddRoute);
+  register_req<delete_route_req>(HOST_DeleteRoute);
 
   for(uint8_t op=64; op<=254; ++op)
   {

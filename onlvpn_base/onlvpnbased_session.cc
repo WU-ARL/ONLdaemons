@@ -49,6 +49,29 @@
 
 using namespace onlvpnbased;
 
+std::string getSubnetAddr(std::string eaddr)
+{
+  std::string esubstr = eaddr;
+  std::string rtn = "";
+  std::size_t found = esubstr.find_first_of(".");
+  int i = 0;
+  while (found != std::string::npos)
+    {
+      ++i;
+      rtn = rtn + esubstr.substr(0,found+1);
+      esubstr = esubstr.substr(found+1);
+      if (i == 3)
+	{
+	  //std::string rtn = esubstr;
+	  rtn = rtn + "0";
+	  if (esubstr.find_first_of(".") == std::string::npos)
+	    return rtn;
+	}
+      found = esubstr.find_first_of(".");
+    }
+  write_log("session::getDevName error ipaddr wrong format " + eaddr);
+  return "";
+}
 
 devinterface_ptr
 getInterface(dev_ptr dev, node_info& ninfo)
@@ -74,6 +97,37 @@ session::~session() throw()
   clear();
 }
      
+std::string
+session::getDevName(std::string eaddr)
+{
+  std::string rtn = getLastAddrByte(eaddr);
+  if (rtn.length() > 0)
+    return "extdev" + rtn;
+  return rtn;
+}
+     
+std::string
+session::getLastAddrByte(std::string eaddr)
+{
+  std::string esubstr = eaddr;
+  std::size_t found = esubstr.find_first_of(".");
+  int i = 0;
+  while (found != std::string::npos)
+    {
+      ++i;
+      esubstr = esubstr.substr(found+1);
+      if (i == 3)
+	{
+	  std::string rtn = esubstr;
+	  if (esubstr.find_first_of(".") == std::string::npos)
+	    return rtn;
+	}
+      found = esubstr.find_first_of(".");
+    }
+  write_log("session::getDevName error ipaddr wrong format " + eaddr);
+  return "";
+}
+
 
 dev_ptr
 session::addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
@@ -84,6 +138,7 @@ session::addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
       dev_ptr dev(new dev_info());
       dev->comp = c;
       dev->expaddr = eaddr;
+      dev->name = getDevName(eaddr);
       dev->cores = crs;
       int tmp_mem = (int)(mem/1000) * 1024;
       dev->memory = tmp_mem;
@@ -113,10 +168,10 @@ session::removeDev(dev_ptr devp)
       write_log("session::removeDev experiment:(" + expInfo.getUserName() + ", " + expInfo.getID() + ") component:(" 
 		+ devp->comp.getLabel() + ", " + int2str(devp->comp.getID()) + ") dev:(" + devp->name + ",cores" + int2str(devp->cores) + ",memory" + int2str(devp->memory) 
 		+ ",interfaces" + int2str(devp->interfaces.size()) + ")");
-      /*
+     
       std::list<devinterface_ptr>::iterator devi_it;
       std::string cmd;
-      //remove from bridges
+      //teardown interfaces there should only be one per device
       for (devi_it = devp->interfaces.begin(); devi_it != devp->interfaces.end(); ++devi_it)
 	{
 	  vlan_ptr vlan = getVLan((*devi_it)->ninfo.getVLan());
@@ -125,8 +180,9 @@ session::removeDev(dev_ptr devp)
 		    +  " and vlan:" + int2str((*devi_it)->ninfo.getVLan()));
 	  if (vlan->interfaces.empty())
 	    {
-	      cmd = "/KVM_Images/scripts/cleanup_vlan.sh " + int2str(vlan->id);
-	      if(system(cmd.c_str()) != 0)
+	      cmd = "/usr/local/bin/wg_tear_down.sh " + int2str(vlan->id) +" " + (*devi_it)->ninfo.getIPAddr() + " " + devp->table_id + " " + (*devi_it)->ninfo.getDevIPAddr();
+	      //write_log("session::removeDev: system(" + cmd + ")");
+	      if(system_cmd(cmd) != 0)
 		{
 		  write_log("session::removeDev: cleanup_vlan script failed");
 		  //may need to clean up something here
@@ -136,16 +192,21 @@ session::removeDev(dev_ptr devp)
 	    }
 	}
       //kill dev and release name for reuse
+      /**/
       //run kill script
-      cmd = "/KVM_Images/scripts/undefine_dev.sh " + devp->name;
-      write_log("session::removeDev: system(" + cmd + ")");
-      if(system(cmd.c_str()) != 0)
-      {
-	write_log("session::removeDev: undefine script failed");
-	//may need to clean up something here
-	return false;
-      }
-      
+      //if there are no vlans still need to tear down
+      if (devp->interfaces.empty())
+	{
+	  cmd = "/usr/local/bin/wg_tear_down.sh 0" + devp->expaddr + " " + devp->table_id; 
+	  //write_log("session::removeDev: system(" + cmd + ")");
+	  if(system_cmd(cmd) != 0)
+	    {
+	      write_log("session::removeDev: undefine script failed");
+	      //may need to clean up something here
+	      return false;
+	    }
+	}
+      /*
       if (!the_session_manager->releaseDevName(devp->name))
 	{
 	  write_log("session::removeDev failed dev " + devp->name + " comp " + int2str(devp->comp.getID()) );
@@ -171,12 +232,18 @@ session::configureDev(component& c, node_info& ninfo) //this also has the vpn as
       write_log("session::configureDev failed to find dev for comp " + int2str(c.getID()) );
       return false;
     }
-  devinterface_ptr tmp_devi = getInterface(dev, ninfo);
+  devinterface_ptr tmp_devi = getInterface(dev, ninfo.getPort());
   if (!tmp_devi)
     {
       devinterface_ptr devi(new devinterface_info());
       devi->ninfo = ninfo;
       devi->dev = dev;
+      devi->subn_addr = getSubnetAddr(ninfo.getIPAddr());
+      if (dev->interfaces.empty())
+	{
+	  dev->table_id = getLastAddrByte(ninfo.getDevIPAddr());
+	  dev->name = getDevName(ninfo.getDevIPAddr());
+	}
       dev->interfaces.push_back(devi);
     }
   return true;
@@ -191,6 +258,20 @@ session::getDev(component& c)
   for (devit = devs.begin(); devit != devs.end(); ++devit)
     {
       if ((*devit)->comp.getID() == c.getID()) 
+	return (*devit);
+    }
+  return noptr;
+}
+      
+dev_ptr 
+session::getDev(uint32_t cid)
+{
+  std::list<dev_ptr>::iterator devit;
+  
+  dev_ptr noptr;
+  for (devit = devs.begin(); devit != devs.end(); ++devit)
+    {
+      if ((*devit)->comp.getID() == cid) 
 	return (*devit);
     }
   return noptr;
@@ -223,4 +304,79 @@ session::getVLan(uint32_t vlan)//adds vlan if not already there
   new_vlan->bridge_id = vlan;
   vlans.push_back(new_vlan);
   return new_vlan;
+}
+
+
+devinterface_ptr
+session::getInterface(dev_ptr dp, uint16_t port)
+{
+  std::list< boost::shared_ptr<_devinterface_info> >::iterator dit;
+  for (dit = dp->interfaces.begin(); dit != dp->interfaces.end(); ++dit)
+    {
+      if ((*dit)->ninfo.getPort() == port) return (*dit);
+    }
+  devinterface_ptr rtn;
+  return rtn;
+}
+
+
+bool
+session::add_route(uint32_t id, uint16_t port, std::string prefix, uint32_t mask, std::string nexthop)
+{
+  dev_ptr dp = getDev(id);
+  if (!dp)
+    {
+      write_log("session::add_route no device " + int2str(id) + " for session " + expInfo.getID() + " for user " + expInfo.getUserName());
+      return false;
+    }
+  devinterface_ptr dip = getInterface(dp, port);
+  if (!dip)
+    {
+      write_log("session::add_route no interface " + int2str(port) + " device " + int2str(id) + " for session " + expInfo.getID() + " for user " + expInfo.getUserName());
+      return false;
+    }
+
+  if (prefix == dip->subn_addr)
+    {
+      write_log("session::add_route prefix is subnet " + prefix +":" + dip->subn_addr + " " + int2str(id) + " for session " + expInfo.getID() + " for user " + expInfo.getUserName());
+    }
+  else
+    {
+      std::string cmd = "sudo /usr/local/bin/wg_addroute.sh " + int2str(dip->vlan->id) + " " + dp->table_id + " " + prefix + " " + int2str(mask) + " "  +  nexthop;
+  
+      if(system_cmd(cmd) != 0) { return false; }
+    }
+  return true;
+}
+
+
+bool
+session::delete_route(uint32_t id, uint16_t port, std::string prefix, uint32_t mask)
+{
+  dev_ptr dp = getDev(id);
+  if (!dp)
+    {
+      write_log("session::delete_route no device " + int2str(id) + " for session " + expInfo.getID() + " for user " + expInfo.getUserName());
+      return false;
+    }
+  devinterface_ptr dip = getInterface(dp, port);
+  if (!dip)
+    {
+      write_log("session::delete_route no interface " + int2str(port) + " device " + int2str(id) + " for session " + expInfo.getID() + " for user " + expInfo.getUserName());
+      return false;
+    }
+  std::string cmd = "sudo /usr/local/bin/wg_delroute.sh " + int2str(dip->vlan->id) + " " + dp->table_id + " " + prefix + " " + int2str(mask);
+  
+  if(system_cmd(cmd) != 0) { return false; }
+  return true;
+}
+
+int
+session::system_cmd(std::string cmd)
+{
+  int rtn = system(cmd.c_str());
+  if(rtn != -1)
+    rtn = WEXITSTATUS(rtn);
+  write_log("session("+ expInfo.getID() + "," + expInfo.getUserName() + ")::system_cmd(" + int2str(rtn) + "): cmd = " + cmd);
+  return rtn; 
 }

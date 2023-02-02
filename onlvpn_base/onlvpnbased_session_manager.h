@@ -36,6 +36,7 @@ namespace onlvpnbased
       session_manager() throw();
       ~session_manager();
       session_ptr getSession(experiment_info& einfo);
+      session_ptr getSession(std::string eid);
       bool startDev(session_ptr sptr, dev_ptr devp);
       bool assignDev(dev_ptr devp);//assigns control addr and dev name for dev
       bool deleteDev(component& c, experiment_info& einfo);

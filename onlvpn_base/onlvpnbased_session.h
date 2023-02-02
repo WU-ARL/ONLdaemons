@@ -32,11 +32,8 @@ namespace onlvpnbased
     std::string expaddr;
     uint32_t cores;
     uint32_t memory;
-    /*NOT NEEDED*/
     std::string name;
-    std::string passwd;
-    std::string img;
-    /*END NOT NEEDED*/
+    std::string table_id;
   } dev_info;
 
   typedef boost::shared_ptr<dev_info> dev_ptr;
@@ -48,6 +45,7 @@ namespace onlvpnbased
     node_info ninfo;
     boost::shared_ptr<_vlan_info> vlan;
     dev_ptr dev;
+    std::string subn_addr;
   } devinterface_info;
 
   typedef boost::shared_ptr<devinterface_info> devinterface_ptr;
@@ -75,15 +73,23 @@ namespace onlvpnbased
 
       bool configureDev(component& c, node_info& ninfo);
       dev_ptr getDev(component& c);
+      dev_ptr getDev(uint32_t cid);
       
       //bool addToVlan(uint32_t vlan, component& c);
       void clear();
       vlan_ptr getVLan(uint32_t vlan);//adds vlan if not already there
+      static std::string getDevName(std::string eaddr);
+      static std::string getLastAddrByte(std::string eaddr);
+      
+      bool add_route(uint32_t id, uint16_t port, std::string prefix, uint32_t mask, std::string nexthop);
+      bool delete_route(uint32_t id, uint16_t port, std::string prefix, uint32_t mask);
       
     private:
       experiment_info expInfo;
       std::list<dev_ptr> devs;
       std::list<vlan_ptr> vlans;
+      int system_cmd(std::string cmd);
+      devinterface_ptr getInterface(dev_ptr dp, uint16_t port);
   };
 
   typedef boost::shared_ptr<session> session_ptr;
