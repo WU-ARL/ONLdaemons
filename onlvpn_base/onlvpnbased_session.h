@@ -30,10 +30,12 @@ namespace onlvpnbased
     component comp;
     std::list< boost::shared_ptr<_devinterface_info> > interfaces;
     std::string expaddr;
+    std::string ext_ulbl;
     uint32_t cores;
     uint32_t memory;
     std::string name;
     std::string table_id;
+    pthread_mutex_t route_lock;
   } dev_info;
 
   typedef boost::shared_ptr<dev_info> dev_ptr;
@@ -67,7 +69,7 @@ namespace onlvpnbased
       ~session() throw();   
 
       experiment_info& getExpInfo() { return expInfo;}
-      dev_ptr addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem);
+      dev_ptr addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem, std::string elbl);
       bool removeDev(component& c);
       bool removeDev(dev_ptr devp);
 

@@ -70,8 +70,18 @@ start_experiment_req::handle()
   if (sess_ptr)
     {
       std::string ip_str = ipaddr.getCString();
+      std::string edev_lbl = "";
       //add device
-      if (!sess_ptr->addDev(comp, ip_str, cores, memory))
+      if(!init_params.empty())
+	{
+	  param p = init_params.front();
+	  if(p.getType() == string_param && p.getString() != "")
+	    {
+
+	      edev_lbl = p.getString();
+	    }
+	}
+      if (!sess_ptr->addDev(comp, ip_str, cores, memory, edev_lbl))
 	{
 	  status = NCCP_Status_Failed;		
 	  write_log("start_experiment_req::handle failed to add Dev to session");

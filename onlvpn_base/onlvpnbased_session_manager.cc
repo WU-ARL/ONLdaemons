@@ -179,6 +179,14 @@ session_manager::startDev(session_ptr sptr, dev_ptr devp)
         write_log("session_manager::startDev: setup_vlan.sh failed");
         return false;
       }
+      //clear device client conf
+      cmd = "/usr/local/bin/wg_conf_client.py -o start -u " + sptr->expInfo.getUserName() + " -d " + devp->ext_ulbl;
+      write_log("session_manager::startDev: system(" + cmd + ")");
+      if(system(cmd.c_str()) != 0)
+	{
+	  write_log("session_manager::startDev: conf_client script failed");
+	  //may need to clean up something here
+	}
       //dip_fs << (*devi_it)->ninfo.getIPAddr() << std::endl;
       //vlan_fs << (*devi_it)->ninfo.getVLan() << " " << (*devi_it)->ninfo.getRealPort() << std::endl;
     }

@@ -130,7 +130,7 @@ session::getLastAddrByte(std::string eaddr)
 
 
 dev_ptr
-session::addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
+session::addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem, std::string elbl)
 {
   dev_ptr rtn_dev = getDev(c);
   if (!rtn_dev)
@@ -139,8 +139,10 @@ session::addDev(component& c, std::string eaddr, uint32_t crs, uint32_t mem)
       dev->comp = c;
       dev->expaddr = eaddr;
       dev->name = getDevName(eaddr);
+      dev->ext_ulbl = elbl;
       dev->cores = crs;
       int tmp_mem = (int)(mem/1000) * 1024;
+      pthread_mutex_init(&(dev->route_lock), NULL);
       dev->memory = tmp_mem;
       if (the_session_manager->assignDev(dev)) //assigns control addr and dev name for dev
 	{
@@ -191,6 +193,13 @@ session::removeDev(dev_ptr devp)
 	      vlans.remove(vlan);
 	    }
 	}
+      //clear device client conf
+      cmd = "/usr/local/bin/wg_conf_client.py -o clear -u " + expInfo.getUserName() + " -d " + devp->ext_ulbl;
+      if(system_cmd(cmd) != 0)
+	{
+	  write_log("session::removeDev: conf_client script failed");
+	  //may need to clean up something here
+	}
       //kill dev and release name for reuse
       /**/
       //run kill script
@@ -213,6 +222,8 @@ session::removeDev(dev_ptr devp)
 	  return false;
 	}
       */
+      
+      pthread_mutex_destroy(&(devp->route_lock));
       write_log("session::removeDev dev " + devp->name + " comp " + int2str(devp->comp.getID()) );
       devs.remove(devp);
       
@@ -346,6 +357,14 @@ session::add_route(uint32_t id, uint16_t port, std::string prefix, uint32_t mask
   
       if(system_cmd(cmd) != 0) { return false; }
     }
+  //add to conf file
+  autoLockDebug rlock(dp->route_lock, "session::add_route(): route_lock");
+  std::string cmd = "/usr/local/bin/wg_conf_client.py -o add -u " + expInfo.getUserName() + " -d " + dp->ext_ulbl + " -p " + prefix + " -m " + int2str(mask);
+  
+  if(system_cmd(cmd) != 0)
+    {
+      write_log("session::add_route: conf_client script failed");
+    }
   return true;
 }
 
@@ -368,6 +387,14 @@ session::delete_route(uint32_t id, uint16_t port, std::string prefix, uint32_t m
   std::string cmd = "sudo /usr/local/bin/wg_delroute.sh " + int2str(dip->vlan->id) + " " + dp->table_id + " " + prefix + " " + int2str(mask);
   
   if(system_cmd(cmd) != 0) { return false; }
+  //remove from conf file
+  autoLockDebug rlock(dp->route_lock, "session::delete_route(): route_lock");
+  cmd = "/usr/local/bin/wg_conf_client.py -o del -u " + expInfo.getUserName() + " -d " + dp->ext_ulbl + " -p " + prefix + " -m " + int2str(mask);
+  
+  if(system_cmd(cmd) != 0)
+    {
+      write_log("session::add_route: conf_client script failed");
+    }
   return true;
 }
 
