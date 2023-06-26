@@ -57,6 +57,7 @@ namespace onlcrd
 
       bool is_admin_mode();
       virtual std::string get_type();
+      virtual bool is_virtual() ;//{ return false;}
 
       bool ignore();
       void add_reboot_params(std::list<param>& params);
@@ -157,6 +158,7 @@ namespace onlcrd
       virtual void set_vlan_allocated() { alloc_vlan = true;}
 
       virtual std::string get_type();
+      virtual bool is_virtual() { return true;}
 
       virtual void do_initialize();
       virtual void refresh();
@@ -177,6 +179,7 @@ namespace onlcrd
   
 
       virtual std::string get_type();
+      virtual bool is_virtual() { return true;}
 
       //virtual void do_initialize();
       //virtual void refresh();

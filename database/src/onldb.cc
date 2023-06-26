@@ -1015,12 +1015,12 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
       std::string node1_mac;
       std::string node2_mac;
 	 
-      if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
+      /*if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
 	{
 	  cur_cap = cur_cap * 1000;
 	  cur_rload = cur_rload * 1000;
 	  cur_lload = cur_lload * 1000;
-	}
+	  }*/
 
       for(vps_it = vps.begin(); vps_it != vps.end(); ++vps_it)
 	{
@@ -1054,12 +1054,13 @@ onldb_resp onldb::get_topology(topology *t, int rid) throw()
           cur_cap = it3->capacity;
 	  cur_rload = it3->rload;
 	  cur_lload = it3->lload;
+	  /*
 	  if (vps.empty() && cur_cap < 1000) // this is a reservation that was made with Gbps
 	    {
 	      cur_cap = cur_cap * 1000;
 	      cur_rload = cur_rload * 1000;
 	      cur_lload = cur_lload * 1000;
-	    }
+	      }*/
           cur_conns.clear();
           node1_label = 0;
 	  node1_port = 0;
@@ -1761,16 +1762,16 @@ onldb_resp onldb::get_base_topology(topology *t, std::string begin, std::string 
 	  for(it4 = ci.begin(); it4 != ci.end(); ++it4)
 	    {
 	      //cap -= it4->capacity;
-	      if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
-		{
-		  rl += (it4->rload * 1000);
-		  ll += (it4->lload * 1000);
-		}
-	      else
-		{
+	      //if (it4->rload <= 10)//this is an old reservation in Gbps we need to convert the loads to Mbps
+		//{
+	      //rl += (it4->rload * 1000);
+	      //  ll += (it4->lload * 1000);
+	      //}
+	      //else
+	      //{
 		  rl += it4->rload;
 		  ll += it4->lload;
-		}
+		 //}
 	    }
 	}
       
@@ -2576,13 +2577,13 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_p
 
 
   //look through the clusters to see if we can find one that works
-  cout << "cluster cost for node:" << node->label << " -- ";
+  cout << "cluster cost for node:" << node->label << " -- " << endl;
   for (clnit = cl.begin(); clnit != cl.end(); ++clnit)
     {
       if (!node->fixed || (node->in == (*clnit)->cluster->in)) //if the node is fixed only look at the fixed node's cluster
 	{
 	  cluster_cost = compute_mapping_cost(*clnit, node, req, cl, base);
-	  cout << "(c" << (*clnit)->cluster->label << ", " << cluster_cost << ")";
+	  cout << "(c" << (*clnit)->cluster->label << ", " << cluster_cost << ")" << endl;
 	  if (cluster_cost >= 0 && (cluster_cost < current_cost || !rtn_cluster))
 	    {
 	      if (rtn_cluster) reset_cluster(rtn_cluster);
@@ -2597,7 +2598,7 @@ onldb::find_feasible_cluster(node_resource_ptr node, std::list<mapping_cluster_p
 	    }
 	}
     }
-  cout << endl;
+  //cout << endl;
   //if (rtn_cluster != NULL)
   print_diff("onldb::find_feasible_cluster", stime);
   return rtn_cluster;
@@ -2670,11 +2671,22 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 	{
 	  if ((*clnit)->type == node->type || (node_hosts_type((*clnit), node->type))) n = (*clnit);
 	  else if ((*clnit)->parent && ((*clnit)->parent->type == node->type || (node_hosts_type((*clnit), node->type)))) n = (*clnit)->parent;
-	  if (!node_hosted(node) && n && n->marked) continue;
+	  if (!node_hosted(node) && n && n->marked)
+	    {
+	      /*if (n->marked)
+		cout << "find_available:(" << node->label << "," << node->dev_type << "," << n->node << ",true)" << endl;
+	      else
+	      cout << "find_available:(" << node->label << "," << node->dev_type << "," << n->node << ",false)" << endl;*/
+	      continue;
+	    }
 	  //if (node->type != "vm" && n && n->marked) continue;
 	}
 
-	  if (n && (!in_list(n, cluster->rnodes_used) || node_hosted(node)))//check if node is viable
+
+      //if (!n)
+      //cout << "find_available node not found:(" << node->label << "," << node->dev_type << ")" << endl;
+      
+      if (n && (!in_list(n, cluster->rnodes_used) || node_hosted(node)))//check if node is viable
 	{
 	  //check core, mem, and interface bw capacities to see if there is enough for this node
 	  if (n->potential_corecap > 0 && (n->potential_corecap >= node->core_capacity && n->potential_memcap >= node->mem_capacity))
@@ -2694,8 +2706,11 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			  cap_total = (*uportit).second;
 			  ++rportit;
 			}
-		      if (rportit == n->port_capacities.end())//this node doesn't have enough interface bw 
-			break;
+		      if (rportit == n->port_capacities.end())//this node doesn't have enough interface bw
+			{
+			  //cout << "find_available:(" << node->label << ":" << n->node << ") not enough interface bw" << endl;
+			  break;
+			}
 		    }
 		  if (rportit != n->port_capacities.end()) //node has enough interface bw
 		    {
@@ -2729,7 +2744,10 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 			  if (tmp_num == 0) //PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
 			    {
 			      if (compute_path_costs(node, n) < 0)
-				break; //can't map existing links
+				{
+				  cout << "find_available_node can't map existing links " << node->label << ":" << n->node << endl;
+				  break; //can't map existing links
+				}
 			      else    
 				return n;
 			    }//return n;//add a check links before returning node
@@ -2737,26 +2755,38 @@ onldb::find_available_node(mapping_cluster_ptr cluster, node_resource_ptr node, 
 		      else //PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
 			{
 			  if (compute_path_costs(node, n) < 0)
-			    break; //can't map existing links
+				{
+				  //cout << "find_available_node can't map existing links2 " << node->label << ":" << n->node << endl;
+				  break; //can't map existing links
+				}
 			  else    
 			    return n;
 			}
 		    }
 		  else if (fixed) //the node we want doesn't have enough bw
-		    break;
+		    {
+		      //cout << "find_available_node fixed node not enough bw " << node->label << ":" << n->node << endl;
+		      break;
+		    }
 		  //keep looking
 		}
 	      else//PROBLEM:added JP 7/9/19 - check that any links to already marked nodes are doable
 		{
 		  if (compute_path_costs(node, n) < 0)
-		    break; //can't map existing links
+		    {
+		      //cout << "find_available_node can't map existing links3 " << node->label << ":" << n->node << endl;
+		      break; //can't map existing links
+		    }
 		  else    
 		    return n;
 		}
 	      //return n;
 	    }
-	  else if (fixed) 
-	    break;
+	  else if (fixed)
+	    {
+	      //cout << "find_available_node fixed node not enough bw2 " << node->label << ":" << n->node << endl; 
+	      break;
+	    }
 	}
     }
 
@@ -7658,4 +7688,78 @@ onldb_resp onldb::get_switch_ports(unsigned int cid, switch_port_info& info1, sw
   {
     return onldb_resp(-1,(std::string)"database consistency problem");
   }
+}
+
+onldb_resp onldb::register_new_extdev(std::string elabel, std::string user)
+{
+  //check if this device already exists if so return the existing ipaddress and update expiration
+  time_t current_time_unix = time(NULL);
+  try
+  {
+    mysqlpp::Query query = onl->query();
+    //query << "select * from externaldevs where (user=" << mysqlpp::quote << user << " and label=" << mysqlpp::quote << elabel << ")";
+    query << "select * from externaldevs where user=" << mysqlpp::quote << user;
+    vector<externaldevs> edis;
+    query.storein(edis);
+    //mysqlpp::StoreQueryResult res = query.store();
+    int num_eds = edis.size();
+    vector<externaldevs>::iterator eit;
+    for (eit = edis.begin(); eit != edis.end(); ++eit)
+      {
+	if (eit->label == elabel)
+	  {
+	    externaldevs edi = *eit;
+	    time_t exp = time_t(edi.expiration);
+	    if (exp < current_time_unix) //need to reset expiration date
+	      {
+		exp = add_time(current_time_unix, 60*60*24*365);
+		//update database	  
+		externaldevs orig_edi = edi;
+		edi.expiration = mysqlpp::DateTime(exp);
+		query.update(orig_edi, edi);
+		query.execute();
+	      }
+	    return onldb_resp(1,edi.ipaddr);
+	  }
+      }
+    //check we aren't maxed out of slots or for this user
+    query << "select value from policy where parameter=" << mysqlpp::quote << "extdevperuser";
+    mysqlpp::StoreQueryResult res = query.store();
+    policyvals elimit = res[0]; 
+    if (num_eds >= elimit.value)
+      {
+	return onldb_resp(-1,(std::string)"user hit limit of ext devices");
+      }
+    query << "select value from policy where parameter=" << mysqlpp::quote << "extdevmax";
+    res = query.store();
+    elimit = res[0]; 
+    //get list of given ids
+    query << "select distinct(eid) from externaldevs order by eid";
+    vector<extdeveids> eds;
+    query.storein(eds);
+    if (eds.size() >= elimit.value)
+      {
+	return onldb_resp(-1,(std::string)"hit system limit of ext devices");
+      }
+    //find unused id add row to database
+    int ipbyte = 3;
+    vector<extdeveids>::iterator ed_it;
+    for (ed_it = eds.begin(); ed_it != eds.end(); ++ed_it)
+      {
+	if (ipbyte < ed_it->eid) break;
+	++ipbyte;
+      }
+    
+    time_t ed_exp = add_time(current_time_unix, 60*60*24*365);
+    std::string ipaddr = "192.168.252." + std::to_string(ipbyte);
+    externaldevs ext_dev(elabel, user, ipaddr, mysqlpp::DateTime(ed_exp), ipbyte);
+    mysqlpp::Query ins = onl->query();
+    ins.insert(ext_dev);
+    ins.execute();
+    return onldb_resp(1,ipaddr);
+  }
+  catch(const mysqlpp::Exception& er)
+  {
+    return onldb_resp(-1,er.what());
+  }   
 }

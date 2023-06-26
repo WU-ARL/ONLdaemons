@@ -88,7 +88,7 @@ class CfgFileMaker:
         tmpf_nm = wgdir + '/tmp.' + self.dev_name + '.wg.conf'
         if 'add' in self.op:
             wg_file = open(wgf_nm, 'a')
-            wg_file.write('AllowedIPs = ' + self.prefix + '/' + self.mask + '\n')
+            wg_file.write('\nAllowedIPs = ' + self.prefix + '/' + self.mask)
             wg_file.close()
             return True
             

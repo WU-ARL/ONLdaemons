@@ -276,6 +276,14 @@ crd_component::get_type()
   return rv.msg();
 }
 
+bool
+crd_component::is_virtual()
+{
+  std::string tp = get_type();
+  return (tp == "vgige" || tp == "vm");
+}
+
+
 void
 crd_component::add_reboot_params(std::list<param>& params)
 {

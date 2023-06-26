@@ -873,7 +873,7 @@ void
 session_manager::add_component(crd_component_ptr comp, session_ptr sess)
 {
   comp->set_session(sess);
-  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
+  if(comp->is_virtual())//get_type() == "vgige" || comp->get_type() == "vm")
   {
     return;
   }
@@ -902,7 +902,7 @@ session_manager::add_component(crd_component_ptr comp, session_ptr sess)
 void
 session_manager::remove_component(crd_component_ptr comp)
 {
-  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
+  if(comp->is_virtual()) //get_type() == "vgige" || comp->get_type() == "vm")
   {
     return;
   }
@@ -926,7 +926,7 @@ session_manager::remove_component(crd_component_ptr comp)
 void
 session_manager::clear_component(crd_component* comp)
 {
-  if(comp->get_type() == "vgige" || comp->get_type() == "vm")
+  if(comp->is_virtual()) //get_type() == "vgige" || comp->get_type() == "vm")
   {
     comp->clear_session();
     return;

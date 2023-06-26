@@ -137,6 +137,8 @@ namespace onl
       onldb_resp make_reservation(std::string username, std::string begin1, std::string begin2, unsigned int len, topology *t) throw();
       onldb_resp reserve_all(std::string begin, unsigned int len) throw();
 
+      onldb_resp register_new_extdev(std::string elabel, std::string user);
+
       onldb_resp fix_component(topology *t, unsigned int label, std::string node) throw();
       onldb_resp cancel_current_reservation(std::string username) throw();
       onldb_resp extend_current_reservation(std::string username, int len) throw();

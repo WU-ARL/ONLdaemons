@@ -189,6 +189,13 @@ namespace onl
     mysqlpp::sql_smallint_unsigned, usermaxusage,
     mysqlpp::sql_smallint_unsigned, grpmaxnum,
     mysqlpp::sql_smallint_unsigned, grpmaxusage)
+    
+  sql_create_5(externaldevs,2,5,
+    mysqlpp::sql_varchar, label,
+    mysqlpp::sql_varchar, user,
+    mysqlpp::sql_varchar, ipaddr,
+    mysqlpp::sql_datetime, expiration,
+    mysqlpp::sql_smallint_unsigned, eid)
 
   // the next set define classes that only partially reflect some tables for ease of updating
   sql_create_1(nodestates,1,0,
@@ -211,6 +218,9 @@ namespace onl
 
   sql_create_1(policyvals,1,0,
     mysqlpp::sql_smallint_unsigned, value)
+    
+  sql_create_1(extdeveids,1,0,
+    mysqlpp::sql_smallint_unsigned, eid)
 
   sql_create_5(typepolicyvals,5,0,
     mysqlpp::sql_smallint_unsigned, maxlen,
@@ -385,6 +395,13 @@ namespace onl
   sql_create_2(extdev,2,0,
     mysqlpp::sql_varchar, label,
     mysqlpp::sql_varchar, ipaddr)
+    
+  sql_create_5(extdevfull,5,0,
+    mysqlpp::sql_varchar, label,
+    mysqlpp::sql_varchar, user,
+    mysqlpp::sql_varchar, ipaddr,
+    mysqlpp::sql_datetime, expiration,
+    mysqlpp::sql_smallint_unsigned, eid)
 
   sql_create_1(connid,1,0,
     mysqlpp::sql_smallint_unsigned, cid);

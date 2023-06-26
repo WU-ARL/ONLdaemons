@@ -644,6 +644,12 @@ session::clear()
   //write_mapping();
   clear_mapping();
 
+  
+  std::string cmd = "/usr/testbed/scripts/clear_exp.sh " + user + " " + id;
+  int ret = system(cmd.c_str());
+
+  if(ret < 0 || WEXITSTATUS(ret) != 1) write_log("session::clear() cmd failed: " + cmd);
+
   if(begin_req != NULL) { delete begin_req; }
   begin_req = NULL;
 }
