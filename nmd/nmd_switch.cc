@@ -29,15 +29,19 @@
 
 bool set_switch_vlan_membership_arista64(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
 bool set_switch_vlan_membership_arista(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
+bool set_switch_vlan_membership_cisco(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
 bool set_switch_vlan_membership_snmp(port_list switch_ports, string switch_id, switch_vlan vlan_id);
 bool set_switch_pvids_arista64(port_list host_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
 bool set_switch_pvids_arista(port_list host_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
+bool set_switch_pvids_cisco(port_list host_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd);
 bool set_switch_pvids_snmp(port_list host_ports, string switch_id, switch_vlan vlan_id);
 bool initialize_switch_arista64(string switch_id);
 bool initialize_switch_arista(string switch_id);
+bool initialize_switch_cisco(string switch_id);
 bool initialize_switch_snmp(string switch_id);
 bool is_arista64_switch(string switch_id);
 bool is_arista_switch(string switch_id);
+bool is_cisco_switch(string switch_id);
 bool exec_snmp(string cmd);
 bool exec_ssh(string cmd);
 void getHexString(unsigned char bval, char* str);
@@ -148,12 +152,15 @@ void start_command(string switch_id, ostringstream& cmd)
       cmd << "ssh -n " << user << "@" << switch_id << " \"enable" << endl;
       cmd << "configure" << endl;
      }
+  else if (is_cisco_switch(switch_id)) {
+      cmd << "agent; ssh -i /root/.ssh/id_rsa -n " << user << "@" << switch_id << " \"configure" << endl;
+  }
 }
 
 
 bool send_command(string switch_id, ostringstream& cmd)
 {
-  if (is_arista_switch(switch_id) || is_arista64_switch(switch_id)) {
+  if (is_arista_switch(switch_id) || is_arista64_switch(switch_id) || is_cisco_switch(switch_id)) {
       cmd << "\"" << endl;
       ssh_locks[switch_id].start_ssh();
       bool rtn =  exec_ssh(cmd.str());
@@ -173,7 +180,10 @@ bool set_switch_vlan_membership(port_list switch_ports, string switch_id, switch
   } else{
     if (is_arista64_switch(switch_id)){
       return set_switch_vlan_membership_arista64(switch_ports, switch_id, vlan_id, cmd);
-    } else{
+    } else if (is_cisco_switch(switch_id){
+	return set_switch_vlan_membership_cisco(switch_ports, switch_id, vlan_id, cmd);
+      }
+      else{
       return set_switch_vlan_membership_snmp(switch_ports, switch_id, vlan_id);
     }
   }
@@ -201,7 +211,10 @@ bool set_switch_pvids(port_list switch_ports, string switch_id, switch_vlan vlan
     {
       return set_switch_pvids_arista64(host_ports, switch_id, vlan_id, cmd);
     } 
-  else {
+  else if (is_cisco_switch(switch_id)) {
+    return set_switch_pvids_cisco(host_ports, switch_id, vlan_id, cmd);
+  }
+  else  {
     return set_switch_pvids_snmp(host_ports, switch_id, vlan_id);
   }
 }
@@ -223,6 +236,10 @@ bool initialize_switch(string switch_id)
   else if (is_arista64_switch(switch_id)) 
     {
       return initialize_switch_arista64(switch_id);
+    }
+  else if (is_cisco_switch(switch_id)) 
+    {
+      return initialize_switch_cisco(switch_id);
     }
   else {
     return initialize_switch_snmp(switch_id);
@@ -307,6 +324,39 @@ bool set_switch_vlan_membership_arista64(port_list switch_ports, string switch_i
 }
 
 
+
+
+bool set_switch_vlan_membership_cisco(port_list switch_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd)
+{
+  ostringstream msg;
+      int num_ports = switch_ports.size();
+      int num_switch_ports = eth_switches->get_num_ports(switch_id);
+      if (num_switch_ports == 0) 
+	{
+	  return false;
+	}
+      
+      // first remove all ports from this vlan
+      cmd << "interface ethernet 1/1-" << num_switch_ports << endl;
+      cmd << "switchport trunk allowed vlan remove " << vlan_id << endl;
+      cmd << "exit" << endl;
+      if (num_ports > 0)
+	{
+	  // now add the specified ports to the vlan
+	  cmd << "interface ";
+	  for (port_iter iter = switch_ports.begin();
+	       iter != switch_ports.end(); iter++) {
+	    cmd << "ethernet 1/" << iter->getPortNum();
+	    if (--num_ports > 0) cmd << ",";
+	  }
+	  cmd << endl << "switchport trunk allowed vlan add " << vlan_id << endl;
+	  cmd << "show vlan id " << vlan_id << endl;
+   	  cmd << "exit" << endl;
+	}
+    return true;
+}
+
+
 bool set_switch_pvids_arista64(port_list host_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd)
 {
   ostringstream msg;
@@ -352,6 +402,30 @@ bool set_switch_pvids_arista(port_list host_ports, string switch_id, switch_vlan
       return true;
 }
 
+
+bool set_switch_pvids_cisco(port_list host_ports, string switch_id, switch_vlan vlan_id, ostringstream& cmd)
+{
+  ostringstream msg;
+ 
+      int num_ports = host_ports.size();
+      if (num_ports == 0) 
+	{
+	  return true; // don't need to do anything
+	}
+      
+      // now add the specified ports to the vlan
+      cmd << "interface ";
+      for (port_iter iter = host_ports.begin();
+	   iter != host_ports.end(); iter++) {
+	cmd << "ethernet 1/" << iter->getPortNum();
+	if (--num_ports > 0) cmd << ",";
+      }
+      cmd << endl << "switchport trunk native vlan " << vlan_id << endl;
+      cmd << "exit" << endl;
+      
+      return true;
+}
+
 bool initialize_switch_arista64(string switch_id)
 {
   ostringstream cmd;
@@ -385,6 +459,30 @@ bool initialize_switch_arista(string switch_id)
       cmd << "ssh -n " << user << "@" << switch_id << " \"enable" << endl;
       cmd << "configure" << endl;
       cmd << "interface ethernet 1-" << eth_switch.getNumPorts() << endl;
+      cmd << "switchport trunk allowed vlan none" << endl;
+      cmd << "switchport trunk native vlan " << default_vlan << endl;
+      cmd << "\"" << endl;
+      
+      bool rtn =  exec_ssh(cmd.str());
+      ssh_locks[switch_id].finish_ssh();
+      return rtn;
+    }
+  else
+    {
+      write_log("ERROR: initialize_switch_arista switch " + switch_id + " ssh timed out for too many outstanding ssh connections");
+      return false;
+    }
+}
+
+
+bool initialize_switch_cisco(string switch_id)
+{
+  ostringstream cmd;
+  if (ssh_locks[switch_id].start_ssh())
+    {  
+      switch_info eth_switch = eth_switches->get_switch(switch_id);
+      cmd << "agent; ssh -i /root/.ssh/id_rsa -n " << user << "@" << switch_id << " \"configure" << endl;
+      cmd << "interface ethernet 1/1-" << eth_switch.getNumPorts() << endl;
       cmd << "switchport trunk allowed vlan none" << endl;
       cmd << "switchport trunk native vlan " << default_vlan << endl;
       cmd << "\"" << endl;
@@ -526,6 +624,16 @@ bool is_arista64_switch(string switch_id)
   // 8/10/10 we switched from 2-48 port aristas to 4-24 port aristas
   // so assume onlsw9 and onlsw10 are also arista switches
   return (switch_id == "onlsw11" || switch_id == "onlsw12"); 
+}
+
+
+bool is_cisco_switch(string switch_id)
+{
+  // Here we assume swithces with switchid = onslw7 and onlsw8 
+  // are Arista switches
+  // 8/10/10 we switched from 2-48 port aristas to 4-24 port aristas
+  // so assume onlsw9 and onlsw10 are also arista switches
+  return (switch_id == "onlsw2"); 
 }
 
 bool exec_snmp(string cmd)
