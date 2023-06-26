@@ -153,7 +153,7 @@ void start_command(string switch_id, ostringstream& cmd)
       cmd << "configure" << endl;
      }
   else if (is_cisco_switch(switch_id)) {
-      cmd << "agent; ssh -i /root/.ssh/id_rsa -n " << user << "@" << switch_id << " \"configure" << endl;
+      cmd << "ssh -i /root/.ssh/cisco_id_rsa " << user << "@" << switch_id << " \"configure ; " << endl;
   }
 }
 
@@ -177,15 +177,12 @@ bool set_switch_vlan_membership(port_list switch_ports, string switch_id, switch
   // Arista CLI. 
   if (is_arista_switch(switch_id)) {
     return set_switch_vlan_membership_arista(switch_ports, switch_id, vlan_id, cmd);
-  } else{
-    if (is_arista64_switch(switch_id)){
-      return set_switch_vlan_membership_arista64(switch_ports, switch_id, vlan_id, cmd);
-    } else if (is_cisco_switch(switch_id){
-	return set_switch_vlan_membership_cisco(switch_ports, switch_id, vlan_id, cmd);
-      }
-      else{
-      return set_switch_vlan_membership_snmp(switch_ports, switch_id, vlan_id);
-    }
+  } else if (is_arista64_switch(switch_id)){
+    return set_switch_vlan_membership_arista64(switch_ports, switch_id, vlan_id, cmd);
+  } else if (is_cisco_switch(switch_id)){
+    return set_switch_vlan_membership_cisco(switch_ports, switch_id, vlan_id, cmd);
+  } else {
+    return set_switch_vlan_membership_snmp(switch_ports, switch_id, vlan_id);
   }
 }
 
@@ -255,7 +252,8 @@ void initialize_ssh_locks(list<switch_info>& switches)
     {
       switch_id = iter->getSwitchId();
       if (is_arista_switch(switch_id) ||
-	  is_arista64_switch(switch_id)) 
+	  is_arista64_switch(switch_id) ||
+	  is_cisco_switch(switch_id)) 
 	ssh_locks[switch_id].set_switch_id(switch_id);
     }
 }
@@ -337,20 +335,20 @@ bool set_switch_vlan_membership_cisco(port_list switch_ports, string switch_id, 
 	}
       
       // first remove all ports from this vlan
-      cmd << "interface ethernet 1/1-" << num_switch_ports << endl;
-      cmd << "switchport trunk allowed vlan remove " << vlan_id << endl;
+      cmd << "interface ethernet 1/1-" << num_switch_ports << " ; ";
+      cmd << "switchport trunk allowed vlan remove " << vlan_id << " ; ";
       cmd << "exit" << endl;
       if (num_ports > 0)
 	{
 	  // now add the specified ports to the vlan
-	  cmd << "interface ";
+	  cmd << " ; interface ";
 	  for (port_iter iter = switch_ports.begin();
 	       iter != switch_ports.end(); iter++) {
 	    cmd << "ethernet 1/" << iter->getPortNum();
 	    if (--num_ports > 0) cmd << ",";
 	  }
-	  cmd << endl << "switchport trunk allowed vlan add " << vlan_id << endl;
-	  cmd << "show vlan id " << vlan_id << endl;
+	  cmd << " ; " << endl << "switchport trunk allowed vlan add " << vlan_id << " ; " << endl;
+	  cmd << "show vlan id " << vlan_id << " ; " << endl;
    	  cmd << "exit" << endl;
 	}
     return true;
@@ -420,7 +418,7 @@ bool set_switch_pvids_cisco(port_list host_ports, string switch_id, switch_vlan 
 	cmd << "ethernet 1/" << iter->getPortNum();
 	if (--num_ports > 0) cmd << ",";
       }
-      cmd << endl << "switchport trunk native vlan " << vlan_id << endl;
+      cmd << " ; " << endl << "switchport trunk native vlan " << vlan_id << " ; " << endl;
       cmd << "exit" << endl;
       
       return true;
@@ -481,10 +479,10 @@ bool initialize_switch_cisco(string switch_id)
   if (ssh_locks[switch_id].start_ssh())
     {  
       switch_info eth_switch = eth_switches->get_switch(switch_id);
-      cmd << "agent; ssh -i /root/.ssh/id_rsa -n " << user << "@" << switch_id << " \"configure" << endl;
-      cmd << "interface ethernet 1/1-" << eth_switch.getNumPorts() << endl;
-      cmd << "switchport trunk allowed vlan none" << endl;
-      cmd << "switchport trunk native vlan " << default_vlan << endl;
+      cmd << "ssh -i /root/.ssh/cisco_id_rsa " << user << "@" << switch_id << " \"configure ; " << endl;
+      cmd << "interface ethernet 1/1-" << eth_switch.getNumPorts() << " ; " << endl;
+      cmd << "switchport trunk allowed vlan none ; " << endl;
+      cmd << "switchport trunk native vlan " << default_vlan << " ; exit " << endl;
       cmd << "\"" << endl;
       
       bool rtn =  exec_ssh(cmd.str());
