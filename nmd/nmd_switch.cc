@@ -158,6 +158,14 @@ void start_command(string switch_id, ostringstream& cmd)
 }
 
 
+void between_command(string switch_id, ostringstream& cmd)
+{
+  if (is_cisco_switch(switch_id)) {
+      cmd << " ; " ;
+  }
+}
+
+
 bool send_command(string switch_id, ostringstream& cmd)
 {
   if (is_arista_switch(switch_id) || is_arista64_switch(switch_id) || is_cisco_switch(switch_id)) {
@@ -418,7 +426,7 @@ bool set_switch_pvids_cisco(port_list host_ports, string switch_id, switch_vlan 
 	cmd << "ethernet 1/" << iter->getPortNum();
 	if (--num_ports > 0) cmd << ",";
       }
-      cmd << " ; " << endl << "switchport trunk native vlan " << vlan_id << " ; " << endl;
+      cmd << " ; " << endl << "switchport access vlan " << vlan_id << " ; " << endl;
       cmd << "exit" << endl;
       
       return true;

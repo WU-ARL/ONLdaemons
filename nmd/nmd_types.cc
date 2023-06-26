@@ -116,7 +116,10 @@ bool vlan::get_add_ports_cmd(string switch_id, ostringstream& cmd)
       // set the PVID so that untagged packets will be tagged
       // with this VLAN ID
       if (!(p->getPassTag()))
-	status &= set_switch_pvid(*p, p->getSwitchId(), vlanId, cmd);
+	{
+	  between_command(switch_id, cmd);
+	  status &= set_switch_pvid(*p, p->getSwitchId(), vlanId, cmd);
+	}
     }
 
   return status;
@@ -138,6 +141,8 @@ bool vlan::delete_port(switch_port p)
   ostringstream cmd;
   start_command(p.getSwitchId(), cmd);
   status &= set_switch_vlan_membership(switch_ports, p.getSwitchId(), vlanId, cmd);
+
+  between_command(p.getSwitchId(), cmd);
 
   // Set the PVID back to the default VLAN for no experiment
   // This shouldn't be necessary but we do it to be safe
@@ -178,6 +183,7 @@ bool vlan::clear_vlan()
     ostringstream cmd;
     start_command(*siter, cmd);
     status &= set_switch_pvids(pvidPorts, *siter, default_vlan, cmd);
+    between_command(*siter, cmd);
     // no ports on this switch should be a member of this vlan
     status &= set_switch_vlan_membership(no_ports, *siter, vlanId, cmd);
     send_command(*siter, cmd);
@@ -218,6 +224,7 @@ int vlan::get_clear_vlan_cmd(string switch_id, ostringstream& cmd)
   // PVIDs set back to the default vlan for no experiment
   port_list pvidPorts = get_switch_ports(switch_id);
   status &= set_switch_pvids(pvidPorts, switch_id, default_vlan, cmd);
+  between_command(switch_id, cmd);
   // no ports on this switch should be a member of this vlan
   status &= set_switch_vlan_membership(no_ports, switch_id, vlanId, cmd);
   
@@ -652,6 +659,7 @@ bool session::create_vlans_unthreaded()
 	{
 	  vlan* v = vlans->get_vlan(*viter);
 	  v->get_add_ports_cmd(*sw_iter, cmd);
+	  between_command(*sw_iter, cmd);
 	}
       bool r = send_command(*sw_iter, cmd);
       if (!r) 
@@ -699,6 +707,7 @@ bool session::create_vlans_threaded()
 	{
 	  vlan* v = vlans->get_vlan(*viter);
 	  v->get_add_ports_cmd(*sw_iter, sw_cmd->cmd);
+	  between_command(*sw_iter, sw_cmd->cmd);
 	}
       sw_cmd->state = CMD_SENT;
       sw_cmd->debug_name = "session(" + sessionID + "):create_vlans";
@@ -839,6 +848,7 @@ bool session::clear_session_unthreaded() //called when last vlan is cleared send
       for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
 	{
 	  num_rm += vlans->get_vlan(*viter)->get_clear_vlan_cmd(*sw_iter, cmd);
+	  between_command(*sw_iter, cmd);
 	}
       if (num_rm > 0) 
 	{
@@ -893,6 +903,7 @@ bool session::clear_session_threaded() //called when last vlan is cleared sends 
       for (viter = removed_vlans.begin(); viter != removed_vlans.end(); ++viter)
 	{
 	  num_rm += vlans->get_vlan(*viter)->get_clear_vlan_cmd(*sw_iter, sw_cmd->cmd);
+	  between_command(*sw_iter, sw_cmd->cmd);
 	}
       if (num_rm > 0) 
 	{

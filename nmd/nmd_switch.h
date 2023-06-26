@@ -65,6 +65,7 @@ void initialize_ssh_locks(list<switch_info>& switches);
 
 //if ssh command used these will start the command and then send it.
 void start_command(string switch_id, ostringstream& cmd);
+void between_command(string switch_id, ostringstream& cmd);
 bool send_command(string switch_id, ostringstream& cmd);
 
 
