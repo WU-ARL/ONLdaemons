@@ -968,11 +968,15 @@ void Router::filter_command(filter_ptr f, bool isdel) throw(configuration_except
   std::string command_type = "add_filter";
   if (!isdel)
     {
-      if ((f->dest_prefix.substr(0,3) != "192" && f->dest_prefix != "*") ||
-	  (f->src_prefix.substr(0,3) != "192" && f->src_prefix != "*"))
+      size_t dpos = f->dest_prefix.find('.');
+      size_t spos = f->src_prefix.find('.');
+      if ((dpos != std::string::npos && f->dest_prefix.substr(0,dpos) == "10")  ||
+	  (dpos == std::string:: npos && f->dest_prefix != "*") ||
+	  (spos != std::string::npos && f->src_prefix.substr(0,spos) == "10")  ||
+	  (spos == std::string:: npos && f->src_prefix != "*"))
       {
-	write_log("Router::add_route: prefix does not start with 192");
-	throw configuration_exception("add filter prefix needs to start with 192");
+	write_log("Router::add_route: prefix is not valid or *");
+	throw configuration_exception("add filter prefix needs valid prefix or *");
       }
       cmdprefix1 += " -I PREROUTING";
       cmdprefix2 += " -A FORWARD";
