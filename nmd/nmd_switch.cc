@@ -160,9 +160,9 @@ void start_command(string switch_id, ostringstream& cmd)
 
 void between_command(string switch_id, ostringstream& cmd)
 {
-  if (is_cisco_switch(switch_id)) {
-      cmd << " ; " ;
-  }
+  //if (is_cisco_switch(switch_id)) {
+  //  cmd << " ; " ;
+  //}
 }
 
 
@@ -345,11 +345,11 @@ bool set_switch_vlan_membership_cisco(port_list switch_ports, string switch_id, 
       // first remove all ports from this vlan
       cmd << "interface ethernet 1/1-" << num_switch_ports << " ; ";
       cmd << "switchport trunk allowed vlan remove " << vlan_id << " ; ";
-      cmd << "exit" << endl;
+      cmd << "exit ; " << endl;
       if (num_ports > 0)
 	{
 	  // now add the specified ports to the vlan
-	  cmd << " ; interface ";
+	  cmd << "interface ";
 	  for (port_iter iter = switch_ports.begin();
 	       iter != switch_ports.end(); iter++) {
 	    cmd << "ethernet 1/" << iter->getPortNum();
@@ -357,7 +357,7 @@ bool set_switch_vlan_membership_cisco(port_list switch_ports, string switch_id, 
 	  }
 	  cmd << " ; " << endl << "switchport trunk allowed vlan add " << vlan_id << " ; " << endl;
 	  cmd << "show vlan id " << vlan_id << " ; " << endl;
-   	  cmd << "exit" << endl;
+   	  cmd << "exit ; " << endl;
 	}
     return true;
 }
@@ -427,7 +427,7 @@ bool set_switch_pvids_cisco(port_list host_ports, string switch_id, switch_vlan 
 	if (--num_ports > 0) cmd << ",";
       }
       cmd << " ; " << endl << "switchport access vlan " << vlan_id << " ; " << endl;
-      cmd << "exit" << endl;
+      cmd << "exit ; " << endl;
       
       return true;
 }
@@ -639,7 +639,7 @@ bool is_cisco_switch(string switch_id)
   // are Arista switches
   // 8/10/10 we switched from 2-48 port aristas to 4-24 port aristas
   // so assume onlsw9 and onlsw10 are also arista switches
-  return (switch_id == "onlsw2"); 
+  return (switch_id == "onlsw1" || switch_id == "onlsw2" || switch_id == "onlsw3" || switch_id == "onlsw4"); 
 }
 
 bool exec_snmp(string cmd)
