@@ -25,7 +25,7 @@ LIBS = -lpthread -L../lib/${OBJDIR} -lonldb -L/usr/lib -lmysqlclient -lmysqlpp  
 DEBUG = -g
 #CC     = g++
 
-DBCMDSSRC = get_state.cc set_state.cc authenticate_user.cc make_reservation.cc assign_resources.cc put_in_testing.cc remove_from_testing.cc extend_repair.cc extend_testing.cc reserve_all.cc get_switch_list.cc
+DBCMDSSRC = get_state.cc set_state.cc authenticate_user.cc make_reservation.cc assign_resources.cc put_in_testing.cc remove_from_testing.cc extend_repair.cc extend_testing.cc reserve_all.cc get_switch_list.cc register_extdev.cc
 DBCMDSOBJS = $(addprefix $(OBJDIR)/, $(patsubst %.cc,%.o,$(DBCMDSSRC)))
 DBCMDS = $(addprefix $(OBJDIR)/, $(basename $(DBCMDSSRC)))
 
@@ -44,8 +44,8 @@ install: $(DBCMDS)
 	mkdir -p ../bin/$(OBJDIR)
 	cp $(DBCMDS) ../bin/$(OBJDIR)
 
-onlsrv: $(OBJDIR)/set_state $(OBJDIR)/put_in_testing $(OBJDIR)/remove_from_testing $(OBJDIR)/extend_testing $(OBJDIR)/extend_repair $(OBJDIR)/reserve_all
-	scp $(OBJDIR)/set_state $(OBJDIR)/put_in_testing $(OBJDIR)/remove_from_testing $(OBJDIR)/extend_testing $(OBJDIR)/extend_repair $(OBJDIR)/reserve_all root@onlsrv:/usr/testbed/www/scripts
+onlsrv: $(OBJDIR)/set_state $(OBJDIR)/put_in_testing $(OBJDIR)/remove_from_testing $(OBJDIR)/extend_testing $(OBJDIR)/extend_repair $(OBJDIR)/reserve_all $(OBJDIR)/register_extdev
+	scp $(OBJDIR)/set_state $(OBJDIR)/put_in_testing $(OBJDIR)/remove_from_testing $(OBJDIR)/extend_testing $(OBJDIR)/extend_repair $(OBJDIR)/reserve_all $(OBJDIR)/register_extdev root@onlsrv:/usr/testbed/www/scripts
 
 clean:
 	/bin/rm -f $(DBCMDS) $(DBCMDSOBJS)

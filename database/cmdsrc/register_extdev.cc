@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2013 Charlie Wiseman
+ * Copyright (c) 2023-2027 Jyoti Parwatikar
  * and Washington University in St. Louis
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,15 +28,15 @@ using namespace onl;
 
 void usage()
 {
-  cout << "usage: reserve_all begin length_minutes" << endl;
+  cout << "usage: register_extdev device_label user" << endl;
 }
 
 int main(int argc, char **argv)
 {
   onldb *db = new onldb();
 
-  std::string begin;
-  unsigned int len;
+  std::string elabel;
+  std::string user;
 
   if(argc != 3)
   {
@@ -44,10 +44,10 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  begin = argv[1];
-  len = strtoul(argv[2],NULL,10);
+  elabel = argv[1];
+  user = argv[2];
 
-  onldb_resp rv = db->reserve_all(begin, len);
+  onldb_resp rv = db->register_new_extdev(elabel, user);
   cout << rv.msg() << endl;
 
   delete db;
